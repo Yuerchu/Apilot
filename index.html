@@ -1,0 +1,2269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenAPI Schema Copier for LLM</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@15/marked.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --text2: #8b949e; --accent: #58a6ff;
+    --get: #3fb950; --post: #da8b45; --put: #a371f7; --patch: #d29922;
+    --delete: #f85149; --head: #8b949e; --options: #8b949e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; max-width: 1460px; margin: 0 auto; }
+  code, pre, .schema-block, .response-body { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; }
+
+  /* Header */
+  .header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .header input[type="text"] {
+    flex: 1; min-width: 280px; padding: 8px 14px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 14px; outline: none;
+  }
+  .header input:focus { border-color: var(--accent); }
+
+  /* Server bar */
+  .server-bar { padding: 8px 24px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: var(--surface); }
+  .server-bar label { font-size: 13px; color: var(--text2); white-space: nowrap; }
+  .server-bar input[type="text"] {
+    flex: 1; padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 13px; outline: none;
+  }
+  .server-bar select {
+    padding: 5px 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 13px; outline: none;
+  }
+
+  /* Auth bar */
+  .auth-bar { padding: 8px 24px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .auth-bar label { font-size: 13px; color: var(--text2); white-space: nowrap; }
+  .auth-bar input[type="text"], .auth-bar input[type="password"] {
+    padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-size: 13px; outline: none; width: 300px;
+  }
+  .auth-bar input:focus { border-color: var(--accent); }
+  #oauth2Fields input { width: auto; }
+  .oauth2-authed { color: #3fb950; font-weight: 600; }
+  .token-apply-btn { background: #1a3a2a !important; border-color: #238636 !important; color: #3fb950 !important; }
+  .token-apply-btn:hover { background: #238636 !important; color: #fff !important; }
+  .auth-bar select {
+    padding: 5px 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-size: 13px; outline: none;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 7px 14px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px;
+    transition: background .15s; white-space: nowrap;
+    display: inline-flex; align-items: center; justify-content: center; line-height: 1.4;
+  }
+  .btn:hover { background: #21262d; }
+  .btn-primary { background: #238636; border-color: #2ea043; color: #fff; }
+  .btn-primary:hover { background: #2ea043; }
+  .btn-accent { background: #1f6feb; border-color: var(--accent); color: #fff; }
+  .btn-accent:hover { background: #388bfd; }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .btn-danger { background: #da3633; border-color: #f85149; color: #fff; }
+  .btn-danger:hover { background: #f85149; }
+
+  /* Toolbar */
+  .toolbar { padding: 10px 24px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .toolbar label { color: var(--text2); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+  .toolbar .spacer { flex: 1; }
+  .copy-count { color: var(--accent); font-size: 13px; }
+  .filter-input {
+    padding: 5px 10px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-size: 13px; width: 220px; outline: none;
+  }
+  .filter-input:focus { border-color: var(--accent); }
+  .tag-section { width: 100%; }
+  .tag-toggle-bar {
+    display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+    font-size: 12px; color: var(--text2); padding: 2px 0;
+  }
+  .tag-toggle-bar:hover { color: var(--text); }
+  .tag-toggle-bar .tag-arrow { transition: transform .2s; font-size: 10px; }
+  .tag-toggle-bar .tag-arrow.open { transform: rotate(90deg); }
+  .tag-toggle-bar .tag-count { color: var(--accent); font-weight: 600; }
+  .tag-toggle-bar .tag-active-count { color: #3fb950; font-size: 11px; }
+  .tag-panel { display: none; margin-top: 6px; }
+  .tag-panel.open { display: block; }
+  .tag-search {
+    width: 100%; padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 12px; outline: none; margin-bottom: 6px;
+  }
+  .tag-search:focus { border-color: var(--accent); }
+  .tag-actions { display: flex; gap: 6px; margin-bottom: 6px; }
+  .tag-actions button { font-size: 11px; padding: 1px 8px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text2); cursor: pointer; }
+  .tag-actions button:hover { border-color: var(--accent); color: var(--accent); }
+  .tag-filters { display: flex; gap: 4px; flex-wrap: wrap; max-height: 200px; overflow-y: auto; }
+  .tag-btn {
+    padding: 2px 8px; border-radius: 12px; border: 1px solid var(--border);
+    background: transparent; color: var(--text2); cursor: pointer; font-size: 11px;
+    display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+  }
+  .tag-btn:hover { border-color: var(--text); color: var(--text); }
+  .tag-btn.active { background: #1f6feb33; border-color: var(--accent); color: var(--accent); }
+  .tag-btn .tag-route-count { font-size: 10px; opacity: .6; }
+  .format-options { display: flex; gap: 14px; align-items: center; }
+  .format-options label { display: flex; align-items: center; gap: 4px; color: var(--text2); font-size: 13px; cursor: pointer; }
+
+  /* Content */
+  .content { padding: 16px 24px 72px; }
+  .route-group { margin-bottom: 20px; }
+  .route-group h2 {
+    font-size: 15px; color: var(--text2); margin-bottom: 8px; padding: 4px 0;
+    border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px;
+  }
+  .group-check { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+
+  /* Route cards */
+  .route-card { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; background: var(--surface); overflow: hidden; }
+  .route-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .route-header { display: flex; align-items: center; gap: 10px; padding: 9px 14px; cursor: pointer; user-select: none; }
+  .route-header:hover { background: #21262d; }
+  .route-check { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+  .method-badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; min-width: 58px; text-align: center; color: #fff; }
+  .method-get { background: var(--get); } .method-post { background: var(--post); }
+  .method-put { background: var(--put); } .method-patch { background: var(--patch); }
+  .method-delete { background: var(--delete); } .method-head, .method-options { background: var(--head); }
+  .route-path { font-size: 14px; font-weight: 600; font-family: monospace; }
+  .route-summary { color: var(--text2); font-size: 13px; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40%; }
+  .route-copy-btn { padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border); background: transparent; color: var(--text2); cursor: pointer; font-size: 12px; flex-shrink: 0; }
+  .route-copy-btn:hover { background: #21262d; color: var(--text); }
+
+  /* Detail panel */
+  .route-detail { display: none; border-top: 1px solid var(--border); }
+  .route-card.expanded .route-detail { display: block; }
+  .detail-tabs { display: flex; border-bottom: 1px solid var(--border); }
+  .detail-tab {
+    padding: 8px 18px; font-size: 13px; cursor: pointer; color: var(--text2);
+    border-bottom: 2px solid transparent; background: none; border-top: none; border-left: none; border-right: none;
+  }
+  .detail-tab:hover { color: var(--text); background: #21262d; }
+  .detail-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .detail-pane { display: none; padding: 14px; }
+  .detail-pane.active { display: block; }
+
+  /* Schema block */
+  .schema-block {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 14px; font-size: 12px; line-height: 1.6; white-space: pre-wrap;
+    word-break: break-word; overflow-x: auto; max-height: 500px; overflow-y: auto;
+  }
+
+  /* Markdown rendered content */
+  .md-content { font-size: 14px; line-height: 1.7; }
+  .md-content h1, .md-content h2, .md-content h3, .md-content h4 { margin: 12px 0 6px; color: var(--text); }
+  .md-content h1 { font-size: 20px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  .md-content h2 { font-size: 17px; }
+  .md-content h3 { font-size: 15px; }
+  .md-content p { margin: 6px 0; }
+  .md-content code { background: var(--bg); padding: 2px 6px; border-radius: 4px; font-size: 13px; color: #f0883e; }
+  .md-content pre { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; overflow-x: auto; margin: 8px 0; }
+  .md-content pre code { background: none; padding: 0; color: var(--text); }
+  .md-content ul, .md-content ol { padding-left: 20px; margin: 6px 0; }
+  .md-content li { margin: 3px 0; }
+  .md-content table { border-collapse: collapse; margin: 8px 0; width: 100%; }
+  .md-content th, .md-content td { border: 1px solid var(--border); padding: 6px 10px; font-size: 13px; text-align: left; }
+  .md-content th { background: var(--bg); }
+  .md-content blockquote { border-left: 3px solid var(--accent); padding-left: 12px; color: var(--text2); margin: 8px 0; }
+  .md-content a { color: var(--accent); }
+  .md-content img { max-width: 100%; border-radius: 6px; }
+  .md-content hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+
+  /* Try-it panel */
+  .try-section { margin-bottom: 12px; }
+  .try-section h4 { font-size: 13px; color: var(--accent); margin-bottom: 6px; }
+  .param-grid { display: grid; grid-template-columns: 140px 100px 1fr auto; gap: 6px; align-items: center; font-size: 13px; }
+  .param-grid .param-name { font-weight: 600; word-break: break-all; }
+  .param-grid .param-in { color: var(--text2); font-size: 12px; }
+  .param-grid input, .param-grid select {
+    padding: 5px 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 13px; outline: none; width: 100%;
+  }
+  .param-grid input:focus { border-color: var(--accent); }
+  .param-required { color: #f85149; font-size: 11px; }
+  .param-constraints { font-size: 11px; color: var(--text2); white-space: nowrap; }
+  .body-editor {
+    width: 100%; min-height: 120px; padding: 10px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 13px;
+    resize: vertical; outline: none; line-height: 1.5; tab-size: 2;
+  }
+  .body-editor:focus { border-color: var(--accent); }
+
+  /* JSON highlighted editor (overlay approach) */
+  .json-editor-wrap {
+    position: relative; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--bg); overflow: hidden;
+  }
+  .json-editor-wrap:focus-within { border-color: var(--accent); }
+  .json-editor-wrap pre.json-highlight {
+    margin: 0; padding: 10px; font-family: 'Cascadia Code','Fira Code','Consolas',monospace;
+    font-size: 13px; line-height: 1.5; tab-size: 2; white-space: pre-wrap; word-break: break-word;
+    color: var(--text); pointer-events: none; min-height: 120px;
+  }
+  .json-editor-wrap textarea.json-editor-input {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; padding: 10px;
+    font-family: 'Cascadia Code','Fira Code','Consolas',monospace;
+    font-size: 13px; line-height: 1.5; tab-size: 2; white-space: pre-wrap; word-break: break-word;
+    color: transparent; caret-color: var(--text); background: transparent;
+    border: none; outline: none; resize: none; overflow: hidden;
+  }
+
+  /* JSON syntax token colors */
+  .jt-key { color: #79c0ff; }
+  .jt-str { color: #a5d6ff; }
+  .jt-num { color: #d2a8ff; }
+  .jt-bool { color: #ff7b72; }
+  .jt-null { color: #8b949e; font-style: italic; }
+  .jt-brace { color: #8b949e; }
+
+  /* Schema form + JSON preview layout */
+  .body-split { display: flex; gap: 12px; }
+  .body-form { flex: 1; min-width: 0; }
+  .body-preview { flex: 1; min-width: 0; position: relative; }
+  .body-preview-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+  .body-preview .body-editor, .body-preview .json-editor-wrap { min-height: 200px; height: 100%; }
+  .body-preview .json-editor-wrap pre.json-highlight { min-height: 200px; }
+  .body-preview-sync-hint { font-size: 11px; color: var(--text2); font-style: italic; }
+
+  .schema-field { margin-bottom: 8px; }
+  .schema-field-label { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; font-size: 12px; }
+  .schema-field-label .field-name { font-weight: 600; color: var(--text); }
+  .schema-field-label .field-type { color: var(--text2); font-size: 11px; }
+  .schema-field-label .field-required { color: #f85149; font-size: 10px; font-weight: 600; }
+  .schema-field-label .field-desc { color: var(--text2); font-size: 11px; margin-left: auto; max-width: 50%; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .schema-field input[type="text"],
+  .schema-field input[type="number"],
+  .schema-field input[type="email"],
+  .schema-field input[type="url"],
+  .schema-field input[type="date"],
+  .schema-field input[type="datetime-local"],
+  .schema-field select,
+  .schema-field textarea {
+    width: 100%; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 13px; outline: none;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  }
+  .schema-field input:focus, .schema-field select:focus, .schema-field textarea:focus { border-color: var(--accent); }
+  .schema-field textarea { min-height: 60px; resize: vertical; line-height: 1.4; tab-size: 2; }
+
+  .schema-field-bool { display: flex; align-items: center; gap: 8px; }
+  .schema-field-bool .bool-toggle {
+    position: relative; width: 36px; height: 20px; border-radius: 10px;
+    background: var(--border); cursor: pointer; transition: background .2s; flex-shrink: 0;
+  }
+  .schema-field-bool .bool-toggle.active { background: var(--accent); }
+  .schema-field-bool .bool-toggle::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+    border-radius: 50%; background: #fff; transition: transform .2s;
+  }
+  .schema-field-bool .bool-toggle.active::after { transform: translateX(16px); }
+  .schema-field-bool .bool-value { font-size: 12px; color: var(--text2); }
+
+  .schema-field-nested { border-left: 2px solid var(--border); padding-left: 10px; margin-top: 4px; }
+
+  /* Input with action button (uuid generate, etc.) */
+  .schema-field-input-group { display: flex; gap: 4px; align-items: stretch; }
+  .schema-field-input-group input { flex: 1; min-width: 0; }
+  .schema-field-input-group .field-action-btn {
+    padding: 0 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text2); font-size: 12px; cursor: pointer;
+    white-space: nowrap; transition: border-color .2s, color .2s;
+  }
+  .schema-field-input-group .field-action-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Clearable select wrapper */
+  .schema-field-select-wrap { display: flex; gap: 4px; align-items: stretch; }
+  .schema-field-select-wrap select { flex: 1; min-width: 0; }
+  .schema-field-select-wrap .field-clear-btn {
+    padding: 0 6px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text2); font-size: 14px; cursor: pointer;
+    line-height: 1; transition: border-color .2s, color .2s; display: flex; align-items: center;
+  }
+  .schema-field-select-wrap .field-clear-btn:hover { border-color: #f85149; color: #f85149; }
+
+  @media (max-width: 700px) {
+    .body-split { flex-direction: column; }
+  }
+  .try-actions { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+  .try-actions select {
+    padding: 5px 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-size: 13px;
+  }
+
+  /* Response display */
+  .response-panel { margin-top: 14px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .response-status { padding: 8px 14px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .response-status.s2xx { background: #238636; color: #fff; }
+  .response-status.s3xx { background: #1f6feb; color: #fff; }
+  .response-status.s4xx { background: #da8b45; color: #fff; }
+  .response-status.s5xx { background: #da3633; color: #fff; }
+  .response-status .resp-time { font-weight: 400; font-size: 12px; opacity: .8; margin-left: auto; }
+  .response-headers { padding: 8px 14px; font-size: 12px; color: var(--text2); border-bottom: 1px solid var(--border); max-height: 120px; overflow-y: auto; background: var(--surface); }
+  .response-headers summary { cursor: pointer; color: var(--text2); font-size: 12px; }
+  .response-body {
+    padding: 12px 14px; font-size: 12px; line-height: 1.5; max-height: 400px; overflow: auto;
+    white-space: pre-wrap; word-break: break-word; background: var(--bg);
+  }
+  .response-copy { padding: 6px 14px; border-top: 1px solid var(--border); background: var(--surface); display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; padding: 10px 20px; border-radius: 8px;
+    background: #238636; color: #fff; font-size: 14px; opacity: 0; transition: opacity .3s;
+    pointer-events: none; z-index: 999;
+  }
+  .toast.show { opacity: 1; }
+
+  /* Selection FAB */
+  .selection-fab {
+    position: fixed; bottom: 24px; left: 24px; z-index: 998;
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    box-shadow: 0 4px 16px rgba(0,0,0,.4);
+    font-size: 13px; color: var(--text);
+    transition: opacity .25s, transform .25s;
+    opacity: 0; transform: translateY(20px); pointer-events: none;
+  }
+  .selection-fab.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  .selection-fab .fab-count { color: var(--accent); font-weight: 700; }
+  .selection-fab .fab-btn {
+    padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border);
+    background: transparent; color: var(--text); cursor: pointer; font-size: 12px;
+    transition: background .15s, border-color .15s;
+  }
+  .selection-fab .fab-btn:hover { background: #21262d; }
+  .selection-fab .fab-btn-primary { background: #1f6feb; border-color: var(--accent); color: #fff; }
+  .selection-fab .fab-btn-primary:hover { background: #388bfd; }
+  .selection-fab .fab-btn-danger { color: var(--text2); }
+  .selection-fab .fab-btn-danger:hover { border-color: #f85149; color: #f85149; }
+
+  .empty-state { text-align: center; padding: 80px 20px; color: var(--text2); }
+  .empty-state h2 { font-size: 20px; margin-bottom: 8px; color: var(--text); }
+  .info-bar { padding: 8px 24px; background: #161b22; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text2); }
+  .info-bar strong { color: var(--text); }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-overlay {
+    display: flex; align-items: center; gap: 8px; padding: 20px; color: var(--text2); font-size: 13px;
+  }
+
+  /* Curl command block */
+  .curl-block {
+    position: relative; background: #0d1117; border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 14px; padding-right: 70px; font-family: 'Cascadia Code','Fira Code','Consolas',monospace;
+    font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-all;
+    overflow-x: auto; max-height: 200px; overflow-y: auto; color: var(--text); margin-top: 14px;
+  }
+  .curl-block .curl-copy-btn {
+    position: absolute; top: 6px; right: 6px; padding: 3px 10px; border-radius: 4px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text2);
+    cursor: pointer; font-size: 11px; transition: border-color .2s, color .2s;
+  }
+  .curl-block .curl-copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Validation invalid state */
+  .invalid, .param-grid input.invalid, .param-grid select.invalid, .schema-field input.invalid { border-color: #f85149 !important; box-shadow: 0 0 0 1px #f8514933; }
+
+  /* Content-Type selector */
+  .ct-select {
+    padding: 5px 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 13px; outline: none; margin-bottom: 8px;
+  }
+  .ct-select:focus { border-color: var(--accent); }
+
+  /* Formdata grid */
+  .formdata-grid { display: grid; grid-template-columns: 140px 100px 1fr; gap: 6px; align-items: center; font-size: 13px; }
+  .formdata-grid .param-name { font-weight: 600; word-break: break-all; }
+  .formdata-grid .param-in { color: var(--text2); font-size: 12px; }
+  .formdata-grid input, .formdata-grid select {
+    padding: 5px 8px; border-radius: 4px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 13px; outline: none; width: 100%;
+  }
+  .formdata-grid input:focus { border-color: var(--accent); }
+  .formdata-grid input[type="file"] { padding: 3px 6px; }
+
+  /* Body view toggle */
+  .body-view-toggle {
+    display: inline-flex; gap: 0; margin-left: 10px; vertical-align: middle;
+  }
+  .body-view-toggle button {
+    padding: 2px 8px; font-size: 11px; border: 1px solid var(--border); background: transparent;
+    color: var(--text2); cursor: pointer; transition: background .15s, color .15s;
+  }
+  .body-view-toggle button:first-child { border-radius: 4px 0 0 4px; }
+  .body-view-toggle button:last-child { border-radius: 0 4px 4px 0; border-left: none; }
+  .body-view-toggle button.active { background: #1f6feb33; border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <input type="text" id="urlInput" placeholder="输入 OpenAPI JSON URL（如 http://localhost:8000/openapi.json）" onkeydown="if(event.key==='Enter')loadSpec()">
+  <button class="btn btn-primary" id="loadBtn" onclick="loadSpec()">加载</button>
+  <label style="cursor:pointer"><input type="file" id="fileInput" accept=".json,.yaml,.yml" style="display:none" onchange="loadFile(event)"><span class="btn">本地文件</span></label>
+</div>
+
+<div id="serverBar" class="server-bar" style="display:none;">
+  <label>Server:</label>
+  <select id="serverSelect" onchange="onServerSelect()"></select>
+  <input type="text" id="baseUrlInput" placeholder="请填写服务端地址（如 http://localhost:8000）" style="max-width:500px;">
+</div>
+
+<div id="authBar" class="auth-bar" style="display:none;">
+  <label>Auth:</label>
+  <select id="authType" onchange="onAuthTypeChange()">
+    <option value="none">无认证</option>
+    <option value="bearer">Bearer Token</option>
+    <option value="basic">Basic Auth</option>
+    <option value="apikey">API Key (Header)</option>
+    <option value="oauth2">OAuth2 Password</option>
+  </select>
+  <input type="password" id="authToken" placeholder="Token / Password" style="display:none;">
+  <input type="text" id="authUser" placeholder="Username" style="display:none; width:150px;">
+  <input type="text" id="authKeyName" placeholder="Header Name (如 X-API-Key)" style="display:none; width:180px;">
+  <span id="oauth2Fields" style="display:none;gap:6px;align-items:center;">
+    <input type="text" id="oauth2User" placeholder="Username" style="width:130px;">
+    <input type="password" id="oauth2Pass" placeholder="Password" style="width:130px;">
+    <input type="text" id="oauth2TokenUrl" placeholder="Token URL" style="width:200px;">
+    <button class="btn btn-primary btn-sm" id="oauth2LoginBtn" onclick="oauth2Login()">登录</button>
+    <span id="oauth2Status" style="font-size:12px;"></span>
+  </span>
+</div>
+
+<div id="infoBar" class="info-bar" style="display:none;"></div>
+
+<div id="toolbar" class="toolbar" style="display:none;">
+  <label><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"> 全选</label>
+  <input class="filter-input" type="text" id="filterInput" placeholder="搜索路由..." oninput="applyFilter()">
+  <div class="spacer"></div>
+  <div class="format-options">
+    <label><input type="radio" name="format" value="markdown" checked> Markdown</label>
+    <label><input type="radio" name="format" value="yaml"> YAML-like</label>
+    <label><input type="checkbox" id="includeExamples"> 含示例</label>
+  </div>
+  <span class="copy-count" id="copyCount">已选 0 个</span>
+  <button class="btn btn-accent" onclick="copySelected()">复制选中</button>
+</div>
+
+<div id="tagBar" class="toolbar" style="display:none;">
+  <div class="tag-section">
+    <div class="tag-toggle-bar" onclick="toggleTagPanel()">
+      <span class="tag-arrow" id="tagArrow">&#9654;</span>
+      <span>标签筛选</span>
+      <span class="tag-count" id="tagTotalCount">0</span>
+      <span class="tag-active-count" id="tagActiveInfo"></span>
+    </div>
+    <div class="tag-panel" id="tagPanel">
+      <input class="tag-search" type="text" id="tagSearchInput" placeholder="搜索标签..." oninput="filterTags()">
+      <div class="tag-actions">
+        <button onclick="clearAllTags()">清除筛选</button>
+        <button onclick="invertTags()">反选</button>
+      </div>
+      <div class="tag-filters" id="tagFilters"></div>
+    </div>
+  </div>
+</div>
+
+<div class="content" id="content">
+  <div class="empty-state">
+    <h2>OpenAPI Schema Copier</h2>
+    <p>输入 OpenAPI 规范的 URL 或上传本地文件<br>选择路由后一键复制完整 Schema 供大模型使用，也可直接发起请求测试</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="selection-fab" id="selectionFab">
+  <span>已选 <span class="fab-count" id="fabCount">0</span> 个</span>
+  <button class="fab-btn fab-btn-primary" onclick="copySelected()">复制选中</button>
+  <button class="fab-btn fab-btn-danger" onclick="clearSelection()">清除</button>
+</div>
+
+<script>
+// ---- Markdown renderer ----
+function renderMd(text) {
+  if (!text) return '';
+  if (typeof marked !== 'undefined') {
+    try { return marked.parse(text, { breaks: true, gfm: true }); } catch(e) { /* fallback */ }
+  }
+  // minimal fallback if marked.js not loaded
+  return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>');
+}
+
+// ---- State ----
+let spec = null;
+let routes = [];
+let activeTags = new Set();
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ---- Load spec ----
+async function loadSpec() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) return;
+  document.getElementById('loadBtn').innerHTML = '<span class="spinner"></span>';
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    spec = await res.json();
+    parseSpec();
+  } catch (e) { showToast('加载失败: ' + e.message); }
+  finally { document.getElementById('loadBtn').textContent = '加载'; }
+}
+
+function loadFile(event) {
+  const file = event.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => { try { spec = JSON.parse(e.target.result); parseSpec(); } catch(err) { showToast('解析失败: ' + err.message); } };
+  reader.readAsText(file);
+}
+
+// ---- $ref resolution ----
+function resolveRef(obj, root, seen) {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (!seen) seen = new Set();
+  if (obj.$ref) {
+    const refPath = obj.$ref.replace(/^#\//, '').split('/');
+    let resolved = root;
+    for (const p of refPath) resolved = resolved?.[decodeURIComponent(p)];
+    if (!resolved) return { _unresolved: obj.$ref };
+    if (seen.has(obj.$ref)) return { _circular: obj.$ref };
+    seen.add(obj.$ref);
+    const resolvedObj = resolveRef(resolved, root, seen);
+    // OAS 3.1: preserve sibling keywords alongside $ref (description, summary, etc.)
+    const siblings = Object.keys(obj).filter(k => k !== '$ref');
+    if (siblings.length && typeof resolvedObj === 'object' && !Array.isArray(resolvedObj)) {
+      const merged = { ...resolvedObj };
+      for (const k of siblings) merged[k] = obj[k];
+      return merged;
+    }
+    return resolvedObj;
+  }
+  if (Array.isArray(obj)) return obj.map(item => resolveRef(item, root, new Set(seen)));
+  const result = {};
+  for (const [k, v] of Object.entries(obj)) result[k] = resolveRef(v, root, new Set(seen));
+  return result;
+}
+
+// Resolve effective schema: merge allOf, unwrap anyOf/type-array nullable
+function resolveEffectiveSchema(schema) {
+  if (!schema || typeof schema !== 'object') return schema || {};
+  let s = schema;
+  // Merge allOf into a flat object
+  if (s.allOf) {
+    let merged = {};
+    for (const part of s.allOf) Object.assign(merged, part);
+    for (const [k, v] of Object.entries(s)) { if (k !== 'allOf') merged[k] = v; }
+    s = merged;
+  }
+  let nullable = false;
+  // OAS 3.1: type: ["string", "null"] → unwrap to type: "string", nullable
+  if (Array.isArray(s.type)) {
+    const hasNull = s.type.includes('null');
+    const nonNull = s.type.filter(t => t !== 'null');
+    if (hasNull) nullable = true;
+    s = { ...s, type: nonNull.length === 1 ? nonNull[0] : nonNull };
+  }
+  // OAS 3.0: nullable: true
+  if (s.nullable) nullable = true;
+  // Unwrap anyOf nullable pattern
+  if (s.anyOf) {
+    const hasNull = s.anyOf.some(x => x.type === 'null');
+    const nonNull = s.anyOf.find(x => x.type !== 'null');
+    if (hasNull && nonNull) {
+      const topDefault = s.default;
+      const topDesc = s.description;
+      s = { ...nonNull };
+      if (topDefault !== undefined && s.default === undefined) s.default = topDefault;
+      if (topDesc && !s.description) s.description = topDesc;
+      nullable = true;
+    }
+  }
+  s._nullable = nullable;
+  return s;
+}
+
+// ---- Swagger 2.0 → OpenAPI 3.0 conversion ----
+function convertV2toV3(s) {
+  // Build servers from host + basePath + schemes
+  const scheme = (s.schemes && s.schemes[0]) || 'https';
+  const host = s.host || '';
+  const basePath = (s.basePath || '').replace(/\/$/, '');
+  if (host) {
+    s.servers = [{ url: `${scheme}://${host}${basePath}`, description: 'Converted from Swagger 2.0' }];
+  }
+
+  // Convert definitions → components.schemas
+  if (s.definitions && !s.components) {
+    s.components = { schemas: s.definitions };
+    // Rewrite $refs: #/definitions/X → #/components/schemas/X
+    const rewriteRefs = (obj) => {
+      if (!obj || typeof obj !== 'object') return;
+      if (Array.isArray(obj)) { obj.forEach(rewriteRefs); return; }
+      if (obj.$ref && typeof obj.$ref === 'string' && obj.$ref.startsWith('#/definitions/')) {
+        obj.$ref = obj.$ref.replace('#/definitions/', '#/components/schemas/');
+      }
+      for (const v of Object.values(obj)) rewriteRefs(v);
+    };
+    rewriteRefs(s.paths);
+    rewriteRefs(s.components);
+  }
+
+  // Convert securityDefinitions → components.securitySchemes
+  if (s.securityDefinitions) {
+    if (!s.components) s.components = {};
+    s.components.securitySchemes = s.securityDefinitions;
+  }
+
+  // Convert each operation: body/formData params → requestBody
+  const globalConsumes = s.consumes || ['application/json'];
+  for (const pathItem of Object.values(s.paths || {})) {
+    for (const method of ['get','post','put','patch','delete','head','options']) {
+      const op = pathItem[method]; if (!op) continue;
+      const params = op.parameters || [];
+      const bodyParam = params.find(p => p.in === 'body');
+      const formParams = params.filter(p => p.in === 'formData');
+      const consumes = op.consumes || globalConsumes;
+
+      // Remove body/formData from parameters
+      op.parameters = params.filter(p => p.in !== 'body' && p.in !== 'formData');
+
+      if (bodyParam && !op.requestBody) {
+        const ct = consumes[0] || 'application/json';
+        op.requestBody = {
+          required: !!bodyParam.required,
+          content: { [ct]: { schema: bodyParam.schema || {} } }
+        };
+      } else if (formParams.length && !op.requestBody) {
+        const isFileUpload = formParams.some(p => p.type === 'file');
+        const ct = isFileUpload ? 'multipart/form-data' : (consumes.includes('multipart/form-data') ? 'multipart/form-data' : 'application/x-www-form-urlencoded');
+        const props = {};
+        const required = [];
+        for (const fp of formParams) {
+          if (fp.type === 'file') {
+            props[fp.name] = { type: 'string', format: 'binary', description: fp.description || '' };
+          } else {
+            props[fp.name] = { type: fp.type || 'string', format: fp.format, enum: fp.enum, default: fp.default, description: fp.description || '' };
+          }
+          if (fp.required) required.push(fp.name);
+        }
+        op.requestBody = {
+          content: { [ct]: { schema: { type: 'object', properties: props, required: required.length ? required : undefined } } }
+        };
+      }
+
+      // Convert response schemas: responses.200.schema → responses.200.content
+      const produces = op.produces || s.produces || ['application/json'];
+      for (const [code, resp] of Object.entries(op.responses || {})) {
+        if (resp.schema && !resp.content) {
+          const mt = produces[0] || 'application/json';
+          resp.content = { [mt]: { schema: resp.schema } };
+          delete resp.schema;
+        }
+      }
+    }
+  }
+  return s;
+}
+
+// ---- Parse spec ----
+function parseSpec() {
+  // Version detection and conversion
+  if (spec.swagger === '2.0') convertV2toV3(spec);
+
+  routes = [];
+  const allTags = new Set();
+  const methods = ['get','post','put','patch','delete','head','options'];
+
+  // servers
+  const servers = spec.servers || [];
+  const serverBar = document.getElementById('serverBar');
+  const serverSelect = document.getElementById('serverSelect');
+  serverSelect.innerHTML = '';
+  // Resolve server URL template variables: {var} → default value
+  const resolveServerUrl = (srv) => {
+    let url = srv.url;
+    if (srv.variables) {
+      for (const [k, v] of Object.entries(srv.variables)) {
+        url = url.replace(`{${k}}`, v.default || '');
+      }
+    }
+    return url;
+  };
+
+  if (servers.length) {
+    serverBar.style.display = '';
+    servers.forEach((s, i) => {
+      const resolved = resolveServerUrl(s);
+      const opt = document.createElement('option');
+      opt.value = resolved; opt.textContent = `${resolved}${s.description ? ' - ' + s.description : ''}`;
+      serverSelect.appendChild(opt);
+    });
+    document.getElementById('baseUrlInput').value = resolveServerUrl(servers[0]);
+  } else {
+    // guess from spec URL or restore from localStorage
+    const specUrl = document.getElementById('urlInput').value.trim();
+    try { const u = new URL(specUrl); document.getElementById('baseUrlInput').value = u.origin; } catch(e) {
+      // Local file: try to restore last used baseUrl
+      const saved = localStorage.getItem('oa_baseUrl');
+      document.getElementById('baseUrlInput').value = saved || '';
+    }
+    serverBar.style.display = '';
+  }
+
+  document.getElementById('authBar').style.display = '';
+
+  // Auto-detect OAuth2 password flow from spec
+  const schemes = spec.components?.securitySchemes || {};
+  for (const [name, scheme] of Object.entries(schemes)) {
+    if (scheme.type === 'oauth2' && scheme.flows?.password) {
+      const tokenUrl = scheme.flows.password.tokenUrl || '';
+      document.getElementById('oauth2TokenUrl').value = tokenUrl;
+      // Auto-select OAuth2 if no auth type was restored from localStorage
+      if (document.getElementById('authType').value === 'none' && !window._oauth2Token) {
+        document.getElementById('authType').value = 'oauth2';
+        onAuthTypeChange();
+      }
+      break;
+    }
+  }
+
+  for (const [path, pathItem] of Object.entries(spec.paths || {})) {
+    for (const method of methods) {
+      const op = pathItem[method]; if (!op) continue;
+      const tags = op.tags || ['未分组'];
+      tags.forEach(t => allTags.add(t));
+      const resolved = resolveRef(op, spec, new Set());
+      const pathParams = resolveRef(pathItem.parameters || [], spec, new Set());
+      routes.push({
+        method, path, tags,
+        summary: resolved.summary || '', description: resolved.description || '',
+        operationId: resolved.operationId || '',
+        parameters: [...pathParams, ...(resolved.parameters || [])],
+        requestBody: resolved.requestBody || null,
+        responses: resolved.responses || {},
+        security: resolved.security || spec.security || [],
+        selected: false, _raw: resolved,
+      });
+    }
+  }
+
+  renderTags(allTags);
+  renderRoutes();
+
+  const info = spec.info || {};
+  const infoBar = document.getElementById('infoBar');
+  infoBar.style.display = '';
+  const specVersion = spec.openapi || spec.swagger || '?';
+  let infoHtml = `<strong>${esc(info.title || 'API')}</strong> ${esc(info.version || '')} <span style="color:var(--text2);font-size:12px;">(OpenAPI ${esc(specVersion)})</span> &mdash; ${routes.length} 个路由`;
+  if (info.description) {
+    infoHtml += `<div class="md-content" style="margin-top:8px;font-size:13px;color:var(--text2);">${renderMd(info.description)}</div>`;
+  }
+  infoBar.innerHTML = infoHtml;
+  document.getElementById('toolbar').style.display = '';
+}
+
+function onServerSelect() {
+  document.getElementById('baseUrlInput').value = document.getElementById('serverSelect').value;
+}
+
+function onAuthTypeChange() {
+  const type = document.getElementById('authType').value;
+  document.getElementById('authToken').style.display = (type === 'bearer' || type === 'basic' || type === 'apikey') ? '' : 'none';
+  document.getElementById('authUser').style.display = (type === 'basic') ? '' : 'none';
+  document.getElementById('authKeyName').style.display = (type === 'apikey') ? '' : 'none';
+  document.getElementById('oauth2Fields').style.display = (type === 'oauth2') ? 'inline-flex' : 'none';
+  document.getElementById('authToken').placeholder = type === 'bearer' ? 'Bearer Token' : type === 'basic' ? 'Password' : type === 'apikey' ? 'API Key Value' : '';
+}
+
+function getAuthHeaders() {
+  const type = document.getElementById('authType').value;
+  const token = document.getElementById('authToken').value;
+  if (type === 'bearer' && token) return { 'Authorization': `Bearer ${token}` };
+  if (type === 'oauth2' && window._oauth2Token) return { 'Authorization': `Bearer ${window._oauth2Token}` };
+  if (type === 'basic') {
+    const user = document.getElementById('authUser').value;
+    return { 'Authorization': `Basic ${btoa(user + ':' + token)}` };
+  }
+  if (type === 'apikey' && token) {
+    const name = document.getElementById('authKeyName').value || 'X-API-Key';
+    return { [name]: token };
+  }
+  return {};
+}
+
+// OAuth2 Password flow login
+async function oauth2Login() {
+  const user = document.getElementById('oauth2User').value.trim();
+  const pass = document.getElementById('oauth2Pass').value;
+  let tokenUrl = document.getElementById('oauth2TokenUrl').value.trim();
+  const statusEl = document.getElementById('oauth2Status');
+
+  if (!user || !pass) { showToast('请输入用户名和密码'); return; }
+  if (!tokenUrl) { showToast('Token URL 为空'); return; }
+
+  // Resolve relative tokenUrl against baseUrl
+  if (!tokenUrl.startsWith('http')) {
+    const baseUrl = document.getElementById('baseUrlInput').value.replace(/\/$/, '');
+    tokenUrl = baseUrl + (tokenUrl.startsWith('/') ? '' : '/') + tokenUrl;
+  }
+
+  statusEl.innerHTML = '<span class="spinner"></span>';
+  document.getElementById('oauth2LoginBtn').disabled = true;
+
+  try {
+    const body = new URLSearchParams({ grant_type: 'password', username: user, password: pass });
+    const res = await fetch(tokenUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+    if (!res.ok) {
+      const errText = await res.text();
+      let detail = '';
+      try { detail = JSON.parse(errText).detail || errText; } catch { detail = errText; }
+      throw new Error(`${res.status} ${detail}`.substring(0, 80));
+    }
+    const data = await res.json();
+    const token = data.access_token;
+    if (!token) throw new Error('响应中无 access_token');
+    window._oauth2Token = token;
+    statusEl.innerHTML = `<span class="oauth2-authed">已认证</span>`;
+    showToast('OAuth2 登录成功');
+    saveSettings();
+  } catch (e) {
+    statusEl.textContent = '';
+    showToast('登录失败: ' + e.message);
+  } finally {
+    document.getElementById('oauth2LoginBtn').disabled = false;
+  }
+}
+
+// ---- Tags ----
+let allTags = []; // [{name, count}]
+
+function renderTags(tags) {
+  activeTags.clear();
+  // Count routes per tag
+  const tagCounts = {};
+  for (const r of routes) {
+    for (const t of r.tags) { tagCounts[t] = (tagCounts[t] || 0) + 1; }
+  }
+  allTags = [...tags].map(t => ({ name: t, count: tagCounts[t] || 0 }));
+
+  document.getElementById('tagBar').style.display = '';
+  document.getElementById('tagTotalCount').textContent = allTags.length;
+  updateTagActiveInfo();
+  buildTagButtons('');
+}
+
+function buildTagButtons(filter) {
+  const c = document.getElementById('tagFilters'); c.innerHTML = '';
+  const lf = filter.toLowerCase();
+  for (const t of allTags) {
+    if (lf && !t.name.toLowerCase().includes(lf)) continue;
+    const btn = document.createElement('button');
+    btn.className = 'tag-btn' + (activeTags.has(t.name) ? ' active' : '');
+    btn.innerHTML = `${esc(t.name)} <span class="tag-route-count">${t.count}</span>`;
+    btn.dataset.tag = t.name;
+    btn.onclick = () => {
+      if (activeTags.has(t.name)) { activeTags.delete(t.name); btn.classList.remove('active'); }
+      else { activeTags.add(t.name); btn.classList.add('active'); }
+      updateTagActiveInfo();
+      renderRoutes();
+    };
+    c.appendChild(btn);
+  }
+}
+
+function updateTagActiveInfo() {
+  const el = document.getElementById('tagActiveInfo');
+  el.textContent = activeTags.size > 0 ? `(已选 ${activeTags.size} 个)` : '';
+}
+
+function toggleTagPanel() {
+  const panel = document.getElementById('tagPanel');
+  const arrow = document.getElementById('tagArrow');
+  const isOpen = panel.classList.toggle('open');
+  arrow.classList.toggle('open', isOpen);
+}
+
+function filterTags() {
+  buildTagButtons(document.getElementById('tagSearchInput').value);
+}
+
+function clearAllTags() {
+  activeTags.clear();
+  document.querySelectorAll('#tagFilters .tag-btn').forEach(b => b.classList.remove('active'));
+  updateTagActiveInfo();
+  renderRoutes();
+}
+
+function invertTags() {
+  const visible = document.querySelectorAll('#tagFilters .tag-btn');
+  visible.forEach(btn => {
+    const tag = btn.dataset.tag;
+    if (activeTags.has(tag)) { activeTags.delete(tag); btn.classList.remove('active'); }
+    else { activeTags.add(tag); btn.classList.add('active'); }
+  });
+  updateTagActiveInfo();
+  renderRoutes();
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function applyFilter() { renderRoutes(); }
+
+// ---- Render routes ----
+function renderRoutes() {
+  const filter = document.getElementById('filterInput').value.toLowerCase();
+  const c = document.getElementById('content'); c.innerHTML = '';
+  const grouped = {};
+  for (const r of routes) {
+    if (activeTags.size > 0 && !r.tags.some(t => activeTags.has(t))) continue;
+    if (filter) {
+      const h = `${r.method} ${r.path} ${r.summary} ${r.description} ${r.tags.join(' ')} ${r.operationId}`.toLowerCase();
+      if (!h.includes(filter)) continue;
+    }
+    const tag = r.tags[0] || '未分组';
+    if (!grouped[tag]) grouped[tag] = [];
+    grouped[tag].push(r);
+  }
+
+  for (const [tag, items] of Object.entries(grouped)) {
+    const group = document.createElement('div'); group.className = 'route-group';
+    const idxList = items.map(r => routes.indexOf(r));
+    const groupId = `grp-${idxList[0]}`;
+    group.innerHTML = `<h2><input type="checkbox" class="group-check" id="${groupId}" onclick="toggleGroup('${groupId}', [${idxList}])"><span>${esc(tag)}</span></h2>`;
+    // Set initial tri-state
+    const selCount = items.filter(r => r.selected).length;
+    const cb = group.querySelector('.group-check');
+    if (selCount === items.length) { cb.checked = true; cb.indeterminate = false; }
+    else if (selCount > 0) { cb.checked = false; cb.indeterminate = true; }
+    for (const r of items) {
+      const idx = routes.indexOf(r);
+      const card = document.createElement('div');
+      card.className = 'route-card' + (r.selected ? ' selected' : '');
+      card.id = 'card-' + idx;
+      card.innerHTML = buildCardHTML(r, idx);
+
+      // Header click -> expand
+      card.querySelector('.route-header').addEventListener('click', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+        card.classList.toggle('expanded');
+      });
+
+      // Tab switching
+      card.querySelectorAll('.detail-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          card.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+          card.querySelectorAll('.detail-pane').forEach(p => p.classList.remove('active'));
+          tab.classList.add('active');
+          card.querySelector(`.detail-pane[data-pane="${tab.dataset.tab}"]`).classList.add('active');
+        });
+      });
+
+      group.appendChild(card);
+    }
+    c.appendChild(group);
+    // Init body form sync after group is in DOM
+    for (const r of items) {
+      const idx = routes.indexOf(r);
+      if (r.requestBody) { initJsonEditor(`body-${idx}`); initBodyFormSync(idx); }
+    }
+  }
+  updateCount();
+}
+
+function buildCardHTML(r, idx) {
+  // Description tab content
+  let descHtml = '';
+  if (r.summary) descHtml += `<h3>${esc(r.summary)}</h3>`;
+  if (r.description) descHtml += `<div class="md-content">${renderMd(r.description)}</div>`;
+  if (r.operationId) descHtml += `<p style="margin-top:8px;font-size:12px;color:var(--text2)">Operation ID: <code>${esc(r.operationId)}</code></p>`;
+
+  // Parameters display for description tab
+  if (r.parameters?.length) {
+    descHtml += `<h4 style="margin-top:12px;color:var(--accent);font-size:13px;">Parameters</h4>`;
+    descHtml += `<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:4px;">`;
+    descHtml += `<tr style="border-bottom:1px solid var(--border);"><th style="text-align:left;padding:4px 8px;color:var(--text2);">Name</th><th style="text-align:left;padding:4px 8px;color:var(--text2);">In</th><th style="text-align:left;padding:4px 8px;color:var(--text2);">Type</th><th style="text-align:left;padding:4px 8px;color:var(--text2);">Description</th></tr>`;
+    for (const p of r.parameters) {
+      const ptype = p.schema ? getTypeStr(p.schema) : 'string';
+      descHtml += `<tr style="border-bottom:1px solid var(--border);">`;
+      descHtml += `<td style="padding:4px 8px;font-weight:600;">${esc(p.name)}${p.required ? ' <span style="color:#f85149;">*</span>' : ''}</td>`;
+      descHtml += `<td style="padding:4px 8px;color:var(--text2);">${esc(p.in)}</td>`;
+      descHtml += `<td style="padding:4px 8px;"><code>${esc(ptype)}</code></td>`;
+      descHtml += `<td style="padding:4px 8px;" class="md-content">${p.description ? renderMd(p.description) : ''}</td>`;
+      descHtml += `</tr>`;
+    }
+    descHtml += `</table>`;
+  }
+
+  // Request body schema display
+  if (r.requestBody) {
+    descHtml += `<h4 style="margin-top:12px;color:var(--accent);font-size:13px;">Request Body${r.requestBody.required ? ' <span style="color:#f85149;">(required)</span>' : ''}</h4>`;
+    if (r.requestBody.description) descHtml += `<div class="md-content" style="font-size:13px;">${renderMd(r.requestBody.description)}</div>`;
+    const content = r.requestBody.content || {};
+    for (const [mt, mo] of Object.entries(content)) {
+      descHtml += `<p style="font-size:12px;color:var(--text2);margin:4px 0;">Content-Type: ${esc(mt)}</p>`;
+      if (mo.schema) descHtml += `<div class="schema-block">${esc(formatSchema(mo.schema, 0, 8))}</div>`;
+    }
+  }
+
+  // Responses display
+  descHtml += `<h4 style="margin-top:12px;color:var(--accent);font-size:13px;">Responses</h4>`;
+  for (const [code, resp] of Object.entries(r.responses)) {
+    const codeColor = code.startsWith('2') ? 'var(--get)' : code.startsWith('4') ? 'var(--patch)' : code.startsWith('5') ? 'var(--delete)' : 'var(--text2)';
+    descHtml += `<div style="margin-top:8px;">`;
+    descHtml += `<span style="font-weight:700;color:${codeColor};">${esc(code)}</span>`;
+    if (resp.description) descHtml += ` <span class="md-content" style="font-size:13px;">${renderMd(resp.description)}</span>`;
+    const content = resp.content || {};
+    for (const [mt, mo] of Object.entries(content)) {
+      descHtml += `<p style="font-size:12px;color:var(--text2);margin:4px 0;">Content-Type: ${esc(mt)}</p>`;
+      if (mo.schema) descHtml += `<div class="schema-block">${esc(formatSchema(mo.schema, 0, 8))}</div>`;
+    }
+    descHtml += `</div>`;
+  }
+
+  // Try-it tab content
+  let tryHtml = buildTryItHTML(r, idx);
+
+  // Schema (copy preview) tab
+  let schemaHtml = `<div class="schema-block">${esc(formatRoute(r))}</div>`;
+  schemaHtml += `<div style="margin-top:8px;display:flex;gap:8px;">`;
+  schemaHtml += `<button class="btn btn-sm btn-accent" onclick="copySingle(${idx})">复制此路由</button>`;
+  schemaHtml += `</div>`;
+
+  return `
+    <div class="route-header">
+      <input type="checkbox" class="route-check" ${r.selected ? 'checked' : ''} onchange="toggleRoute(${idx}, this.checked)" onclick="event.stopPropagation()">
+      <span class="method-badge method-${r.method}">${r.method}</span>
+      <span class="route-path">${esc(r.path)}</span>
+      <span class="route-summary">${esc(r.summary || r.description).substring(0, 80)}</span>
+      <button class="route-copy-btn" onclick="event.stopPropagation(); copySingle(${idx})">复制</button>
+    </div>
+    <div class="route-detail">
+      <div class="detail-tabs">
+        <button class="detail-tab active" data-tab="desc">文档</button>
+        <button class="detail-tab" data-tab="try">测试</button>
+        <button class="detail-tab" data-tab="schema">Schema (复制预览)</button>
+      </div>
+      <div class="detail-pane active" data-pane="desc">${descHtml}</div>
+      <div class="detail-pane" data-pane="try">${tryHtml}</div>
+      <div class="detail-pane" data-pane="schema">${schemaHtml}</div>
+    </div>`;
+}
+
+// ---- Try-it panel ----
+function buildTryItHTML(r, idx) {
+  let html = '';
+
+  // Parameters form
+  if (r.parameters?.length) {
+    html += `<div class="try-section"><h4>Parameters</h4><div class="param-grid">`;
+    for (const p of r.parameters) {
+      const id = `param-${idx}-${p.name}`;
+      html += `<div class="param-name">${esc(p.name)}${p.required ? ' <span class="param-required">*</span>' : ''}</div>`;
+      html += `<div class="param-in">${esc(p.in)}</div>`;
+
+      // Resolve effective schema (handle anyOf/allOf nullable, merge allOf)
+      let ps = resolveEffectiveSchema(p.schema || {});
+      let psNullable = ps._nullable || false;
+
+      const defVal = ps.default !== undefined ? String(ps.default) : '';
+      const ph = getTypeStr(p.schema || {}) || 'string';
+      // Constraint hints for display
+      const constraints = getConstraints(ps);
+
+      if (ps.enum) {
+        html += `<div class="schema-field-select-wrap">`;
+        html += `<select id="${id}">`;
+        if (psNullable) html += `<option value="">null</option>`;
+        else if (!p.required) html += `<option value="">(空)</option>`;
+        for (const v of ps.enum) html += `<option value="${esc(String(v))}" ${ps.default === v ? 'selected' : ''}>${esc(String(v))}</option>`;
+        html += `</select>`;
+        if (psNullable) html += `<button type="button" class="field-clear-btn" onclick="this.previousElementSibling.value=''" title="清除为 null">✕</button>`;
+        html += `</div>`;
+      } else if (ps.type === 'boolean') {
+        html += `<select id="${id}">`;
+        if (!p.required || psNullable) html += `<option value="">${psNullable ? 'null' : '(空)'}</option>`;
+        html += `<option value="true"${defVal === 'true' ? ' selected' : ''}>true</option>`;
+        html += `<option value="false"${defVal === 'false' ? ' selected' : ''}>false</option>`;
+        html += `</select>`;
+      } else if (ps.type === 'integer') {
+        let attrs = `step="1"`;
+        if (ps.minimum !== undefined) attrs += ` min="${ps.minimum}"`;
+        if (ps.maximum !== undefined) attrs += ` max="${ps.maximum}"`;
+        html += `<input type="number" id="${id}" value="${esc(defVal)}" placeholder="${esc(ph)}" ${attrs}>`;
+      } else if (ps.type === 'number') {
+        let attrs = `step="any"`;
+        if (ps.minimum !== undefined) attrs += ` min="${ps.minimum}"`;
+        if (ps.maximum !== undefined) attrs += ` max="${ps.maximum}"`;
+        html += `<input type="number" id="${id}" value="${esc(defVal)}" placeholder="${esc(ph)}" ${attrs}>`;
+      } else if (ps.format === 'date-time') {
+        html += `<div class="schema-field-input-group">`;
+        html += `<input type="datetime-local" id="${id}" value="${esc(defVal)}" placeholder="${esc(ph)}">`;
+        html += `<button type="button" class="field-action-btn" onclick="document.getElementById('${id}').value=''" title="清除">✕</button>`;
+        html += `</div>`;
+      } else if (ps.format === 'date') {
+        html += `<div class="schema-field-input-group">`;
+        html += `<input type="date" id="${id}" value="${esc(defVal)}" placeholder="${esc(ph)}">`;
+        html += `<button type="button" class="field-action-btn" onclick="document.getElementById('${id}').value=''" title="清除">✕</button>`;
+        html += `</div>`;
+      } else if (ps.format === 'email') {
+        html += `<input type="email" id="${id}" value="${esc(defVal)}" placeholder="user@example.com">`;
+      } else if (ps.format === 'uri' || ps.format === 'url') {
+        html += `<input type="url" id="${id}" value="${esc(defVal)}" placeholder="https://example.com">`;
+      } else if (ps.format === 'uuid') {
+        html += `<div class="schema-field-input-group">`;
+        html += `<input type="text" id="${id}" value="${esc(defVal)}" placeholder="UUID">`;
+        html += `<button type="button" class="field-action-btn" onclick="document.getElementById('${id}').value=crypto.randomUUID()">随机</button>`;
+        html += `</div>`;
+      } else {
+        let strAttrs = '';
+        if (ps.minLength !== undefined) strAttrs += ` minlength="${ps.minLength}"`;
+        if (ps.maxLength !== undefined) strAttrs += ` maxlength="${ps.maxLength}"`;
+        if (ps.pattern) strAttrs += ` pattern="${esc(ps.pattern)}"`;
+        html += `<input type="text" id="${id}" value="${esc(defVal)}" placeholder="${esc(ph)}"${strAttrs}>`;
+      }
+      html += `<div class="param-constraints">${constraints ? esc(constraints) : ''}</div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  // Request body editor - schema form + JSON preview
+  if (r.requestBody) {
+    const content = r.requestBody.content || {};
+    const contentTypes = Object.keys(content);
+    const selectedCt = contentTypes[0] || 'application/json';
+
+    html += `<div class="try-section">`;
+    html += `<h4>Request Body`;
+    // Example/Schema toggle
+    html += `<span class="body-view-toggle">`;
+    html += `<button class="active" onclick="toggleBodyView(${idx},'example',this)">示例</button>`;
+    html += `<button onclick="toggleBodyView(${idx},'schema',this)">Schema</button>`;
+    html += `</span>`;
+    html += `</h4>`;
+
+    // Content-Type selector
+    if (contentTypes.length > 1) {
+      html += `<select id="ct-${idx}" class="ct-select" onchange="switchContentType(${idx})">`;
+      for (const ct of contentTypes) {
+        html += `<option value="${esc(ct)}">${esc(ct)}</option>`;
+      }
+      html += `</select>`;
+    } else if (contentTypes.length === 1) {
+      html += `<input type="hidden" id="ct-${idx}" value="${esc(selectedCt)}">`;
+    }
+
+    // Body editor container (swappable by switchContentType)
+    html += `<div id="body-editor-${idx}" data-body-view="example">`;
+    html += buildBodyEditorHTML(idx, selectedCt, content);
+    html += `</div>`;
+
+    // Schema view (hidden by default)
+    const schemaForView = content[selectedCt]?.schema;
+    html += `<div id="body-schema-${idx}" style="display:none;">`;
+    html += `<div class="schema-block">${schemaForView ? esc(formatSchema(schemaForView, 0, 8)) : '(no schema)'}</div>`;
+    html += `</div>`;
+
+    html += `</div>`;
+  }
+
+  // Send button + response area
+  html += `<div class="try-actions">`;
+  html += `<button class="btn btn-primary" onclick="sendRequest(${idx})">发送请求</button>`;
+  html += `<span id="req-status-${idx}" style="font-size:12px;color:var(--text2);"></span>`;
+  html += `</div>`;
+  html += `<div id="response-${idx}"></div>`;
+  return html;
+}
+
+// Build body editor HTML for a given content type
+function buildBodyEditorHTML(idx, ct, content) {
+  const schema = content[ct]?.schema;
+  if (ct === 'multipart/form-data' || ct === 'application/x-www-form-urlencoded') {
+    return buildFormdataFields(idx, schema);
+  }
+  // Default: JSON editor
+  const example = schema ? generateExample(schema) : {};
+  const jsonStr = JSON.stringify(example, null, 2);
+  let html = '';
+  if (schema && (schema.type === 'object' || schema.properties)) {
+    html += `<div class="body-split">`;
+    html += `<div class="body-form">${buildSchemaFormFields(schema, `bf-${idx}`, [], null)}</div>`;
+    html += `<div class="body-preview">`;
+    html += `<div class="body-preview-label"><span>JSON 预览</span><span class="body-preview-sync-hint">可直接编辑</span></div>`;
+    html += buildJsonEditorHTML(`body-${idx}`, jsonStr);
+    html += `</div></div>`;
+  } else {
+    html += buildJsonEditorHTML(`body-${idx}`, jsonStr);
+  }
+  return html;
+}
+
+// Build formdata/urlencoded form fields
+function buildFormdataFields(idx, schema) {
+  if (!schema?.properties) return '<p style="color:var(--text2);font-size:13px;">无 Schema 定义</p>';
+  const required = new Set(schema.required || []);
+  let html = `<div class="formdata-grid" id="formdata-${idx}">`;
+  for (const [key, prop] of Object.entries(schema.properties)) {
+    const ep = resolveEffectiveSchema(prop);
+    const isReq = required.has(key);
+    const typeStr = getTypeStr(prop);
+    html += `<div class="param-name">${esc(key)}${isReq ? ' <span class="param-required">*</span>' : ''}</div>`;
+    html += `<div class="param-in">${esc(typeStr)}</div>`;
+
+    const fieldId = `fd-${idx}-${key}`;
+    // File input for binary/base64 format or type file
+    if (ep.format === 'binary' || ep.format === 'base64' || ep.type === 'file') {
+      html += `<input type="file" id="${fieldId}" data-fd-field="${esc(key)}">`;
+    } else if (ep.type === 'boolean') {
+      html += `<select id="${fieldId}" data-fd-field="${esc(key)}">`;
+      if (!isReq) html += `<option value="">(空)</option>`;
+      html += `<option value="true">true</option><option value="false">false</option></select>`;
+    } else if (ep.enum) {
+      html += `<select id="${fieldId}" data-fd-field="${esc(key)}">`;
+      if (!isReq) html += `<option value="">(空)</option>`;
+      for (const v of ep.enum) html += `<option value="${esc(String(v))}">${esc(String(v))}</option>`;
+      html += `</select>`;
+    } else if (ep.type === 'integer' || ep.type === 'number') {
+      const def = ep.default !== undefined ? ep.default : '';
+      html += `<input type="number" id="${fieldId}" data-fd-field="${esc(key)}" value="${esc(String(def))}" placeholder="${esc(typeStr)}" step="${ep.type === 'integer' ? '1' : 'any'}">`;
+    } else {
+      const def = ep.default !== undefined ? String(ep.default) : '';
+      html += `<input type="text" id="${fieldId}" data-fd-field="${esc(key)}" value="${esc(def)}" placeholder="${esc(typeStr)}">`;
+    }
+  }
+  html += `</div>`;
+  return html;
+}
+
+// Switch content type for request body
+function switchContentType(idx) {
+  const r = routes[idx];
+  const ct = document.getElementById(`ct-${idx}`)?.value || 'application/json';
+  const content = r.requestBody?.content || {};
+  const container = document.getElementById(`body-editor-${idx}`);
+  if (!container) return;
+  container.innerHTML = buildBodyEditorHTML(idx, ct, content);
+
+  // Re-init JSON editor and form sync if JSON mode
+  if (ct !== 'multipart/form-data' && ct !== 'application/x-www-form-urlencoded') {
+    initJsonEditor(`body-${idx}`);
+    initBodyFormSync(idx);
+  }
+
+  // Update schema view
+  const schemaView = document.getElementById(`body-schema-${idx}`);
+  if (schemaView) {
+    const schema = content[ct]?.schema;
+    schemaView.innerHTML = `<div class="schema-block">${schema ? esc(formatSchema(schema, 0, 15)) : '(no schema)'}</div>`;
+  }
+}
+
+// Toggle between example and schema view for request body
+function toggleBodyView(idx, view, btn) {
+  const editorEl = document.getElementById(`body-editor-${idx}`);
+  const schemaEl = document.getElementById(`body-schema-${idx}`);
+  if (!editorEl || !schemaEl) return;
+
+  // Update button states
+  const toggle = btn.parentElement;
+  toggle.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  if (view === 'schema') {
+    editorEl.style.display = 'none';
+    schemaEl.style.display = '';
+  } else {
+    editorEl.style.display = '';
+    schemaEl.style.display = 'none';
+  }
+}
+
+// Build schema-based form fields
+// JSON syntax highlighting (single-pass tokenizer)
+function highlightJson(str) {
+  return str.replace(/("(?:[^"\\]|\\.)*")(\s*:)?|-?\b\d+\.?\d*(?:[eE][+-]?\d+)?\b|\b(?:true|false)\b|\bnull\b|[{}[\],:]|[^"{}[\],:\s]+/g,
+    (m, strMatch, colon) => {
+      const e = m.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      if (strMatch) {
+        const eStr = strMatch.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        if (colon) return `<span class="jt-key">${eStr}</span>${colon}`;
+        return `<span class="jt-str">${eStr}</span>`;
+      }
+      if (/^-?\d/.test(m)) return `<span class="jt-num">${e}</span>`;
+      if (m === 'true' || m === 'false') return `<span class="jt-bool">${e}</span>`;
+      if (m === 'null') return `<span class="jt-null">${e}</span>`;
+      return e;
+    }
+  );
+}
+
+// Build a highlighted JSON editor (overlay textarea + pre)
+function buildJsonEditorHTML(id, json) {
+  return `<div class="json-editor-wrap">` +
+    `<pre class="json-highlight" id="${id}-hl">${highlightJson(json)}</pre>` +
+    `<textarea class="json-editor-input" id="${id}">${esc(json)}</textarea>` +
+    `</div>`;
+}
+
+// Sync textarea → highlight pre
+function initJsonEditor(id) {
+  const ta = document.getElementById(id);
+  const pre = document.getElementById(id + '-hl');
+  if (!ta || !pre) return;
+  const sync = () => {
+    pre.innerHTML = highlightJson(ta.value);
+  };
+  ta.addEventListener('input', sync);
+  ta.addEventListener('scroll', () => { pre.scrollTop = ta.scrollTop; pre.scrollLeft = ta.scrollLeft; });
+}
+
+function buildSchemaFormFields(schema, prefix, path, route) {
+  if (!schema || (!schema.properties && schema.type !== 'object')) return '';
+  let html = '';
+  const required = schema.required || [];
+  for (const [key, prop] of Object.entries(schema.properties || {})) {
+    const fieldId = `${prefix}-${path.concat(key).join('-')}`;
+    const fieldPath = path.concat(key).join('.');
+    const isRequired = required.includes(key);
+    const typeStr = getTypeStr(prop);
+    const desc = prop.description || '';
+
+    html += `<div class="schema-field">`;
+    // Resolve effective prop (handle allOf merge + anyOf nullable)
+    let effectiveProp = resolveEffectiveSchema(prop);
+    let isNullable = effectiveProp._nullable || false;
+    const propConstraints = getConstraints(effectiveProp);
+    const effDesc = effectiveProp.description || desc;
+
+    html += `<div class="schema-field-label">`;
+    html += `<span class="field-name">${esc(key)}</span>`;
+    html += `<span class="field-type">${esc(typeStr)}</span>`;
+    if (isRequired) html += `<span class="field-required">必填</span>`;
+    if (propConstraints) html += `<span class="param-constraints">${esc(propConstraints)}</span>`;
+    if (effDesc) html += `<span class="field-desc" title="${esc(effDesc)}">${esc(effDesc)}</span>`;
+    html += `</div>`;
+
+    if (effectiveProp.enum) {
+      html += `<div class="schema-field-select-wrap">`;
+      html += `<select id="${fieldId}" data-field-path="${esc(fieldPath)}" data-field-type="enum">`;
+      if (isNullable) html += `<option value="">null</option>`;
+      else if (!isRequired) html += `<option value="">(空)</option>`;
+      for (const v of effectiveProp.enum) {
+        const sel = (effectiveProp.default === v || (!effectiveProp.default && !isNullable && effectiveProp.enum[0] === v)) ? ' selected' : '';
+        html += `<option value="${esc(String(v))}"${sel}>${esc(String(v))}</option>`;
+      }
+      html += `</select>`;
+      if (isNullable) html += `<button type="button" class="field-clear-btn" data-clear-target="${fieldId}" title="清除为 null">✕</button>`;
+      html += `</div>`;
+    } else if (effectiveProp.type === 'boolean') {
+      const def = effectiveProp.default === true;
+      html += `<div class="schema-field-bool">`;
+      html += `<div class="bool-toggle${def ? ' active' : ''}" id="${fieldId}" data-field-path="${esc(fieldPath)}" data-field-type="boolean" data-value="${def}"></div>`;
+      html += `<span class="bool-value">${def}</span>`;
+      html += `</div>`;
+    } else if (effectiveProp.type === 'object' || effectiveProp.properties) {
+      html += `<div class="schema-field-nested">`;
+      html += buildSchemaFormFields(effectiveProp, prefix, path.concat(key), route);
+      html += `</div>`;
+    } else if (effectiveProp.type === 'array') {
+      const example = generateExample(effectiveProp);
+      html += `<textarea id="${fieldId}" data-field-path="${esc(fieldPath)}" data-field-type="json" rows="3">${esc(JSON.stringify(example, null, 2))}</textarea>`;
+    } else if (effectiveProp.type === 'integer' || effectiveProp.type === 'number') {
+      const def = effectiveProp.default !== undefined ? effectiveProp.default : (effectiveProp.minimum !== undefined ? effectiveProp.minimum : '');
+      const step = effectiveProp.type === 'integer' ? '1' : 'any';
+      let attrs = `step="${step}"`;
+      if (effectiveProp.minimum !== undefined) attrs += ` min="${effectiveProp.minimum}"`;
+      if (effectiveProp.maximum !== undefined) attrs += ` max="${effectiveProp.maximum}"`;
+      html += `<input type="number" id="${fieldId}" data-field-path="${esc(fieldPath)}" data-field-type="${effectiveProp.type}" value="${esc(String(def))}" placeholder="${esc(typeStr)}" ${attrs}>`;
+    } else {
+      // string types
+      let inputType = 'text';
+      let def = effectiveProp.default !== undefined ? String(effectiveProp.default) : '';
+      const fmt = effectiveProp.format;
+      if (fmt === 'email') inputType = 'email';
+      else if (fmt === 'uri' || fmt === 'url') inputType = 'url';
+      else if (fmt === 'date') inputType = 'date';
+      else if (fmt === 'date-time') inputType = 'datetime-local';
+
+      let placeholder = typeStr;
+      if (fmt === 'uuid') placeholder = 'UUID';
+      else if (fmt === 'email') placeholder = 'user@example.com';
+      else if (fmt === 'uri' || fmt === 'url') placeholder = 'https://example.com';
+
+      // String constraint attrs
+      let strAttrs = '';
+      if (effectiveProp.minLength !== undefined) strAttrs += ` minlength="${effectiveProp.minLength}"`;
+      if (effectiveProp.maxLength !== undefined) strAttrs += ` maxlength="${effectiveProp.maxLength}"`;
+      if (effectiveProp.pattern) strAttrs += ` pattern="${esc(effectiveProp.pattern)}"`;
+
+      if (fmt === 'uuid') {
+        html += `<div class="schema-field-input-group">`;
+        html += `<input type="text" id="${fieldId}" data-field-path="${esc(fieldPath)}" data-field-type="string" value="${esc(def)}" placeholder="${esc(placeholder)}"${strAttrs}>`;
+        html += `<button type="button" class="field-action-btn" data-uuid-target="${fieldId}">随机</button>`;
+        html += `</div>`;
+      } else if (fmt === 'date-time' || fmt === 'date') {
+        html += `<div class="schema-field-input-group">`;
+        html += `<input type="${inputType}" id="${fieldId}" data-field-path="${esc(fieldPath)}" data-field-type="string" value="${esc(def)}" placeholder="${esc(placeholder)}"${strAttrs}>`;
+        html += `<button type="button" class="field-action-btn" data-clear-input="${fieldId}">✕</button>`;
+        html += `</div>`;
+      } else {
+        html += `<input type="${inputType}" id="${fieldId}" data-field-path="${esc(fieldPath)}" data-field-type="string" value="${esc(def)}" placeholder="${esc(placeholder)}"${strAttrs}>`;
+      }
+    }
+
+    html += `</div>`;
+  }
+  return html;
+}
+
+// Initialize body form sync (called after card HTML is inserted)
+function initBodyFormSync(idx) {
+  const card = document.querySelector(`#body-${idx}`)?.closest('.try-section');
+  if (!card) return;
+  const formEl = card.querySelector('.body-form');
+  const previewEl = document.getElementById(`body-${idx}`);
+  if (!formEl || !previewEl) return;
+
+  let syncing = false;
+
+  function formToJson() {
+    let obj;
+    try { obj = JSON.parse(previewEl.value); } catch { obj = {}; }
+    formEl.querySelectorAll('[data-field-path]').forEach(el => {
+      const path = el.dataset.fieldPath.split('.');
+      const type = el.dataset.fieldType;
+      let val;
+      if (type === 'boolean') {
+        val = el.dataset.value === 'true';
+      } else if (type === 'integer') {
+        val = el.value === '' ? 0 : parseInt(el.value, 10);
+      } else if (type === 'number') {
+        val = el.value === '' ? 0 : parseFloat(el.value);
+      } else if (type === 'json') {
+        try { val = JSON.parse(el.value); } catch { val = el.value; }
+      } else if (type === 'enum' && el.value === '') {
+        // nullable enum → null
+        val = null;
+      } else {
+        val = el.value;
+      }
+      // Set nested path
+      let cur = obj;
+      for (let i = 0; i < path.length - 1; i++) {
+        if (cur[path[i]] === undefined || typeof cur[path[i]] !== 'object') cur[path[i]] = {};
+        cur = cur[path[i]];
+      }
+      cur[path[path.length - 1]] = val;
+    });
+    return obj;
+  }
+
+  function syncFormToPreview() {
+    if (syncing) return;
+    syncing = true;
+    previewEl.value = JSON.stringify(formToJson(), null, 2);
+    // Update highlight
+    const hlEl = document.getElementById(`body-${idx}-hl`);
+    if (hlEl) hlEl.innerHTML = highlightJson(previewEl.value);
+    syncing = false;
+  }
+
+  function syncPreviewToForm() {
+    if (syncing) return;
+    syncing = true;
+    try {
+      const obj = JSON.parse(previewEl.value);
+      formEl.querySelectorAll('[data-field-path]').forEach(el => {
+        const path = el.dataset.fieldPath.split('.');
+        const type = el.dataset.fieldType;
+        let val = obj;
+        for (const p of path) { val = val?.[p]; }
+        if (val === undefined) return;
+        if (type === 'boolean') {
+          el.dataset.value = String(!!val);
+          el.classList.toggle('active', !!val);
+          el.nextElementSibling.textContent = String(!!val);
+        } else if (type === 'json') {
+          el.value = typeof val === 'string' ? val : JSON.stringify(val, null, 2);
+        } else if (type === 'enum' && val === null) {
+          el.value = '';
+        } else {
+          el.value = String(val);
+        }
+      });
+    } catch {}
+    syncing = false;
+  }
+
+  // Bind form inputs → preview
+  formEl.querySelectorAll('input, select, textarea').forEach(el => {
+    el.addEventListener('input', syncFormToPreview);
+    el.addEventListener('change', syncFormToPreview);
+  });
+
+  // Bind boolean toggles
+  formEl.querySelectorAll('.bool-toggle').forEach(el => {
+    el.addEventListener('click', () => {
+      const newVal = el.dataset.value !== 'true';
+      el.dataset.value = String(newVal);
+      el.classList.toggle('active', newVal);
+      el.nextElementSibling.textContent = String(newVal);
+      syncFormToPreview();
+    });
+  });
+
+  // Bind UUID generate buttons
+  formEl.querySelectorAll('[data-uuid-target]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.uuidTarget);
+      if (target) {
+        target.value = crypto.randomUUID();
+        syncFormToPreview();
+      }
+    });
+  });
+
+  // Bind clearable select buttons
+  formEl.querySelectorAll('[data-clear-target]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.clearTarget);
+      if (target) {
+        target.value = '';
+        syncFormToPreview();
+      }
+    });
+  });
+
+  // Bind clear input buttons (date-time, date)
+  formEl.querySelectorAll('[data-clear-input]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = document.getElementById(btn.dataset.clearInput);
+      if (target) {
+        target.value = '';
+        syncFormToPreview();
+      }
+    });
+  });
+
+  // Bind preview → form
+  previewEl.addEventListener('input', syncPreviewToForm);
+
+  // Initial sync: form → preview
+  syncFormToPreview();
+}
+
+// Generate example value from schema
+function generateExample(schema, depth) {
+  if (!schema) return null;
+  if (!depth) depth = 0;
+  if (depth > 15) return '...';
+  if (schema._circular) return `[circular: ${schema._circular}]`;
+  if (schema._unresolved) return `[unresolved: ${schema._unresolved}]`;
+  if (schema.example !== undefined) return schema.example;
+  if (schema.default !== undefined) return schema.default;
+  if (schema.const !== undefined) return schema.const;
+
+  if (schema.allOf) {
+    let merged = {};
+    for (const s of schema.allOf) Object.assign(merged, generateExample(s, depth + 1));
+    return merged;
+  }
+  if (schema.anyOf) {
+    const nonNull = schema.anyOf.find(s => s.type !== 'null');
+    return generateExample(nonNull || schema.anyOf[0], depth + 1);
+  }
+  if (schema.oneOf) return generateExample(schema.oneOf[0], depth + 1);
+
+  // OAS 3.1: type can be array — normalize to first non-null type
+  let type = schema.type;
+  if (Array.isArray(type)) {
+    type = type.find(t => t !== 'null') || type[0];
+  }
+
+  if (type === 'object' || schema.properties) {
+    const obj = {};
+    for (const [k, v] of Object.entries(schema.properties || {})) {
+      obj[k] = generateExample(v, depth + 1);
+    }
+    return obj;
+  }
+  if (type === 'array') {
+    const item = generateExample(schema.items, depth + 1);
+    return item !== null ? [item] : [];
+  }
+  if (schema.enum) return schema.enum[0];
+  if (type === 'string') {
+    if (schema.format === 'uuid') return '00000000-0000-0000-0000-000000000000';
+    if (schema.format === 'date-time') return new Date().toISOString();
+    if (schema.format === 'date') return new Date().toISOString().split('T')[0];
+    if (schema.format === 'email') return 'user@example.com';
+    if (schema.format === 'uri' || schema.format === 'url') return 'https://example.com';
+    if (schema.format === 'binary') return null;
+    return 'string';
+  }
+  if (type === 'integer') return schema.minimum !== undefined ? schema.minimum : 0;
+  if (type === 'number') return schema.minimum !== undefined ? schema.minimum : 0.0;
+  if (type === 'boolean') return false;
+  return null;
+}
+
+// ---- Curl command generation ----
+function buildCurl(method, url, headers, body, contentType) {
+  let parts = ['curl'];
+  if (method !== 'GET') parts.push(`-X ${method}`);
+  parts.push(`'${url}'`);
+  for (const [k, v] of Object.entries(headers || {})) {
+    if (k.toLowerCase() === 'content-type' && contentType === 'multipart/form-data') continue;
+    parts.push(`-H '${k}: ${v.replace(/'/g, "'\\''")}'`);
+  }
+  if (body && contentType === 'multipart/form-data' && body instanceof FormData) {
+    for (const [k, v] of body.entries()) {
+      if (v instanceof File) {
+        parts.push(`-F '${k}=@${v.name.replace(/'/g, "'\\''")}'`);
+      } else {
+        parts.push(`-F '${k}=${String(v).replace(/'/g, "'\\''")}'`);
+      }
+    }
+  } else if (body && typeof body === 'string') {
+    parts.push(`-d '${body.replace(/'/g, "'\\''")}'`);
+  }
+  return parts.join(' \\\n  ');
+}
+
+// ---- Pre-execution validation ----
+function validateRequest(idx) {
+  const r = routes[idx];
+  const errors = [];
+  const invalidEls = [];
+
+  // Validate required parameters
+  for (const p of r.parameters || []) {
+    if (!p.required) continue;
+    const el = document.getElementById(`param-${idx}-${p.name}`);
+    if (el && !el.value.trim()) {
+      errors.push(`参数 "${p.name}" 为必填项`);
+      invalidEls.push(el);
+    }
+  }
+
+  // Validate required request body fields (JSON content type)
+  const ct = document.getElementById(`ct-${idx}`)?.value || 'application/json';
+  if (r.requestBody && ct === 'application/json') {
+    const bodyEl = document.getElementById(`body-${idx}`);
+    if (bodyEl?.value.trim()) {
+      try {
+        const bodyObj = JSON.parse(bodyEl.value);
+        const content = r.requestBody.content || {};
+        const schema = content[ct]?.schema || Object.values(content)[0]?.schema;
+        if (schema?.required) {
+          for (const key of schema.required) {
+            if (bodyObj[key] === undefined || bodyObj[key] === null || bodyObj[key] === '') {
+              errors.push(`请求体字段 "${key}" 为必填项`);
+              // Try to find form field
+              const fieldEl = document.getElementById(`bf-${idx}-${key}`);
+              if (fieldEl) invalidEls.push(fieldEl);
+            }
+          }
+        }
+      } catch {}
+    }
+  }
+
+  // Validate formdata required fields
+  if (r.requestBody && (ct === 'multipart/form-data' || ct === 'application/x-www-form-urlencoded')) {
+    const content = r.requestBody.content || {};
+    const schema = content[ct]?.schema;
+    if (schema?.required) {
+      for (const key of schema.required) {
+        const el = document.getElementById(`fd-${idx}-${key}`);
+        if (el) {
+          if (el.type === 'file') {
+            if (!el.files?.length) {
+              errors.push(`表单字段 "${key}" 为必填项`);
+              invalidEls.push(el);
+            }
+          } else if (!el.value.trim()) {
+            errors.push(`表单字段 "${key}" 为必填项`);
+            invalidEls.push(el);
+          }
+        }
+      }
+    }
+  }
+
+  // Mark invalid + add listeners
+  for (const el of invalidEls) {
+    el.classList.add('invalid');
+    const handler = () => { el.classList.remove('invalid'); el.removeEventListener('input', handler); };
+    el.addEventListener('input', handler);
+  }
+
+  if (errors.length) {
+    showToast(errors[0]);
+    return false;
+  }
+  return true;
+}
+
+// ---- Send HTTP request ----
+async function sendRequest(idx) {
+  // Validate first
+  if (!validateRequest(idx)) return;
+
+  const r = routes[idx];
+  const baseUrl = document.getElementById('baseUrlInput').value.replace(/\/$/, '');
+  if (!baseUrl) {
+    showToast('请先在 Server 栏填写 Base URL');
+    document.getElementById('baseUrlInput').focus();
+    return;
+  }
+  let path = r.path;
+
+  // Collect params
+  const queryParams = [];
+  const headers = { ...getAuthHeaders() };
+
+  for (const p of r.parameters || []) {
+    const el = document.getElementById(`param-${idx}-${p.name}`);
+    const val = el?.value ?? '';
+    if (!val && !p.required) continue;
+    if (p.in === 'path') {
+      path = path.replace(`{${p.name}}`, encodeURIComponent(val));
+    } else if (p.in === 'query') {
+      if (val) queryParams.push(`${encodeURIComponent(p.name)}=${encodeURIComponent(val)}`);
+    } else if (p.in === 'header') {
+      if (val) headers[p.name] = val;
+    }
+  }
+
+  let url = baseUrl + path;
+  if (queryParams.length) url += '?' + queryParams.join('&');
+
+  const fetchOpts = { method: r.method.toUpperCase(), headers };
+
+  // Body - handle different content types
+  let curlContentType = null;
+  if (r.requestBody) {
+    const ct = document.getElementById(`ct-${idx}`)?.value || 'application/json';
+    curlContentType = ct;
+    if (ct === 'multipart/form-data' || ct === 'application/x-www-form-urlencoded') {
+      const form = new FormData();
+      const container = document.getElementById(`formdata-${idx}`);
+      if (container) {
+        container.querySelectorAll('[data-fd-field]').forEach(el => {
+          const name = el.dataset.fdField;
+          if (el.type === 'file') {
+            if (el.files.length) form.append(name, el.files[0]);
+          } else {
+            if (el.value) form.append(name, el.value);
+          }
+        });
+      }
+      if (ct === 'application/x-www-form-urlencoded') {
+        headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        fetchOpts.body = new URLSearchParams(form).toString();
+      } else {
+        // Don't set Content-Type for multipart - browser sets boundary
+        fetchOpts.body = form;
+      }
+    } else {
+      const bodyEl = document.getElementById(`body-${idx}`);
+      if (bodyEl?.value.trim()) {
+        headers['Content-Type'] = 'application/json';
+        fetchOpts.body = bodyEl.value;
+      }
+    }
+  }
+
+  fetchOpts.headers = headers;
+
+  // Build curl command before fetch
+  const curlCmd = buildCurl(fetchOpts.method, url, headers, fetchOpts.body, curlContentType);
+
+  const statusEl = document.getElementById(`req-status-${idx}`);
+  statusEl.innerHTML = '<span class="spinner"></span> 请求中...';
+
+  const start = performance.now();
+  try {
+    const res = await fetch(url, fetchOpts);
+    const elapsed = Math.round(performance.now() - start);
+    const respHeaders = {};
+    res.headers.forEach((v, k) => { respHeaders[k] = v; });
+
+    let bodyText = '';
+    // 204/205/304 have no body
+    if (res.status === 204 || res.status === 205 || res.status === 304) {
+      bodyText = '';
+    } else {
+      const rawText = await res.text();
+      const respCt = res.headers.get('content-type') || '';
+      if (respCt.includes('json') && rawText) {
+        try { bodyText = JSON.stringify(JSON.parse(rawText), null, 2); } catch { bodyText = rawText; }
+      } else {
+        bodyText = rawText;
+      }
+    }
+
+    statusEl.textContent = '';
+    renderResponse(idx, res.status, res.statusText, elapsed, respHeaders, bodyText, curlCmd);
+  } catch (e) {
+    statusEl.textContent = '';
+    renderResponse(idx, 0, 'Network Error', Math.round(performance.now() - start), {}, e.message, curlCmd);
+  }
+}
+
+function renderResponse(idx, status, statusText, elapsed, headers, body, curlCmd) {
+  const container = document.getElementById(`response-${idx}`);
+  const sClass = status >= 200 && status < 300 ? 's2xx' : status >= 300 && status < 400 ? 's3xx' : status >= 400 && status < 500 ? 's4xx' : 's5xx';
+
+  let headersHtml = '';
+  for (const [k, v] of Object.entries(headers)) {
+    headersHtml += `${esc(k)}: ${esc(v)}\n`;
+  }
+
+  // Detect JSON body for syntax highlighting
+  let isJsonBody = false;
+  let jsonObj = null;
+  try { jsonObj = JSON.parse(body); isJsonBody = true; } catch {}
+
+  // Detect token-like fields in response for quick auth setup
+  // Token field detection: prioritized list (higher priority = shown first)
+  const TOKEN_KEYS_PRIO = { access_token: 1, accessToken: 1, token: 2, jwt: 2, bearer: 2, id_token: 3, auth_token: 3, authToken: 3, session_token: 4, api_key: 5, apiKey: 5, refresh_token: 9 };
+  let tokenBtns = '';
+  if (isJsonBody && jsonObj && typeof jsonObj === 'object' && status >= 200 && status < 300) {
+    const findTokens = (obj, path) => {
+      const found = [];
+      for (const [k, v] of Object.entries(obj)) {
+        const p = path ? `${path}.${k}` : k;
+        if (typeof v === 'string' && v.length >= 8 && k in TOKEN_KEYS_PRIO) {
+          found.push({ key: p, value: v, prio: TOKEN_KEYS_PRIO[k] });
+        } else if (typeof v === 'object' && v && !Array.isArray(v)) {
+          found.push(...findTokens(v, p));
+        }
+      }
+      return found;
+    };
+    const tokens = findTokens(jsonObj, '').sort((a, b) => a.prio - b.prio);
+    for (const t of tokens) {
+      tokenBtns += `<button class="btn btn-sm token-apply-btn" data-token-value="${esc(t.value)}" data-token-key="${esc(t.key)}" title="${esc(t.key)}: ${esc(t.value.substring(0, 40))}...">设为 Token (${esc(t.key)})</button>`;
+    }
+  }
+
+  const curlHtml = curlCmd ? `<div class="curl-block"><button class="curl-copy-btn" onclick="copyCurl(${idx})">复制</button>${esc(curlCmd)}</div>` : '';
+
+  container.innerHTML = `
+    ${curlHtml}
+    <div class="response-panel" style="margin-top:${curlCmd ? '8' : '14'}px;">
+      <div class="response-status ${sClass}">
+        <span>${status} ${esc(statusText)}</span>
+        <span class="resp-time">${elapsed}ms</span>
+      </div>
+      ${headersHtml ? `<details class="response-headers"><summary>Response Headers</summary><pre style="margin:4px 0;font-size:11px;">${headersHtml}</pre></details>` : ''}
+      <div class="response-body">${isJsonBody ? highlightJson(body) : esc(body)}</div>
+      <div class="response-copy">
+        ${tokenBtns}
+        <button class="btn btn-sm" onclick="copyResponseBody(${idx})">复制 Body</button>
+        <button class="btn btn-sm" onclick="copyResponseFull(${idx})">复制完整响应</button>
+      </div>
+    </div>`;
+
+  // Store for copy
+  container._respData = { status, statusText, headers, body, curlCmd };
+
+  // Bind token apply buttons
+  container.querySelectorAll('.token-apply-btn').forEach(btn => {
+    btn.addEventListener('click', () => applyToken(btn.dataset.tokenValue, btn.dataset.tokenKey));
+  });
+}
+
+function copyCurl(idx) {
+  const data = document.getElementById(`response-${idx}`)._respData;
+  if (data?.curlCmd) navigator.clipboard.writeText(data.curlCmd).then(() => showToast('curl 命令已复制'));
+}
+
+function applyToken(token, fieldName) {
+  // Set auth type to bearer and fill in the token
+  document.getElementById('authType').value = 'bearer';
+  onAuthTypeChange();
+  document.getElementById('authToken').value = token;
+  // Also store as OAuth2 token for compatibility
+  window._oauth2Token = token;
+  saveSettings();
+  showToast(`已从 "${fieldName}" 设为 Bearer Token`);
+}
+
+function copyResponseBody(idx) {
+  const data = document.getElementById(`response-${idx}`)._respData;
+  if (data) navigator.clipboard.writeText(data.body).then(() => showToast('Body 已复制'));
+}
+
+function copyResponseFull(idx) {
+  const data = document.getElementById(`response-${idx}`)._respData;
+  if (!data) return;
+  let text = `HTTP ${data.status} ${data.statusText}\n`;
+  for (const [k, v] of Object.entries(data.headers)) text += `${k}: ${v}\n`;
+  text += `\n${data.body}`;
+  navigator.clipboard.writeText(text).then(() => showToast('完整响应已复制'));
+}
+
+// ---- Selection ----
+function toggleRoute(idx, checked) {
+  routes[idx].selected = checked;
+  const card = document.getElementById('card-' + idx);
+  if (card) card.classList.toggle('selected', checked);
+  updateCount();
+  updateGroupCheck(idx);
+}
+
+function toggleGroup(groupId, idxList) {
+  const cb = document.getElementById(groupId);
+  const checked = cb.checked;
+  cb.indeterminate = false;
+  for (const idx of idxList) {
+    routes[idx].selected = checked;
+    const card = document.getElementById('card-' + idx);
+    if (card) {
+      card.classList.toggle('selected', checked);
+      const rcb = card.querySelector('.route-check');
+      if (rcb) rcb.checked = checked;
+    }
+  }
+  updateCount();
+}
+
+function updateGroupCheck(idx) {
+  // Find the group containing this route
+  const card = document.getElementById('card-' + idx);
+  if (!card) return;
+  const group = card.closest('.route-group');
+  if (!group) return;
+  const cb = group.querySelector('.group-check');
+  if (!cb) return;
+  const checks = group.querySelectorAll('.route-check');
+  const total = checks.length;
+  const selected = [...checks].filter(c => c.checked).length;
+  if (selected === 0) { cb.checked = false; cb.indeterminate = false; }
+  else if (selected === total) { cb.checked = true; cb.indeterminate = false; }
+  else { cb.checked = false; cb.indeterminate = true; }
+}
+
+function toggleSelectAll() {
+  const checked = document.getElementById('selectAll').checked;
+  document.querySelectorAll('.route-check').forEach(cb => {
+    cb.checked = checked;
+    const idx = parseInt(cb.closest('.route-card').id.replace('card-', ''));
+    routes[idx].selected = checked;
+    cb.closest('.route-card').classList.toggle('selected', checked);
+  });
+  updateCount();
+}
+
+function updateCount() {
+  const count = routes.filter(r => r.selected).length;
+  document.getElementById('copyCount').textContent = `已选 ${count} 个`;
+  // Update FAB
+  document.getElementById('fabCount').textContent = count;
+  document.getElementById('selectionFab').classList.toggle('show', count > 0);
+}
+
+function clearSelection() {
+  routes.forEach(r => r.selected = false);
+  document.querySelectorAll('.route-check').forEach(cb => {
+    cb.checked = false;
+    cb.closest('.route-card')?.classList.remove('selected');
+  });
+  document.querySelectorAll('.group-check').forEach(cb => {
+    cb.checked = false;
+    cb.indeterminate = false;
+  });
+  document.getElementById('selectAll').checked = false;
+  updateCount();
+}
+
+// ---- Schema formatting (for copy) ----
+function formatSchema(schema, indent, maxDepth) {
+  if (!schema) return 'any';
+  if (maxDepth <= 0) return '  '.repeat(indent) + '...';
+  if (schema._circular) return '  '.repeat(indent) + `(circular: ${schema._circular})`;
+  if (schema._unresolved) return '  '.repeat(indent) + `(unresolved: ${schema._unresolved})`;
+  const pad = '  '.repeat(indent), pad1 = '  '.repeat(indent + 1);
+  let lines = [];
+
+  if (schema.allOf) {
+    lines.push(`${pad}allOf:`);
+    for (const sub of schema.allOf) lines.push(formatSchema(sub, indent + 1, maxDepth - 1));
+    return lines.join('\n');
+  }
+  if (schema.anyOf) {
+    lines.push(`${pad}anyOf:`);
+    for (let i = 0; i < schema.anyOf.length; i++) { lines.push(`${pad1}#${i}:`); lines.push(formatSchema(schema.anyOf[i], indent + 2, maxDepth - 1)); }
+    return lines.join('\n');
+  }
+  if (schema.oneOf) {
+    lines.push(`${pad}oneOf:`);
+    for (let i = 0; i < schema.oneOf.length; i++) { lines.push(`${pad1}#${i}:`); lines.push(formatSchema(schema.oneOf[i], indent + 2, maxDepth - 1)); }
+    return lines.join('\n');
+  }
+
+  const type = schema.type;
+  const title = schema.title ? ` (${schema.title})` : '';
+  const desc = schema.description ? ` — ${schema.description}` : '';
+  const required = new Set(schema.required || []);
+
+  if (type === 'object' || schema.properties) {
+    const extra = schema.additionalProperties === false ? ', additionalProperties: false' : '';
+    lines.push(`${pad}object${title}${desc}${extra}`);
+    if (schema.properties) {
+      for (const [name, prop] of Object.entries(schema.properties)) {
+        const req = required.has(name) ? ' (required)' : '';
+        const ptype = getTypeStr(prop);
+        const pdesc = prop.description ? ` — ${prop.description}` : '';
+        const constraints = getConstraints(prop);
+        if ((prop.type === 'object' || prop.properties) && !prop._circular) {
+          lines.push(`${pad1}${name}${req}: ${ptype}${pdesc}${constraints}`);
+          lines.push(formatSchema(prop, indent + 2, maxDepth - 1));
+        } else if (prop.type === 'array' && prop.items && (prop.items.type === 'object' || prop.items.properties)) {
+          lines.push(`${pad1}${name}${req}: array${pdesc}${constraints}`);
+          lines.push(`${pad1}  items:`);
+          lines.push(formatSchema(prop.items, indent + 3, maxDepth - 1));
+        } else if (prop.anyOf || prop.oneOf || prop.allOf) {
+          lines.push(`${pad1}${name}${req}:${pdesc}`);
+          lines.push(formatSchema(prop, indent + 2, maxDepth - 1));
+        } else {
+          lines.push(`${pad1}${name}${req}: ${ptype}${pdesc}${constraints}`);
+        }
+      }
+    }
+    return lines.join('\n');
+  }
+  if (type === 'array') {
+    lines.push(`${pad}array${title}${desc}`);
+    if (schema.items) {
+      lines.push(`${pad1}items: ${getTypeStr(schema.items)}`);
+      if (schema.items.type === 'object' || schema.items.properties) lines.push(formatSchema(schema.items, indent + 2, maxDepth - 1));
+    }
+    return lines.join('\n');
+  }
+  return `${pad}${getTypeStr(schema)}${title}${desc}${getConstraints(schema)}`;
+}
+
+function getTypeStr(schema) {
+  if (!schema) return 'any';
+  // OAS 3.1: type can be array like ["string", "null"]
+  let t;
+  if (Array.isArray(schema.type)) {
+    t = schema.type.filter(x => x !== 'null').join(' | ') || 'any';
+    if (schema.type.includes('null')) t += ' | null';
+  } else {
+    t = schema.type || 'any';
+  }
+  if (schema.format) t += `(${schema.format})`;
+  if (schema.const !== undefined) t += ` const: ${JSON.stringify(schema.const)}`;
+  if (schema.enum) t += ` enum: [${schema.enum.join(', ')}]`;
+  if (schema.default !== undefined) t += ` default: ${JSON.stringify(schema.default)}`;
+  // OAS 3.0 nullable / Swagger 2.0 x-nullable
+  if (schema.nullable || schema['x-nullable']) t += ' | null';
+  if (schema.anyOf) {
+    const types = schema.anyOf.map(s => s.type).filter(Boolean);
+    if (types.includes('null')) {
+      const other = schema.anyOf.find(s => s.type !== 'null');
+      if (other) return getTypeStr(other) + ' | null';
+    }
+  }
+  return t;
+}
+
+function getConstraints(prop) {
+  const p = [];
+  if (prop.maxLength !== undefined) p.push(`maxLen: ${prop.maxLength}`);
+  if (prop.minLength !== undefined) p.push(`minLen: ${prop.minLength}`);
+  if (prop.maximum !== undefined) p.push(`max: ${prop.maximum}`);
+  if (prop.minimum !== undefined) p.push(`min: ${prop.minimum}`);
+  if (prop.exclusiveMaximum !== undefined) p.push(`exclusiveMax: ${prop.exclusiveMaximum}`);
+  if (prop.exclusiveMinimum !== undefined) p.push(`exclusiveMin: ${prop.exclusiveMinimum}`);
+  if (prop.pattern) p.push(`pattern: ${prop.pattern}`);
+  if (prop.maxItems !== undefined) p.push(`maxItems: ${prop.maxItems}`);
+  if (prop.minItems !== undefined) p.push(`minItems: ${prop.minItems}`);
+  if (prop.uniqueItems) p.push('uniqueItems');
+  return p.length ? ` [${p.join(', ')}]` : '';
+}
+
+// ---- Copy formatting ----
+function formatRoute(r) {
+  const fmt = document.querySelector('input[name="format"]:checked')?.value || 'markdown';
+  const incEx = document.getElementById('includeExamples')?.checked;
+  return fmt === 'markdown' ? formatMarkdown(r, incEx) : formatYaml(r, incEx);
+}
+
+function formatMarkdown(r, includeExamples) {
+  let out = `## ${r.method.toUpperCase()} ${r.path}\n`;
+  if (r.summary) out += `${r.summary}\n`;
+  if (r.description && r.description !== r.summary) out += `${r.description}\n`;
+  if (r.operationId) out += `Operation ID: ${r.operationId}\n`;
+  if (r.parameters?.length) {
+    out += `\n### Parameters\n`;
+    for (const p of r.parameters) {
+      const req = p.required ? ' (required)' : '';
+      const ptype = p.schema ? getTypeStr(p.schema) : (p.type || 'string');
+      const desc = p.description ? ` — ${p.description}` : '';
+      out += `- ${p.name}${req}: ${ptype}, in: ${p.in}${desc}\n`;
+      if (p.schema?.enum) out += `  enum: [${p.schema.enum.join(', ')}]\n`;
+      if (p.schema?.default !== undefined) out += `  default: ${JSON.stringify(p.schema.default)}\n`;
+    }
+  }
+  if (r.requestBody) {
+    out += `\n### Request Body${r.requestBody.required ? ' (required)' : ''}\n`;
+    if (r.requestBody.description) out += `${r.requestBody.description}\n`;
+    for (const [mt, mo] of Object.entries(r.requestBody.content || {})) {
+      out += `\nContent-Type: ${mt}\n`;
+      if (mo.schema) out += `Schema:\n${formatSchema(mo.schema, 1, 15)}\n`;
+      if (includeExamples) {
+        const ex = mo.example || generateExample(mo.schema);
+        if (ex) out += `Example:\n${JSON.stringify(ex, null, 2)}\n`;
+      }
+    }
+  }
+  out += `\n### Responses\n`;
+  for (const [code, resp] of Object.entries(r.responses)) {
+    out += `\n#### ${code}: ${resp.description || ''}\n`;
+    for (const [mt, mo] of Object.entries(resp.content || {})) {
+      out += `Content-Type: ${mt}\n`;
+      if (mo.schema) out += `Schema:\n${formatSchema(mo.schema, 1, 15)}\n`;
+      if (includeExamples) {
+        const ex = mo.example || generateExample(mo.schema);
+        if (ex) out += `Example:\n${JSON.stringify(ex, null, 2)}\n`;
+      }
+    }
+  }
+  return out;
+}
+
+function formatYaml(r, includeExamples) {
+  let out = `${r.method.toUpperCase()} ${r.path}:\n`;
+  if (r.summary) out += `  summary: ${r.summary}\n`;
+  if (r.description && r.description !== r.summary) out += `  description: ${r.description}\n`;
+  if (r.operationId) out += `  operationId: ${r.operationId}\n`;
+  if (r.parameters?.length) {
+    out += `  parameters:\n`;
+    for (const p of r.parameters) {
+      out += `    - name: ${p.name}\n      in: ${p.in}\n`;
+      if (p.required) out += `      required: true\n`;
+      if (p.schema) out += `      type: ${getTypeStr(p.schema)}\n`;
+      if (p.description) out += `      description: ${p.description}\n`;
+    }
+  }
+  if (r.requestBody) {
+    out += `  requestBody:\n`;
+    if (r.requestBody.required) out += `    required: true\n`;
+    for (const [mt, mo] of Object.entries(r.requestBody.content || {})) {
+      out += `    ${mt}:\n`;
+      if (mo.schema) out += `      schema:\n${formatSchema(mo.schema, 4, 15)}\n`;
+    }
+  }
+  out += `  responses:\n`;
+  for (const [code, resp] of Object.entries(r.responses)) {
+    out += `    ${code}:\n`;
+    if (resp.description) out += `      description: ${resp.description}\n`;
+    for (const [mt, mo] of Object.entries(resp.content || {})) {
+      out += `      ${mt}:\n`;
+      if (mo.schema) out += `        schema:\n${formatSchema(mo.schema, 5, 15)}\n`;
+    }
+  }
+  return out;
+}
+
+// ---- Copy ----
+function copySingle(idx) {
+  navigator.clipboard.writeText(formatRoute(routes[idx])).then(() => showToast('已复制到剪贴板'));
+}
+
+function copySelected() {
+  const selected = routes.filter(r => r.selected);
+  if (!selected.length) { showToast('请先选择路由'); return; }
+  const text = selected.map(r => formatRoute(r)).join('\n---\n\n');
+  navigator.clipboard.writeText(text).then(() => showToast(`已复制 ${selected.length} 个路由到剪贴板`));
+}
+
+// ---- localStorage persistence ----
+const LS_KEYS = { url: 'oa_specUrl', base: 'oa_baseUrl', authType: 'oa_authType', authToken: 'oa_authToken', authUser: 'oa_authUser', authKeyName: 'oa_authKeyName', oauth2Token: 'oa_oauth2Token' };
+
+function saveSettings() {
+  localStorage.setItem(LS_KEYS.base, document.getElementById('baseUrlInput').value);
+  localStorage.setItem(LS_KEYS.authType, document.getElementById('authType').value);
+  localStorage.setItem(LS_KEYS.authToken, document.getElementById('authToken').value);
+  localStorage.setItem(LS_KEYS.authUser, document.getElementById('authUser').value);
+  localStorage.setItem(LS_KEYS.authKeyName, document.getElementById('authKeyName').value);
+  if (window._oauth2Token) localStorage.setItem(LS_KEYS.oauth2Token, window._oauth2Token);
+}
+
+function restoreSettings() {
+  const url = localStorage.getItem(LS_KEYS.url);
+  if (url) document.getElementById('urlInput').value = url;
+  const authType = localStorage.getItem(LS_KEYS.authType);
+  if (authType) { document.getElementById('authType').value = authType; onAuthTypeChange(); }
+  const authToken = localStorage.getItem(LS_KEYS.authToken);
+  if (authToken) document.getElementById('authToken').value = authToken;
+  const authUser = localStorage.getItem(LS_KEYS.authUser);
+  if (authUser) document.getElementById('authUser').value = authUser;
+  const authKeyName = localStorage.getItem(LS_KEYS.authKeyName);
+  if (authKeyName) document.getElementById('authKeyName').value = authKeyName;
+  // Restore OAuth2 token
+  const oauth2Token = localStorage.getItem(LS_KEYS.oauth2Token);
+  if (oauth2Token) {
+    window._oauth2Token = oauth2Token;
+    document.getElementById('oauth2Status').innerHTML = '<span class="oauth2-authed">已认证</span>';
+  }
+}
+
+// Auto-save on input changes
+['baseUrlInput', 'authToken', 'authUser', 'authKeyName'].forEach(id => {
+  document.getElementById(id).addEventListener('input', saveSettings);
+});
+['authType'].forEach(id => {
+  document.getElementById(id).addEventListener('change', saveSettings);
+});
+
+// Save spec URL on successful load
+const _origLoadSpec = loadSpec;
+loadSpec = async function() {
+  await _origLoadSpec();
+  if (spec) localStorage.setItem(LS_KEYS.url, document.getElementById('urlInput').value.trim());
+  saveSettings();
+};
+
+// Save base URL when server changes
+const _origOnServerSelect = onServerSelect;
+onServerSelect = function() { _origOnServerSelect(); saveSettings(); };
+
+// ---- Embedded mode (FastAPI integration) ----
+// When window.__OPENAPI_URL__ is set, auto-load and hide the header
+if (window.__OPENAPI_URL__) {
+  document.querySelector('.header').style.display = 'none';
+  document.getElementById('urlInput').value = window.__OPENAPI_URL__;
+  if (window.__OPENAPI_TITLE__) document.title = window.__OPENAPI_TITLE__;
+  loadSpec();
+} else {
+  // Standalone mode: restore settings and auto-load
+  restoreSettings();
+  if (location.hash) {
+    document.getElementById('urlInput').value = decodeURIComponent(location.hash.slice(1));
+    loadSpec();
+  } else if (document.getElementById('urlInput').value) {
+    loadSpec();
+  }
+}
+</script>
+</body>
+</html>
