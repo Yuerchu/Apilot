@@ -155,6 +155,43 @@
     word-break: break-word; overflow-x: auto; max-height: 500px; overflow-y: auto;
   }
 
+  /* Schema tree (table-like structured schema display) */
+  .schema-tree {
+    font-size: 13px; overflow-x: auto; margin-top: 4px;
+  }
+  .schema-tree-row {
+    display: grid; grid-template-columns: minmax(180px, 1fr) minmax(200px, 1.5fr) minmax(0, 2fr);
+    gap: 10px; padding: 5px 14px; border-bottom: 1px solid #1f2530;
+    align-items: baseline;
+  }
+  .schema-tree-row:last-child { border-bottom: none; }
+  .schema-tree-row:hover { background: #161b22; }
+  .schema-tree-name { font-family: 'Cascadia Code','Fira Code','Consolas',monospace; font-weight: 600; color: var(--text); word-break: break-all; }
+  .schema-tree-name .required-mark { color: #f85149; font-weight: 700; margin-left: 2px; }
+  .schema-tree-type { font-family: 'Cascadia Code','Fira Code','Consolas',monospace; font-size: 12px; color: #79c0ff; word-break: break-word; }
+  .schema-tree-type .tree-constraint { color: var(--text2); font-size: 11px; display: block; margin-top: 1px; }
+  .schema-tree-type .tree-default { color: #d2a8ff; }
+  .schema-tree-type .tree-enum { color: #ff7b72; }
+  .schema-tree-type .tree-nullable { color: #8b949e; }
+  .schema-tree-desc { color: var(--text2); font-size: 12px; line-height: 1.5; word-break: break-word; }
+  .schema-tree-desc .md-content { font-size: 12px; }
+  .schema-tree-desc .md-content p { margin: 0; }
+  .schema-tree-nested { grid-column: 1 / -1; padding: 4px 0 4px 18px; border-left: 2px solid var(--border); margin: 2px 0 2px 4px; }
+  .schema-tree-header {
+    display: grid; grid-template-columns: minmax(180px, 1fr) minmax(200px, 1.5fr) minmax(0, 2fr);
+    gap: 10px; padding: 6px 14px; border-bottom: 1px solid var(--border);
+    font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .5px;
+  }
+  .schema-tree-title {
+    padding: 4px 14px 6px; font-size: 12px; color: var(--text2);
+  }
+  .schema-tree-title code { color: var(--accent); background: none; padding: 0; font-size: 12px; }
+  .schema-tree-variant {
+    padding: 5px 14px; font-size: 11px; color: var(--accent); font-weight: 600;
+    border-bottom: 1px solid #1f2530;
+  }
+  .schema-tree-empty { padding: 10px 14px; color: var(--text2); font-size: 12px; }
+
   /* Markdown rendered content */
   .md-content { font-size: 14px; line-height: 1.7; }
   .md-content h1, .md-content h2, .md-content h3, .md-content h4 { margin: 12px 0 6px; color: var(--text); }
@@ -952,34 +989,44 @@ function renderRoutes() {
       const card = document.createElement('div');
       card.className = 'route-card' + (r.selected ? ' selected' : '');
       card.id = 'card-' + idx;
-      card.innerHTML = buildCardHTML(r, idx);
+      card.innerHTML = buildCardHeaderHTML(r, idx);
 
-      // Header click -> expand
+      // Header click -> lazy build detail then expand
       card.querySelector('.route-header').addEventListener('click', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+        ensureCardDetail(card, r, idx);
         card.classList.toggle('expanded');
-      });
-
-      // Tab switching
-      card.querySelectorAll('.detail-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-          card.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
-          card.querySelectorAll('.detail-pane').forEach(p => p.classList.remove('active'));
-          tab.classList.add('active');
-          card.querySelector(`.detail-pane[data-pane="${tab.dataset.tab}"]`).classList.add('active');
-        });
       });
 
       group.appendChild(card);
     }
     c.appendChild(group);
-    // Init body form sync after group is in DOM
-    for (const r of items) {
-      const idx = routes.indexOf(r);
-      if (r.requestBody) { initJsonEditor(`body-${idx}`); initBodyFormSync(idx); }
-    }
   }
   updateCount();
+}
+
+// Lazily build route detail (tabs + panes) on first expand
+function ensureCardDetail(card, r, idx) {
+  if (card._detailBuilt) return;
+  card._detailBuilt = true;
+  const detail = card.querySelector('.route-detail');
+  detail.innerHTML = buildCardHTML(r, idx);
+
+  // Tab switching
+  detail.querySelectorAll('.detail-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      detail.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+      detail.querySelectorAll('.detail-pane').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      detail.querySelector(`.detail-pane[data-pane="${tab.dataset.tab}"]`).classList.add('active');
+    });
+  });
+
+  // Init JSON editor + form sync if requestBody exists
+  if (r.requestBody) {
+    initJsonEditor(`body-${idx}`);
+    initBodyFormSync(idx);
+  }
 }
 
 function buildCardHTML(r, idx) {
@@ -1013,7 +1060,7 @@ function buildCardHTML(r, idx) {
     const content = r.requestBody.content || {};
     for (const [mt, mo] of Object.entries(content)) {
       descHtml += `<p style="font-size:12px;color:var(--text2);margin:4px 0;">Content-Type: ${esc(mt)}</p>`;
-      if (mo.schema) descHtml += `<div class="schema-block">${esc(formatSchema(mo.schema, 0, 8))}</div>`;
+      if (mo.schema) descHtml += renderSchemaTree(mo.schema);
     }
   }
 
@@ -1021,13 +1068,14 @@ function buildCardHTML(r, idx) {
   descHtml += `<h4 style="margin-top:12px;color:var(--accent);font-size:13px;">Responses</h4>`;
   for (const [code, resp] of Object.entries(r.responses)) {
     const codeColor = code.startsWith('2') ? 'var(--get)' : code.startsWith('4') ? 'var(--patch)' : code.startsWith('5') ? 'var(--delete)' : 'var(--text2)';
-    descHtml += `<div style="margin-top:8px;">`;
-    descHtml += `<span style="font-weight:700;color:${codeColor};">${esc(code)}</span>`;
-    if (resp.description) descHtml += ` <span class="md-content" style="font-size:13px;">${renderMd(resp.description)}</span>`;
+    descHtml += `<div style="margin-top:10px;">`;
+    descHtml += `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;"><span style="font-weight:700;font-size:14px;color:${codeColor};">${esc(code)}</span>`;
+    if (resp.description) descHtml += `<span class="md-content" style="font-size:13px;">${renderMd(resp.description)}</span>`;
+    descHtml += `</div>`;
     const content = resp.content || {};
     for (const [mt, mo] of Object.entries(content)) {
       descHtml += `<p style="font-size:12px;color:var(--text2);margin:4px 0;">Content-Type: ${esc(mt)}</p>`;
-      if (mo.schema) descHtml += `<div class="schema-block">${esc(formatSchema(mo.schema, 0, 8))}</div>`;
+      if (mo.schema) descHtml += renderSchemaTree(mo.schema);
     }
     descHtml += `</div>`;
   }
@@ -1042,6 +1090,19 @@ function buildCardHTML(r, idx) {
   schemaHtml += `</div>`;
 
   return `
+    <div class="detail-tabs">
+      <button class="detail-tab active" data-tab="desc">文档</button>
+      <button class="detail-tab" data-tab="try">测试</button>
+      <button class="detail-tab" data-tab="schema">Schema (复制预览)</button>
+    </div>
+    <div class="detail-pane active" data-pane="desc">${descHtml}</div>
+    <div class="detail-pane" data-pane="try">${tryHtml}</div>
+    <div class="detail-pane" data-pane="schema">${schemaHtml}</div>`;
+}
+
+// Cheap header - always rendered
+function buildCardHeaderHTML(r, idx) {
+  return `
     <div class="route-header">
       <input type="checkbox" class="route-check" ${r.selected ? 'checked' : ''} onchange="toggleRoute(${idx}, this.checked)" onclick="event.stopPropagation()">
       <span class="method-badge method-${r.method}">${r.method}</span>
@@ -1049,16 +1110,7 @@ function buildCardHTML(r, idx) {
       <span class="route-summary">${esc(r.summary || r.description).substring(0, 80)}</span>
       <button class="route-copy-btn" onclick="event.stopPropagation(); copySingle(${idx})">复制</button>
     </div>
-    <div class="route-detail">
-      <div class="detail-tabs">
-        <button class="detail-tab active" data-tab="desc">文档</button>
-        <button class="detail-tab" data-tab="try">测试</button>
-        <button class="detail-tab" data-tab="schema">Schema (复制预览)</button>
-      </div>
-      <div class="detail-pane active" data-pane="desc">${descHtml}</div>
-      <div class="detail-pane" data-pane="try">${tryHtml}</div>
-      <div class="detail-pane" data-pane="schema">${schemaHtml}</div>
-    </div>`;
+    <div class="route-detail"></div>`;
 }
 
 // ---- Try-it panel ----
@@ -1993,6 +2045,112 @@ function clearSelection() {
 }
 
 // ---- Schema formatting (for copy) ----
+// ---- Schema tree HTML renderer (used in Responses/Request Body display) ----
+function renderSchemaTree(schema, maxDepth) {
+  if (maxDepth === undefined) maxDepth = 12;
+  if (!schema) return `<div class="schema-tree-empty">(no schema)</div>`;
+  let html = `<div class="schema-tree">`;
+  // Top header
+  const topType = getTypeStr(schema);
+  const topTitle = schema.title ? ` <code>(${esc(schema.title)})</code>` : '';
+  const topDesc = schema.description ? ` — ${esc(schema.description)}` : '';
+  html += `<div class="schema-tree-title">${esc(topType)}${topTitle}${topDesc}</div>`;
+  // If the top-level schema has properties, render rows. Else show single row.
+  const eff = resolveEffectiveSchema(schema);
+  if (eff.properties || eff.type === 'object') {
+    html += `<div class="schema-tree-header"><div>Field</div><div>Type</div><div>Description</div></div>`;
+    html += renderSchemaRows(eff, maxDepth);
+  } else if (eff.type === 'array' && eff.items) {
+    html += `<div class="schema-tree-variant">array of ${esc(getTypeStr(eff.items))}</div>`;
+    if (eff.items.properties || eff.items.type === 'object') {
+      html += `<div class="schema-tree-header"><div>Field</div><div>Type</div><div>Description</div></div>`;
+      html += renderSchemaRows(resolveEffectiveSchema(eff.items), maxDepth - 1);
+    }
+  } else if (eff.anyOf || eff.oneOf) {
+    const variants = eff.anyOf || eff.oneOf;
+    const label = eff.anyOf ? 'anyOf' : 'oneOf';
+    for (let i = 0; i < variants.length; i++) {
+      html += `<div class="schema-tree-variant">${label} #${i}: ${esc(getTypeStr(variants[i]))}</div>`;
+      const ve = resolveEffectiveSchema(variants[i]);
+      if (ve.properties) html += renderSchemaRows(ve, maxDepth - 1);
+    }
+  }
+  html += `</div>`;
+  return html;
+}
+
+// Render property rows for an object schema
+function renderSchemaRows(schema, maxDepth) {
+  if (maxDepth <= 0) return `<div class="schema-tree-row"><div class="schema-tree-name">...</div><div></div><div></div></div>`;
+  if (!schema.properties) return '';
+  const required = new Set(schema.required || []);
+  let html = '';
+  for (const [name, prop] of Object.entries(schema.properties)) {
+    const ep = resolveEffectiveSchema(prop);
+    const isReq = required.has(name);
+
+    // Build type display
+    let typeDisplay = esc(getTypeStr(prop));
+    const constraints = getConstraints(ep);
+    if (constraints) typeDisplay += `<span class="tree-constraint">${esc(constraints.trim())}</span>`;
+
+    // Build description
+    let descHtml = '';
+    const d = prop.description || ep.description;
+    if (d) descHtml = `<div class="md-content">${renderMd(d)}</div>`;
+
+    html += `<div class="schema-tree-row">`;
+    html += `<div class="schema-tree-name">${esc(name)}${isReq ? '<span class="required-mark">*</span>' : ''}</div>`;
+    html += `<div class="schema-tree-type">${typeDisplay}</div>`;
+    html += `<div class="schema-tree-desc">${descHtml}</div>`;
+    html += `</div>`;
+
+    // Recurse into nested structures
+    const nested = renderNested(ep, maxDepth - 1);
+    if (nested) {
+      html += `<div class="schema-tree-row"><div class="schema-tree-nested">${nested}</div></div>`;
+    }
+  }
+  return html;
+}
+
+// Render nested structure (object properties, array items, anyOf/oneOf variants)
+function renderNested(schema, maxDepth) {
+  if (maxDepth <= 0) return '';
+  if (schema._circular) return `<div class="schema-tree-empty">[circular: ${esc(schema._circular)}]</div>`;
+
+  // Object with properties → render child rows
+  if (schema.properties) {
+    return renderSchemaRows(schema, maxDepth);
+  }
+  // Array → recurse into items
+  if (schema.type === 'array' && schema.items) {
+    const items = resolveEffectiveSchema(schema.items);
+    if (items.properties) {
+      let h = `<div class="schema-tree-variant">items: ${esc(getTypeStr(schema.items))}</div>`;
+      h += renderSchemaRows(items, maxDepth - 1);
+      return h;
+    }
+    return '';
+  }
+  // anyOf/oneOf with non-trivial variants
+  if (schema.anyOf || schema.oneOf) {
+    const variants = schema.anyOf || schema.oneOf;
+    const label = schema.anyOf ? 'anyOf' : 'oneOf';
+    // Skip if already handled by resolveEffectiveSchema (nullable pattern)
+    const nonNull = variants.filter(v => v.type !== 'null');
+    if (nonNull.length <= 1) return '';
+    let h = '';
+    for (let i = 0; i < variants.length; i++) {
+      h += `<div class="schema-tree-variant">${label} #${i}: ${esc(getTypeStr(variants[i]))}</div>`;
+      const ve = resolveEffectiveSchema(variants[i]);
+      if (ve.properties) h += renderSchemaRows(ve, maxDepth - 1);
+    }
+    return h;
+  }
+  return '';
+}
+
 function formatSchema(schema, indent, maxDepth) {
   if (!schema) return 'any';
   if (maxDepth <= 0) return '  '.repeat(indent) + '...';
