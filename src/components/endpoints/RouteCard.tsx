@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
-import { Copy, ChevronDown } from "lucide-react"
+import { Copy, ChevronDown, Lock } from "lucide-react"
 import type { ParsedRoute } from "@/lib/openapi/types"
 import { cn } from "@/lib/utils"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
@@ -88,6 +88,10 @@ export function RouteCard({ route, index }: RouteCardProps) {
           <span className="font-mono text-sm font-medium truncate">
             {route.path}
           </span>
+
+          {route.security?.length > 0 && route.security.some(s => Object.keys(s).length > 0) && (
+            <span title="需要认证"><Lock className="size-3 text-muted-foreground shrink-0" /></span>
+          )}
 
           {summary && (
             <span className="text-xs text-muted-foreground truncate hidden sm:inline">
