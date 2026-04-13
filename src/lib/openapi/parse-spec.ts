@@ -28,6 +28,7 @@ export function parseRoutes(spec: OpenAPISpec): ParsedRoute[] {
         responses: resolved.responses || {},
         security: resolved.security || spec.security || [],
         selected: false,
+        referencedModels: [],
       });
     }
   }

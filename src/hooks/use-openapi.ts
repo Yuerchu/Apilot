@@ -6,6 +6,7 @@ import type {
   TagInfo,
   Parameter,
   ServerObject,
+  ModelRouteMap,
 } from "@/lib/openapi/types"
 
 const HTTP_METHODS = ["get", "post", "put", "patch", "delete", "head", "options"] as const
@@ -151,7 +152,37 @@ function resolveRef(obj: unknown, root: OpenAPISpec, seen: Set<string>): unknown
   return result
 }
 
-function parseRoutes(spec: OpenAPISpec): { routes: ParsedRoute[]; allTags: TagInfo[] } {
+/** Collect all schema model names referenced via $ref in an operation */
+function collectModelRefs(obj: unknown, found: Set<string>): void {
+  if (!obj || typeof obj !== "object") return
+  const record = obj as Record<string, unknown>
+  if (typeof record.$ref === "string") {
+    // Extract model name from #/components/schemas/Foo or #/definitions/Foo
+    const match = record.$ref.match(/^#\/(components\/schemas|definitions)\/(.+)$/)
+    if (match) found.add(match[2])
+  }
+  if (Array.isArray(obj)) {
+    for (const item of obj) collectModelRefs(item, found)
+  } else {
+    for (const v of Object.values(record)) collectModelRefs(v, found)
+  }
+}
+
+function buildModelRouteMap(routes: ParsedRoute[]): ModelRouteMap {
+  const modelToRoutes: Record<string, number[]> = {}
+  const routeToModels: Record<number, string[]> = {}
+  for (let i = 0; i < routes.length; i++) {
+    const models = routes[i].referencedModels
+    routeToModels[i] = models
+    for (const m of models) {
+      if (!modelToRoutes[m]) modelToRoutes[m] = []
+      modelToRoutes[m].push(i)
+    }
+  }
+  return { modelToRoutes, routeToModels }
+}
+
+function parseRoutes(spec: OpenAPISpec): { routes: ParsedRoute[]; allTags: TagInfo[]; modelRouteMap: ModelRouteMap } {
   const routes: ParsedRoute[] = []
   const tagSet = new Set<string>()
   const tagCounts: Record<string, number> = {}
@@ -165,6 +196,10 @@ function parseRoutes(spec: OpenAPISpec): { routes: ParsedRoute[]; allTags: TagIn
         tagSet.add(t)
         tagCounts[t] = (tagCounts[t] || 0) + 1
       })
+      // Collect model $refs before resolving
+      const refs = new Set<string>()
+      collectModelRefs(op, refs)
+
       const resolved = resolveRef(op, spec, new Set()) as Record<string, unknown>
       const pathParams = resolveRef(pathItem.parameters || [], spec, new Set()) as Parameter[]
       routes.push({
@@ -179,12 +214,14 @@ function parseRoutes(spec: OpenAPISpec): { routes: ParsedRoute[]; allTags: TagIn
         responses: (resolved.responses as ParsedRoute["responses"]) || {},
         security: (resolved.security as ParsedRoute["security"]) || spec.security || [],
         selected: false,
+        referencedModels: [...refs],
       })
     }
   }
 
   const allTags: TagInfo[] = [...tagSet].map(name => ({ name, count: tagCounts[name] || 0 }))
-  return { routes, allTags }
+  const modelRouteMap = buildModelRouteMap(routes)
+  return { routes, allTags, modelRouteMap }
 }
 
 function detectBaseUrl(spec: OpenAPISpec, specUrl: string): string {
@@ -222,9 +259,9 @@ export function useOpenAPI() {
     dispatch({ type: "SET_SPEC_URL", url })
     // Let loading skeleton render before heavy parsing
     await yieldToUI()
-    const { routes, allTags } = parseRoutes(spec)
+    const { routes, allTags, modelRouteMap } = parseRoutes(spec)
     const baseUrl = detectBaseUrl(spec, url)
-    dispatch({ type: "SET_ROUTES", routes, allTags })
+    dispatch({ type: "SET_ROUTES", routes, allTags, modelRouteMap })
     dispatch({ type: "SET_BASE_URL", url: baseUrl })
     dispatch({ type: "SET_LOADING", loading: false })
   }, [dispatch])
@@ -294,6 +331,10 @@ export function useOpenAPI() {
     }
   }, [state.spec, state.routes.length])
 
+  const getModelRouteMap = useCallback(() => {
+    return state.modelRouteMap
+  }, [state.modelRouteMap])
+
   return {
     spec: state.spec,
     routes: state.routes,
@@ -305,5 +346,6 @@ export function useOpenAPI() {
     getOAuth2TokenUrl,
     getSchemas,
     getSpecInfo,
+    getModelRouteMap,
   }
 }

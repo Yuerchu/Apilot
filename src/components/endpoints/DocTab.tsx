@@ -1,7 +1,12 @@
 import { useMemo } from "react"
+import { Database } from "lucide-react"
 import type { ParsedRoute, SchemaObject } from "@/lib/openapi/types"
 import { getTypeStr } from "@/lib/openapi/type-str"
+import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { SchemaTree } from "@/components/schema/SchemaTree"
+import { Markdown } from "@/components/ui/markdown"
+import { Badge } from "@/components/ui/badge"
+import type { MainView } from "@/lib/openapi/types"
 import {
   Table,
   TableHeader,
@@ -15,17 +20,6 @@ interface DocTabProps {
   route: ParsedRoute
 }
 
-function renderMarkdownText(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-    .replace(/\n/g, "<br>")
-}
 
 function StatusCodeColor({ code }: { code: string }) {
   const colorClass = code.startsWith("2")
@@ -53,11 +47,9 @@ export function DocTab({ route }: DocTabProps) {
 
     if (route.description) {
       sections.push(
-        <div
-          key="desc"
-          className="text-sm text-muted-foreground prose prose-invert prose-sm max-w-none"
-          dangerouslySetInnerHTML={{ __html: renderMarkdownText(route.description) }}
-        />
+        <Markdown key="desc" className="text-sm text-muted-foreground">
+          {route.description}
+        </Markdown>
       )
     }
 
@@ -103,10 +95,7 @@ export function DocTab({ route }: DocTabProps) {
                     </TableCell>
                     <TableCell className="text-sm">
                       {p.description && (
-                        <span
-                          className="prose prose-invert prose-sm max-w-none"
-                          dangerouslySetInnerHTML={{ __html: renderMarkdownText(p.description) }}
-                        />
+                        <Markdown className="text-xs">{p.description}</Markdown>
                       )}
                     </TableCell>
                   </TableRow>
@@ -126,10 +115,9 @@ export function DocTab({ route }: DocTabProps) {
             )}
           </h4>
           {route.requestBody.description && (
-            <div
-              className="text-sm text-muted-foreground mb-2 prose prose-invert prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: renderMarkdownText(route.requestBody.description) }}
-            />
+            <Markdown className="text-sm text-muted-foreground mb-2">
+              {route.requestBody.description}
+            </Markdown>
           )}
           {Object.entries(route.requestBody.content || {}).map(([mt, mo]) => (
             <div key={mt} className="mb-2">
@@ -147,10 +135,7 @@ export function DocTab({ route }: DocTabProps) {
             <div className="flex items-baseline gap-2 mb-1">
               <StatusCodeColor code={code} />
               {resp.description && (
-                <span
-                  className="text-sm prose prose-invert prose-sm max-w-none"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdownText(resp.description) }}
-                />
+                <Markdown className="text-sm inline">{resp.description}</Markdown>
               )}
             </div>
             {Object.entries(resp.content || {}).map(([mt, mo]) => (
@@ -160,6 +145,37 @@ export function DocTab({ route }: DocTabProps) {
               </div>
             ))}
           </div>
+        ))}
+      </div>
+
+      {/* Referenced models */}
+      {route.referencedModels.length > 0 && (
+        <ReferencedModels models={route.referencedModels} />
+      )}
+    </div>
+  )
+}
+
+function ReferencedModels({ models }: { models: string[] }) {
+  const { setMainView } = useOpenAPIContext()
+
+  return (
+    <div>
+      <h4 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
+        <Database className="size-3.5" />
+        关联数据模型
+      </h4>
+      <div className="flex flex-wrap gap-1.5">
+        {models.map(name => (
+          <Badge
+            key={name}
+            variant="secondary"
+            className="cursor-pointer hover:bg-accent text-xs"
+            onClick={() => setMainView("models" as MainView)}
+            title={`查看模型: ${name}`}
+          >
+            {name}
+          </Badge>
         ))}
       </div>
     </div>

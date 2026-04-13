@@ -1,9 +1,10 @@
 import { useState, useCallback } from "react"
-import { ChevronRight, Copy } from "lucide-react"
-import type { SchemaObject, OpenAPISpec } from "@/lib/openapi/types"
+import { ChevronRight, Copy, Route } from "lucide-react"
+import type { SchemaObject, OpenAPISpec, MainView } from "@/lib/openapi/types"
 import { resolveRef } from "@/lib/openapi/resolve-ref"
 import { getTypeStr } from "@/lib/openapi/type-str"
 import { formatSchema } from "@/lib/openapi/format-schema"
+import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { SchemaTree } from "@/components/schema/SchemaTree"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
@@ -101,11 +102,55 @@ export function ModelCard({ name, schema, spec, selected, onSelectChange }: Mode
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="px-3 pb-3">
+          <div className="px-3 pb-3 space-y-3">
             {resolved && <SchemaTree schema={resolved} />}
+            <UsedByEndpoints modelName={name} />
           </div>
         </CollapsibleContent>
       </div>
     </Collapsible>
+  )
+}
+
+function UsedByEndpoints({ modelName }: { modelName: string }) {
+  const { state, setMainView } = useOpenAPIContext()
+  const routeIndices = state.modelRouteMap.modelToRoutes[modelName]
+  if (!routeIndices?.length) return null
+
+  const methodColors: Record<string, string> = {
+    get: "text-method-get",
+    post: "text-method-post",
+    put: "text-method-put",
+    patch: "text-method-patch",
+    delete: "text-method-delete",
+  }
+
+  return (
+    <div>
+      <h4 className="text-xs font-semibold mb-1.5 flex items-center gap-1.5 text-muted-foreground">
+        <Route className="size-3" />
+        被 {routeIndices.length} 个端点使用
+      </h4>
+      <div className="flex flex-wrap gap-1.5">
+        {routeIndices.map(idx => {
+          const r = state.routes[idx]
+          if (!r) return null
+          return (
+            <Badge
+              key={idx}
+              variant="outline"
+              className="cursor-pointer hover:bg-accent text-xs gap-1"
+              onClick={() => setMainView("endpoints" as MainView)}
+              title={`${r.method.toUpperCase()} ${r.path}`}
+            >
+              <span className={methodColors[r.method] || "text-muted-foreground"}>
+                {r.method.toUpperCase()}
+              </span>
+              <span className="font-mono">{r.path}</span>
+            </Badge>
+          )
+        })}
+      </div>
+    </div>
   )
 }

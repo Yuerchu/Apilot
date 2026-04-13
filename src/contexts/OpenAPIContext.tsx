@@ -5,11 +5,13 @@ import type {
   ParsedRoute,
   MainView,
   TagInfo,
+  ModelRouteMap,
 } from "@/lib/openapi/types"
 
 interface OpenAPIState {
   spec: OpenAPISpec | null
   routes: ParsedRoute[]
+  modelRouteMap: ModelRouteMap
   selectedRoutes: Set<number>
   selectedModels: Set<string>
   activeTags: Set<string>
@@ -24,7 +26,7 @@ interface OpenAPIState {
 
 type Action =
   | { type: "SET_SPEC"; spec: OpenAPISpec }
-  | { type: "SET_ROUTES"; routes: ParsedRoute[]; allTags: TagInfo[] }
+  | { type: "SET_ROUTES"; routes: ParsedRoute[]; allTags: TagInfo[]; modelRouteMap: ModelRouteMap }
   | { type: "TOGGLE_ROUTE"; index: number }
   | { type: "SELECT_ROUTES"; indices: number[] }
   | { type: "DESELECT_ROUTES"; indices: number[] }
@@ -55,6 +57,7 @@ function reducer(state: OpenAPIState, action: Action): OpenAPIState {
         ...state,
         routes: action.routes,
         allTags: action.allTags,
+        modelRouteMap: action.modelRouteMap,
         selectedRoutes: new Set(),
         activeTags: new Set(),
       }
@@ -153,6 +156,7 @@ function reducer(state: OpenAPIState, action: Action): OpenAPIState {
 const initialState: OpenAPIState = {
   spec: null,
   routes: [],
+  modelRouteMap: { modelToRoutes: {}, routeToModels: {} },
   selectedRoutes: new Set(),
   selectedModels: new Set(),
   activeTags: new Set(),

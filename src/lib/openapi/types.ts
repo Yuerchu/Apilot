@@ -139,6 +139,14 @@ export interface ParsedRoute {
   responses: Record<string, ResponseObject>
   security: SecurityRequirement[]
   selected: boolean
+  referencedModels: string[]
+}
+
+export interface ModelRouteMap {
+  /** model name → route indices that reference it */
+  modelToRoutes: Record<string, number[]>
+  /** route index → model names it references */
+  routeToModels: Record<number, string[]>
 }
 
 export type AuthType = "none" | "bearer" | "basic" | "apikey" | "oauth2"
