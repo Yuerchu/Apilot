@@ -103,6 +103,7 @@ export function useAuth() {
     authKeyName,
     setAuthKeyName,
     oauth2Token,
+    setOAuth2Token,
     oauth2Loading,
     getAuthHeaders,
     oauth2Login,

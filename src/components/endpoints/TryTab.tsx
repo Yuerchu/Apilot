@@ -5,7 +5,7 @@ import { resolveEffectiveSchema } from "@/lib/openapi/resolve-schema"
 import { getTypeStr, getConstraints } from "@/lib/openapi/type-str"
 import { generateExample } from "@/lib/openapi/generate-example"
 import { formatSchema } from "@/lib/openapi/format-schema"
-import { useAuth } from "@/hooks/use-auth"
+import { useAuthContext } from "@/contexts/AuthContext"
 import { useRequest } from "@/hooks/use-request"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -477,7 +477,7 @@ function SchemaFormFields({
 }
 
 export function TryTab({ route, index }: TryTabProps) {
-  const { getAuthHeaders, applyToken } = useAuth()
+  const { getAuthHeaders, applyToken } = useAuthContext()
   const { loading, response, sendRequest } = useRequest(getAuthHeaders)
 
   // Parameter values

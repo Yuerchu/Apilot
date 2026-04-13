@@ -58,7 +58,7 @@ function loadFromStorage(): {
   }
 }
 
-export function useSettings(auth: AuthState) {
+export function useSettings(auth: AuthState & { setAuthType: (t: AuthType) => void; setAuthToken: (t: string) => void; setAuthUser: (u: string) => void; setAuthKeyName: (n: string) => void; setOAuth2Token: (t: string | null) => void }, autoLoad?: (url: string) => void) {
   const { state, dispatch } = useOpenAPIContext()
   const initialized = useRef(false)
 
@@ -70,9 +70,19 @@ export function useSettings(auth: AuthState) {
     const saved = loadFromStorage()
     if (saved.specUrl) dispatch({ type: "SET_SPEC_URL", url: saved.specUrl })
     if (saved.baseUrl) dispatch({ type: "SET_BASE_URL", url: saved.baseUrl })
+    // Restore auth state
+    if (saved.authType !== "none") auth.setAuthType(saved.authType)
+    if (saved.authToken) auth.setAuthToken(saved.authToken)
+    if (saved.authUser) auth.setAuthUser(saved.authUser)
+    if (saved.authKeyName) auth.setAuthKeyName(saved.authKeyName)
+    if (saved.oauth2Token) auth.setOAuth2Token(saved.oauth2Token)
+    // Auto-load spec if URL was saved
+    if (saved.specUrl && autoLoad) {
+      setTimeout(() => autoLoad(saved.specUrl), 0)
+    }
 
     return undefined
-  }, [dispatch])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-save on state changes
   useEffect(() => {

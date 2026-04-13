@@ -3,8 +3,9 @@ import { Search, Copy } from "lucide-react"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { formatMarkdown, formatYaml } from "@/lib/format-route"
 import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TagFilter } from "./TagFilter"
 import { RouteCard } from "./RouteCard"
 import { toast } from "sonner"
@@ -105,38 +106,22 @@ export function EndpointsView() {
           />
         </div>
 
-        <div className="flex items-center gap-3 text-xs">
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="radio"
-              name="format"
-              value="markdown"
-              checked={format === "markdown"}
-              onChange={() => setFormat("markdown")}
-              className="accent-primary"
-            />
-            Markdown
-          </label>
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="radio"
-              name="format"
-              value="yaml"
-              checked={format === "yaml"}
-              onChange={() => setFormat("yaml")}
-              className="accent-primary"
-            />
-            YAML-like
-          </label>
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <Checkbox
-              checked={includeExamples}
-              onCheckedChange={v => setIncludeExamples(v === true)}
-              className="size-3.5"
-            />
-            含示例
-          </label>
-        </div>
+        <Select value={`${format}${includeExamples ? "-ex" : ""}`} onValueChange={v => {
+          const hasEx = v.endsWith("-ex")
+          const fmt = v.replace("-ex", "") as "markdown" | "yaml"
+          setFormat(fmt)
+          setIncludeExamples(hasEx)
+        }}>
+          <SelectTrigger className="w-auto h-8 text-xs gap-1.5">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="markdown">Markdown</SelectItem>
+            <SelectItem value="markdown-ex">Markdown + 示例</SelectItem>
+            <SelectItem value="yaml">YAML</SelectItem>
+            <SelectItem value="yaml-ex">YAML + 示例</SelectItem>
+          </SelectContent>
+        </Select>
 
         <span className="text-xs text-muted-foreground tabular-nums">
           已选 {selectedCount} 个

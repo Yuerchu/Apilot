@@ -82,7 +82,7 @@ export function ModelCard({ name, schema, spec, selected, onSelectChange }: Mode
               )}
             />
             <span className="font-mono text-sm font-medium truncate">{name}</span>
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0">
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0 max-w-[200px] truncate" title={typeStr}>
               {typeStr}
             </Badge>
             {desc && (
