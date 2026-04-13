@@ -1,11 +1,11 @@
 import { useMemo, useState, useCallback } from "react"
-import { Search, Copy } from "lucide-react"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { formatMarkdown, formatYaml } from "@/lib/format-route"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+import { useProgressiveRender } from "@/hooks/use-progressive-render"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ViewToolbar } from "@/components/layout/ViewToolbar"
 import { TagFilter } from "./TagFilter"
 import { RouteCard } from "./RouteCard"
 import { toast } from "sonner"
@@ -38,16 +38,19 @@ export function EndpointsView() {
       })
   }, [routes, activeTags, filter])
 
-  // Group by first tag
+  // Progressive rendering — show first batch immediately, then add more
+  const { visible: visibleRoutes, isComplete } = useProgressiveRender(filteredRoutes, 30, 40)
+
+  // Group by first tag (only visible items)
   const groupedRoutes = useMemo(() => {
     const grouped: Record<string, Array<{ route: typeof routes[number]; index: number }>> = {}
-    for (const item of filteredRoutes) {
+    for (const item of visibleRoutes) {
       const tag = item.route.tags[0] || "未分组"
       if (!grouped[tag]) grouped[tag] = []
       grouped[tag].push(item)
     }
     return grouped
-  }, [filteredRoutes])
+  }, [visibleRoutes])
 
   const selectedCount = selectedRoutes.size
   const allFilteredIndices = filteredRoutes.map(r => r.index)
@@ -85,27 +88,15 @@ export function EndpointsView() {
 
   return (
     <div className="space-y-3">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3">
-        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-          <Checkbox
-            checked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
-            onCheckedChange={handleSelectAll}
-          />
-          <span className="text-xs text-muted-foreground">全选</span>
-        </div>
-
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="搜索路由..."
-            value={filter}
-            onChange={e => setFilter(e.target.value)}
-            className="pl-8 h-8 text-sm"
-          />
-        </div>
-
+      <ViewToolbar
+        selectAllChecked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
+        onSelectAllChange={handleSelectAll}
+        searchPlaceholder="搜索路由..."
+        filter={filter}
+        onFilterChange={setFilter}
+        selectedCount={selectedCount}
+        onCopy={handleCopySelected}
+      >
         <Select value={`${format}${includeExamples ? "-ex" : ""}`} onValueChange={v => {
           const hasEx = v.endsWith("-ex")
           const fmt = v.replace("-ex", "") as "markdown" | "yaml"
@@ -122,16 +113,7 @@ export function EndpointsView() {
             <SelectItem value="yaml-ex">YAML + 示例</SelectItem>
           </SelectContent>
         </Select>
-
-        <span className="text-xs text-muted-foreground tabular-nums">
-          已选 {selectedCount} 个
-        </span>
-
-        <Button size="sm" onClick={handleCopySelected}>
-          <Copy className="size-3.5" />
-          复制选中
-        </Button>
-      </div>
+      </ViewToolbar>
 
       {/* Tag filter */}
       <TagFilter />
@@ -164,6 +146,14 @@ export function EndpointsView() {
           </div>
         )
       })}
+
+      {!isComplete && (
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 rounded-lg" />
+          ))}
+        </div>
+      )}
 
       {filteredRoutes.length === 0 && routes.length > 0 && (
         <div className="text-center py-12 text-muted-foreground">

@@ -1,13 +1,12 @@
 import { useState, useMemo, useCallback } from "react"
-import { Search, Copy } from "lucide-react"
 import type { SchemaObject, OpenAPISpec } from "@/lib/openapi/types"
 import { resolveRef } from "@/lib/openapi/resolve-ref"
 import { getTypeStr } from "@/lib/openapi/type-str"
 import { formatSchema } from "@/lib/openapi/format-schema"
+import { useProgressiveRender } from "@/hooks/use-progressive-render"
 import { ModelCard } from "@/components/models/ModelCard"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
+import { Skeleton } from "@/components/ui/skeleton"
+import { ViewToolbar } from "@/components/layout/ViewToolbar"
 import { toast } from "sonner"
 
 interface ModelsViewProps {
@@ -42,6 +41,8 @@ export function ModelsView({ spec }: ModelsViewProps) {
     if (!q) return sortedNames
     return sortedNames.filter(name => name.toLowerCase().includes(q))
   }, [sortedNames, filter])
+
+  const { visible: visibleNames, isComplete } = useProgressiveRender(filteredNames, 30, 40)
 
   const handleSelectChange = useCallback((name: string, selected: boolean) => {
     setSelectedModels(prev => {
@@ -82,51 +83,22 @@ export function ModelsView({ spec }: ModelsViewProps) {
 
   return (
     <div className="space-y-3">
-      {/* Toolbar */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <Checkbox
-            checked={masterIndeterminate ? "indeterminate" : masterChecked}
-            onCheckedChange={(v) => handleSelectAll(!!v)}
-          />
-          <span className="text-xs text-muted-foreground">全选</span>
-        </div>
-        <div className="relative flex-1 min-w-[200px] max-w-[320px]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-          <Input
-            className="h-8 pl-8 text-xs"
-            placeholder="搜索模型..."
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-        </div>
-        <span className="text-xs text-muted-foreground">
-          {filteredNames.length} 个模型
-        </span>
-        {selectedModels.size > 0 && (
-          <span className="text-xs text-primary font-medium">
-            已选 {selectedModels.size} 个
-          </span>
-        )}
-        <button
-          type="button"
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
-            selectedModels.size > 0
-              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "bg-muted text-muted-foreground cursor-not-allowed",
-          )}
-          disabled={selectedModels.size === 0}
-          onClick={handleCopySelected}
-        >
-          <Copy className="size-3" />
-          复制选中
-        </button>
-      </div>
+      <ViewToolbar
+        selectAllChecked={masterIndeterminate ? "indeterminate" : masterChecked}
+        onSelectAllChange={v => handleSelectAll(v === true)}
+        searchPlaceholder="搜索模型..."
+        filter={filter}
+        onFilterChange={setFilter}
+        totalCount={filteredNames.length}
+        totalLabel="个模型"
+        selectedCount={selectedModels.size}
+        selectedLabel="个模型"
+        onCopy={handleCopySelected}
+      />
 
       {/* Model list */}
       <div className="space-y-2">
-        {filteredNames.map(name => (
+        {visibleNames.map(name => (
           <ModelCard
             key={name}
             name={name}
@@ -136,6 +108,13 @@ export function ModelsView({ spec }: ModelsViewProps) {
             onSelectChange={(sel) => handleSelectChange(name, sel)}
           />
         ))}
+        {!isComplete && (
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 rounded-lg" />
+            ))}
+          </div>
+        )}
         {filteredNames.length === 0 && (
           <div className="text-center py-8 text-sm text-muted-foreground">
             {filter ? "没有匹配的模型" : "没有数据模型"}

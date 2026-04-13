@@ -213,6 +213,22 @@ function detectOAuth2TokenUrl(spec: OpenAPISpec): string | null {
 export function useOpenAPI() {
   const { state, dispatch } = useOpenAPIContext()
 
+  // Yield to UI between heavy parsing steps
+  const yieldToUI = () => new Promise<void>(r => requestAnimationFrame(() => setTimeout(r, 0)))
+
+  const processSpec = useCallback(async (spec: OpenAPISpec, url: string) => {
+    if (spec.swagger === "2.0") spec = convertV2toV3(spec)
+    dispatch({ type: "SET_SPEC", spec })
+    dispatch({ type: "SET_SPEC_URL", url })
+    // Let loading skeleton render before heavy parsing
+    await yieldToUI()
+    const { routes, allTags } = parseRoutes(spec)
+    const baseUrl = detectBaseUrl(spec, url)
+    dispatch({ type: "SET_ROUTES", routes, allTags })
+    dispatch({ type: "SET_BASE_URL", url: baseUrl })
+    dispatch({ type: "SET_LOADING", loading: false })
+  }, [dispatch])
+
   const loadFromUrl = useCallback(async (url: string) => {
     if (!url.trim()) return
     dispatch({ type: "SET_LOADING", loading: true })
@@ -220,37 +236,24 @@ export function useOpenAPI() {
     try {
       const res = await fetch(url)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      let spec: OpenAPISpec = await res.json()
-      if (spec.swagger === "2.0") spec = convertV2toV3(spec)
-      const { routes, allTags } = parseRoutes(spec)
-      const baseUrl = detectBaseUrl(spec, url)
-      dispatch({ type: "SET_SPEC", spec })
-      dispatch({ type: "SET_ROUTES", routes, allTags })
-      dispatch({ type: "SET_BASE_URL", url: baseUrl })
-      dispatch({ type: "SET_SPEC_URL", url })
+      const spec: OpenAPISpec = await res.json()
+      await processSpec(spec, url)
     } catch (e) {
       dispatch({ type: "SET_ERROR", error: (e as Error).message })
-    } finally {
       dispatch({ type: "SET_LOADING", loading: false })
     }
-  }, [dispatch])
+  }, [dispatch, processSpec])
 
   const loadFromFile = useCallback((file: File) => {
     dispatch({ type: "SET_LOADING", loading: true })
     dispatch({ type: "SET_ERROR", error: null })
     const reader = new FileReader()
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
-        let spec: OpenAPISpec = JSON.parse(e.target?.result as string)
-        if (spec.swagger === "2.0") spec = convertV2toV3(spec)
-        const { routes, allTags } = parseRoutes(spec)
-        const baseUrl = detectBaseUrl(spec, "")
-        dispatch({ type: "SET_SPEC", spec })
-        dispatch({ type: "SET_ROUTES", routes, allTags })
-        dispatch({ type: "SET_BASE_URL", url: baseUrl })
+        const spec: OpenAPISpec = JSON.parse(e.target?.result as string)
+        await processSpec(spec, "")
       } catch (err) {
         dispatch({ type: "SET_ERROR", error: (err as Error).message })
-      } finally {
         dispatch({ type: "SET_LOADING", loading: false })
       }
     }
@@ -259,7 +262,7 @@ export function useOpenAPI() {
       dispatch({ type: "SET_LOADING", loading: false })
     }
     reader.readAsText(file)
-  }, [dispatch])
+  }, [dispatch, processSpec])
 
   const getServers = useCallback(() => {
     const servers = state.spec?.servers || []

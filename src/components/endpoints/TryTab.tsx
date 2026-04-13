@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from "react"
-import { Send, Loader2 } from "lucide-react"
+import { Send, Loader2, X } from "lucide-react"
 import type { ParsedRoute, SchemaObject } from "@/lib/openapi/types"
 import { resolveEffectiveSchema } from "@/lib/openapi/resolve-schema"
 import { getTypeStr, getConstraints } from "@/lib/openapi/type-str"
@@ -10,6 +10,7 @@ import { useRequest } from "@/hooks/use-request"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DateTimePicker } from "@/components/ui/date-time-picker"
 import {
   Select,
   SelectContent,
@@ -28,38 +29,42 @@ function ParameterField({
   param,
   value,
   onChange,
+  showErrors,
 }: {
   param: ParsedRoute["parameters"][number]
   value: string
   onChange: (v: string) => void
+  showErrors?: boolean
 }) {
+  const [touched, setTouched] = useState(false)
   const ps = resolveEffectiveSchema(param.schema || ({} as SchemaObject))
   const psNullable = ps._nullable || false
   const ph = getTypeStr(param.schema || ({} as SchemaObject)) || "string"
+  const hasError = (touched || !!showErrors) && param.required && !value.trim()
+  const errorClass = hasError ? "border-destructive focus-visible:ring-destructive/30" : ""
+  const handleBlur = () => setTouched(true)
+  const wrapOnChange = (v: string) => { if (!touched) setTouched(true); onChange(v) }
 
+  const renderInput = () => {
   if (ps.enum) {
     return (
       <div className="flex items-center gap-1">
-        <select
-          className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-sm"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-        >
-          {psNullable && <option value="">null</option>}
-          {!param.required && !psNullable && <option value="">(空)</option>}
-          {ps.enum.map(v => (
-            <option key={String(v)} value={String(v)}>{String(v)}</option>
-          ))}
-        </select>
-        {psNullable && (
-          <button
-            type="button"
-            className="text-xs text-muted-foreground hover:text-foreground px-1"
-            onClick={() => onChange("")}
-            title="清除为 null"
-          >
-            x
-          </button>
+        <Select value={value} onValueChange={wrapOnChange}>
+          <SelectTrigger className="h-8 text-xs flex-1">
+            <SelectValue placeholder={psNullable ? "null" : "(空)"} />
+          </SelectTrigger>
+          <SelectContent>
+            {psNullable && <SelectItem value="__null__">null</SelectItem>}
+            {!param.required && !psNullable && <SelectItem value="__empty__">(空)</SelectItem>}
+            {ps.enum.map(v => (
+              <SelectItem key={String(v)} value={String(v)}>{String(v)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {psNullable && value && (
+          <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => onChange("")}>
+            <X className="size-3.5" />
+          </Button>
         )}
       </div>
     )
@@ -67,17 +72,18 @@ function ParameterField({
 
   if (ps.type === "boolean") {
     return (
-      <select
-        className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-sm"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-      >
-        {(!param.required || psNullable) && (
-          <option value="">{psNullable ? "null" : "(空)"}</option>
-        )}
-        <option value="true">true</option>
-        <option value="false">false</option>
-      </select>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="h-8 text-xs">
+          <SelectValue placeholder={psNullable ? "null" : "(空)"} />
+        </SelectTrigger>
+        <SelectContent>
+          {(!param.required || psNullable) && (
+            <SelectItem value="__empty__">{psNullable ? "null" : "(空)"}</SelectItem>
+          )}
+          <SelectItem value="true">true</SelectItem>
+          <SelectItem value="false">false</SelectItem>
+        </SelectContent>
+      </Select>
     )
   }
 
@@ -85,57 +91,24 @@ function ParameterField({
     return (
       <Input
         type="number"
-        className="h-8 text-sm"
+        className={cn("h-8 text-sm", errorClass)}
         step={ps.type === "integer" ? "1" : "any"}
         min={ps.minimum}
         max={ps.maximum}
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={e => wrapOnChange(e.target.value)}
+        onBlur={handleBlur}
         placeholder={ph}
       />
     )
   }
 
   if (ps.format === "date-time") {
-    return (
-      <div className="flex items-center gap-1">
-        <Input
-          type="datetime-local"
-          className="h-8 text-sm flex-1"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-        />
-        <button
-          type="button"
-          className="text-xs text-muted-foreground hover:text-foreground px-1"
-          onClick={() => onChange("")}
-          title="清除"
-        >
-          x
-        </button>
-      </div>
-    )
+    return <DateTimePicker value={value} onChange={wrapOnChange} mode="datetime" />
   }
 
   if (ps.format === "date") {
-    return (
-      <div className="flex items-center gap-1">
-        <Input
-          type="date"
-          className="h-8 text-sm flex-1"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-        />
-        <button
-          type="button"
-          className="text-xs text-muted-foreground hover:text-foreground px-1"
-          onClick={() => onChange("")}
-          title="清除"
-        >
-          x
-        </button>
-      </div>
-    )
+    return <DateTimePicker value={value} onChange={wrapOnChange} mode="date" />
   }
 
   if (ps.format === "uuid") {
@@ -143,16 +116,17 @@ function ParameterField({
       <div className="flex items-center gap-1">
         <Input
           type="text"
-          className="h-8 text-sm flex-1"
+          className={cn("h-8 text-sm flex-1", errorClass)}
           value={value}
-          onChange={e => onChange(e.target.value)}
+          onChange={e => wrapOnChange(e.target.value)}
+          onBlur={handleBlur}
           placeholder="UUID"
         />
         <Button
           variant="outline"
           size="xs"
           type="button"
-          onClick={() => onChange(crypto.randomUUID())}
+          onClick={() => wrapOnChange(crypto.randomUUID())}
         >
           随机
         </Button>
@@ -170,14 +144,25 @@ function ParameterField({
   return (
     <Input
       type={inputType}
-      className="h-8 text-sm"
+      className={cn("h-8 text-sm", errorClass)}
       value={value}
-      onChange={e => onChange(e.target.value)}
+      onChange={e => wrapOnChange(e.target.value)}
+      onBlur={handleBlur}
       placeholder={placeholder}
       minLength={ps.minLength}
       maxLength={ps.maxLength}
       pattern={ps.pattern}
     />
+  )
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      {renderInput()}
+      {hasError && (
+        <span className="text-[11px] text-destructive">此字段为必填项</span>
+      )}
+    </div>
   )
 }
 
@@ -222,26 +207,28 @@ function FormDataFields({
                   onChange={e => onFileChange(key, e.target.files?.[0] || null)}
                 />
               ) : ep.type === "boolean" ? (
-                <select
-                  className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-sm"
-                  value={values[key] || ""}
-                  onChange={e => onChange(key, e.target.value)}
-                >
-                  {!isReq && <option value="">(空)</option>}
-                  <option value="true">true</option>
-                  <option value="false">false</option>
-                </select>
+                <Select value={values[key] || ""} onValueChange={v => onChange(key, v)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="(空)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {!isReq && <SelectItem value="__empty__">(空)</SelectItem>}
+                    <SelectItem value="true">true</SelectItem>
+                    <SelectItem value="false">false</SelectItem>
+                  </SelectContent>
+                </Select>
               ) : ep.enum ? (
-                <select
-                  className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-sm"
-                  value={values[key] || ""}
-                  onChange={e => onChange(key, e.target.value)}
-                >
-                  {!isReq && <option value="">(空)</option>}
-                  {ep.enum.map(v => (
-                    <option key={String(v)} value={String(v)}>{String(v)}</option>
-                  ))}
-                </select>
+                <Select value={values[key] || ""} onValueChange={v => onChange(key, v)}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="(空)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {!isReq && <SelectItem value="__empty__">(空)</SelectItem>}
+                    {ep.enum.map(v => (
+                      <SelectItem key={String(v)} value={String(v)}>{String(v)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               ) : (ep.type === "integer" || ep.type === "number") ? (
                 <Input
                   type="number"
@@ -335,12 +322,14 @@ function SchemaFormFields({
   path,
   values,
   onChange,
+  showErrors,
 }: {
   schema: SchemaObject
   prefix: string
   path: string[]
   values: Record<string, unknown>
   onChange: (fieldPath: string, value: unknown) => void
+  showErrors?: boolean
 }) {
   if (!schema || (!schema.properties && schema.type !== "object")) return null
   const required = schema.required || []
@@ -362,6 +351,10 @@ function SchemaFormFields({
           currentVal = (currentVal as Record<string, unknown>)?.[p]
         }
 
+        const fieldEmpty = currentVal === undefined || currentVal === null || currentVal === ""
+        const fieldError = isRequired && fieldEmpty && !!showErrors
+        const fieldErrorClass = fieldError ? "border-destructive focus-visible:ring-destructive/30" : ""
+
         return (
           <div key={key} className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
@@ -377,20 +370,21 @@ function SchemaFormFields({
             </div>
 
             {ep.enum ? (
-              <select
-                className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-sm"
+              <Select
                 value={currentVal != null ? String(currentVal) : ""}
-                onChange={e => {
-                  const v = e.target.value
-                  onChange(fieldPath, v === "" ? null : v)
-                }}
+                onValueChange={v => onChange(fieldPath, v === "__null__" || v === "__empty__" ? null : v)}
               >
-                {isNullable && <option value="">null</option>}
-                {!isRequired && !isNullable && <option value="">(空)</option>}
-                {ep.enum.map(v => (
-                  <option key={String(v)} value={String(v)}>{String(v)}</option>
-                ))}
-              </select>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder={isNullable ? "null" : "(空)"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {isNullable && <SelectItem value="__null__">null</SelectItem>}
+                  {!isRequired && !isNullable && <SelectItem value="__empty__">(空)</SelectItem>}
+                  {ep.enum.map(v => (
+                    <SelectItem key={String(v)} value={String(v)}>{String(v)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             ) : ep.type === "boolean" ? (
               <button
                 type="button"
@@ -413,6 +407,7 @@ function SchemaFormFields({
                   path={[...path, key]}
                   values={values}
                   onChange={onChange}
+                  showErrors={showErrors}
                 />
               </div>
             ) : ep.type === "array" ? (
@@ -427,7 +422,7 @@ function SchemaFormFields({
             ) : (ep.type === "integer" || ep.type === "number") ? (
               <Input
                 type="number"
-                className="h-8 text-sm"
+                className={cn("h-8 text-sm", fieldErrorClass)}
                 step={ep.type === "integer" ? "1" : "any"}
                 min={ep.minimum}
                 max={ep.maximum}
@@ -443,7 +438,7 @@ function SchemaFormFields({
               <div className="flex items-center gap-1">
                 <Input
                   type="text"
-                  className="h-8 text-sm flex-1"
+                  className={cn("h-8 text-sm flex-1", fieldErrorClass)}
                   value={currentVal != null ? String(currentVal) : ""}
                   onChange={e => onChange(fieldPath, e.target.value)}
                   placeholder="UUID"
@@ -457,10 +452,22 @@ function SchemaFormFields({
                   随机
                 </Button>
               </div>
+            ) : ep.format === "date-time" ? (
+              <DateTimePicker
+                value={currentVal != null ? String(currentVal) : ""}
+                onChange={v => onChange(fieldPath, v)}
+                mode="datetime"
+              />
+            ) : ep.format === "date" ? (
+              <DateTimePicker
+                value={currentVal != null ? String(currentVal) : ""}
+                onChange={v => onChange(fieldPath, v)}
+                mode="date"
+              />
             ) : (
               <Input
-                type={ep.format === "email" ? "email" : (ep.format === "uri" || ep.format === "url") ? "url" : ep.format === "date-time" ? "datetime-local" : ep.format === "date" ? "date" : "text"}
-                className="h-8 text-sm"
+                type={ep.format === "email" ? "email" : (ep.format === "uri" || ep.format === "url") ? "url" : "text"}
+                className={cn("h-8 text-sm", fieldErrorClass)}
                 value={currentVal != null ? String(currentVal) : ""}
                 onChange={e => onChange(fieldPath, e.target.value)}
                 placeholder={ep.format === "email" ? "user@example.com" : (ep.format === "uri" || ep.format === "url") ? "https://example.com" : typeStr}
@@ -469,6 +476,7 @@ function SchemaFormFields({
                 pattern={ep.pattern}
               />
             )}
+            {fieldError && <span className="text-[11px] text-destructive">此字段为必填项</span>}
           </div>
         )
       })}
@@ -478,7 +486,8 @@ function SchemaFormFields({
 
 export function TryTab({ route, index }: TryTabProps) {
   const { getAuthHeaders, applyToken } = useAuthContext()
-  const { loading, response, sendRequest } = useRequest(getAuthHeaders)
+  const { loading, response, error: requestError, sendRequest } = useRequest(getAuthHeaders)
+  const [showErrors, setShowErrors] = useState(false)
 
   // Parameter values
   const [params, setParams] = useState<Record<string, string>>(() => {
@@ -569,6 +578,7 @@ export function TryTab({ route, index }: TryTabProps) {
   }, [])
 
   const handleSend = useCallback(async () => {
+    setShowErrors(true)
     if (isFormType) {
       const formData: Record<string, string | File> = {}
       for (const [k, v] of Object.entries(fdValues)) {
@@ -609,7 +619,7 @@ export function TryTab({ route, index }: TryTabProps) {
       {route.parameters?.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-sm font-semibold">Parameters</h4>
-          <div className="space-y-2">
+          <div className="space-y-2 px-0.5">
             {route.parameters.map((p, i) => (
               <div key={`${p.name}-${i}`} className="grid grid-cols-[120px_50px_1fr_auto] gap-2 items-center">
                 <div className="text-sm font-medium truncate">
@@ -621,6 +631,7 @@ export function TryTab({ route, index }: TryTabProps) {
                   param={p}
                   value={params[p.name] || ""}
                   onChange={v => setParams(prev => ({ ...prev, [p.name]: v }))}
+                  showErrors={showErrors}
                 />
                 <div className="text-[10px] text-muted-foreground min-w-[60px]">
                   {getConstraints(resolveEffectiveSchema(p.schema || ({} as SchemaObject)))}
@@ -686,13 +697,14 @@ export function TryTab({ route, index }: TryTabProps) {
               />
             ) : hasObjectSchema ? (
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2 max-h-[400px] overflow-auto pr-1">
+                <div className="space-y-2 max-h-[400px] overflow-auto px-1">
                   <SchemaFormFields
                     schema={currentSchema!}
                     prefix={`bf-${index}`}
                     path={[]}
                     values={bodyObj}
                     onChange={handleFormChange}
+                    showErrors={showErrors}
                   />
                 </div>
                 <JsonEditorPane
@@ -728,6 +740,13 @@ export function TryTab({ route, index }: TryTabProps) {
           <span className="text-xs text-muted-foreground">请求中...</span>
         )}
       </div>
+
+      {/* Non-validation errors (e.g. base URL missing, network) */}
+      {requestError && !requestError.includes("必填") && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {requestError}
+        </div>
+      )}
 
       {/* Response */}
       {response && (

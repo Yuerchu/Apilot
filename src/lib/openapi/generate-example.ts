@@ -45,10 +45,10 @@ export function generateExample(schema: SchemaObject | undefined, depth: number 
     if (schema.format === 'email') return 'user@example.com';
     if (schema.format === 'uri' || schema.format === 'url') return 'https://example.com';
     if (schema.format === 'binary') return null;
-    return 'string';
+    return '';
   }
-  if (type === 'integer') return schema.minimum !== undefined ? schema.minimum : 0;
-  if (type === 'number') return schema.minimum !== undefined ? schema.minimum : 0.0;
+  if (type === 'integer') return schema.minimum !== undefined ? schema.minimum : null;
+  if (type === 'number') return schema.minimum !== undefined ? schema.minimum : null;
   if (type === 'boolean') return false;
   return null;
 }

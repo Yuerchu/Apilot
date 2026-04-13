@@ -1,7 +1,9 @@
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import type { SchemaObject } from "@/lib/openapi"
 import { resolveEffectiveSchema, getTypeStr, getConstraints, generateExample } from "@/lib/openapi"
+import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
+import { DateTimePicker } from "@/components/ui/date-time-picker"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -17,6 +19,7 @@ interface SchemaFormProps {
   value: Record<string, any>
   onChange: (value: Record<string, any>) => void
   prefix?: string
+  showErrors?: boolean
 }
 
 function setNestedValue(
@@ -90,6 +93,7 @@ function FormField({
   path,
   value,
   onFieldChange,
+  showErrors,
 }: {
   name: string
   prop: SchemaObject
@@ -97,7 +101,9 @@ function FormField({
   path: string[]
   value: Record<string, any>
   onFieldChange: (path: string[], val: unknown) => void
+  showErrors?: boolean
 }) {
+  const [touched, setTouched] = useState(false)
   const effectiveProp = resolveEffectiveSchema(prop)
   const isNullable = effectiveProp._nullable || false
   const typeStr = getTypeStr(prop)
@@ -105,6 +111,11 @@ function FormField({
   const desc = effectiveProp.description || prop.description || ""
   const fieldPath = [...path, name]
   const fieldValue = getNestedValue(value, fieldPath)
+  const isEmpty = fieldValue === undefined || fieldValue === null || fieldValue === ""
+  const hasError = isRequired && isEmpty && (touched || !!showErrors)
+  const errorClass = hasError ? "border-destructive focus-visible:ring-destructive/30" : ""
+  const handleBlur = () => setTouched(true)
+  const handleChange = (p: string[], v: unknown) => { if (!touched) setTouched(true); onFieldChange(p, v) }
 
   // Enum
   if (effectiveProp.enum) {
@@ -143,12 +154,13 @@ function FormField({
             <button
               type="button"
               className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => onFieldChange(fieldPath, null)}
+              onClick={() => handleChange(fieldPath, null)}
             >
               ✕
             </button>
           )}
         </div>
+        {hasError && <span className="text-[11px] text-destructive">此字段为必填项</span>}
       </div>
     )
   }
@@ -250,24 +262,27 @@ function FormField({
         />
         <Input
           type="number"
-          className="h-8 text-xs font-mono"
-          value={String(def)}
+          className={cn("h-8 text-xs font-mono", errorClass)}
+          value={def !== null && def !== undefined ? String(def) : ""}
           step={effectiveProp.type === "integer" ? "1" : "any"}
           min={effectiveProp.minimum}
           max={effectiveProp.maximum}
           placeholder={typeStr}
+          onBlur={handleBlur}
           onChange={(e) => {
+            if (!touched) setTouched(true)
             const raw = e.target.value
             if (raw === "") {
-              onFieldChange(fieldPath, effectiveProp.type === "integer" ? 0 : 0.0)
+              handleChange(fieldPath, null)
             } else {
-              onFieldChange(
+              handleChange(
                 fieldPath,
                 effectiveProp.type === "integer" ? parseInt(raw, 10) : parseFloat(raw),
               )
             }
           }}
         />
+        {hasError && <span className="text-[11px] text-destructive">此字段为必填项</span>}
       </div>
     )
   }
@@ -326,27 +341,29 @@ function FormField({
         <div className="flex items-center gap-2">
           <Input
             type="text"
-            className="h-8 text-xs font-mono flex-1"
+            className={cn("h-8 text-xs font-mono flex-1", errorClass)}
             value={currentStrVal}
             placeholder={placeholder}
             minLength={effectiveProp.minLength}
             maxLength={effectiveProp.maxLength}
             pattern={effectiveProp.pattern}
-            onChange={(e) => onFieldChange(fieldPath, e.target.value)}
+            onChange={(e) => handleChange(fieldPath, e.target.value)}
+            onBlur={handleBlur}
           />
           <button
             type="button"
             className="shrink-0 h-8 px-2.5 rounded-md border border-input bg-muted/50 text-xs hover:bg-muted transition-colors"
-            onClick={() => onFieldChange(fieldPath, crypto.randomUUID())}
+            onClick={() => handleChange(fieldPath, crypto.randomUUID())}
           >
             随机
           </button>
         </div>
+        {hasError && <span className="text-[11px] text-destructive">此字段为必填项</span>}
       </div>
     )
   }
 
-  // Date/datetime with clear button
+  // Date/datetime picker
   if (fmt === "date-time" || fmt === "date") {
     return (
       <div className="space-y-1">
@@ -357,22 +374,12 @@ function FormField({
           constraints={constraints}
           description={desc}
         />
-        <div className="flex items-center gap-2">
-          <Input
-            type={inputType}
-            className="h-8 text-xs font-mono flex-1"
-            value={currentStrVal}
-            placeholder={placeholder}
-            onChange={(e) => onFieldChange(fieldPath, e.target.value)}
-          />
-          <button
-            type="button"
-            className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
-            onClick={() => onFieldChange(fieldPath, "")}
-          >
-            ✕
-          </button>
-        </div>
+        <DateTimePicker
+          value={currentStrVal}
+          onChange={(v) => handleChange(fieldPath, v)}
+          mode={fmt === "date" ? "date" : "datetime"}
+        />
+        {hasError && <span className="text-[11px] text-destructive">此字段为必填项</span>}
       </div>
     )
   }
@@ -389,14 +396,16 @@ function FormField({
       />
       <Input
         type={inputType}
-        className="h-8 text-xs font-mono"
+        className={cn("h-8 text-xs font-mono", errorClass)}
         value={currentStrVal}
         placeholder={placeholder}
         minLength={effectiveProp.minLength}
         maxLength={effectiveProp.maxLength}
         pattern={effectiveProp.pattern}
-        onChange={(e) => onFieldChange(fieldPath, e.target.value)}
+        onChange={(e) => handleChange(fieldPath, e.target.value)}
+        onBlur={handleBlur}
       />
+      {hasError && <span className="text-[11px] text-destructive">此字段为必填项</span>}
     </div>
   )
 }
@@ -406,11 +415,13 @@ function FormFields({
   path,
   value,
   onFieldChange,
+  showErrors,
 }: {
   schema: SchemaObject
   path: string[]
   value: Record<string, any>
   onFieldChange: (path: string[], val: unknown) => void
+  showErrors?: boolean
 }) {
   if (!schema.properties) return null
   const required = new Set(schema.required || [])
@@ -426,13 +437,14 @@ function FormFields({
           path={path}
           value={value}
           onFieldChange={onFieldChange}
+          showErrors={showErrors}
         />
       ))}
     </>
   )
 }
 
-export function SchemaForm({ schema, value, onChange, prefix: _prefix }: SchemaFormProps) {
+export function SchemaForm({ schema, value, onChange, prefix: _prefix, showErrors }: SchemaFormProps) {
   const onFieldChange = useCallback(
     (path: string[], val: unknown) => {
       onChange(setNestedValue(value, path, val))
@@ -451,6 +463,7 @@ export function SchemaForm({ schema, value, onChange, prefix: _prefix }: SchemaF
         path={[]}
         value={value}
         onFieldChange={onFieldChange}
+        showErrors={showErrors}
       />
     </div>
   )

@@ -4,6 +4,7 @@ import { AuthProvider, useAuthContext } from "@/contexts/AuthContext"
 import { useOpenAPI } from "@/hooks/use-openapi"
 import { useSettings } from "@/hooks/use-settings"
 import { Header } from "@/components/layout/Header"
+import { Skeleton } from "@/components/ui/skeleton"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { SelectionFab } from "@/components/layout/SelectionFab"
 import { EndpointsView } from "@/components/endpoints/EndpointsView"
@@ -92,11 +93,13 @@ function AppContent() {
             </div>
           )}
 
-          {specLoaded && state.mainView === "endpoints" && (
+          {state.loading && <LoadingSkeleton />}
+
+          {specLoaded && !state.loading && state.mainView === "endpoints" && (
             <EndpointsView />
           )}
 
-          {specLoaded && state.mainView === "models" && (
+          {specLoaded && !state.loading && state.mainView === "models" && (
             <ModelsView spec={state.spec!} />
           )}
         </div>
@@ -120,5 +123,31 @@ function AppContent() {
         )}
       </SidebarInset>
     </SidebarProvider>
+  )
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4">
+      {/* Toolbar skeleton */}
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-8 w-8" />
+        <Skeleton className="h-8 flex-1 max-w-sm" />
+        <Skeleton className="h-8 w-24 ml-auto" />
+      </div>
+      {/* Tag filter skeleton */}
+      <Skeleton className="h-8 w-40" />
+      {/* Route card skeletons */}
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="rounded-lg border bg-card p-3">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-4 w-4" />
+            <Skeleton className="h-5 w-14 rounded" />
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-4 w-32 ml-auto" />
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
