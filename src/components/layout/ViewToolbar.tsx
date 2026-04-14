@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { useTranslation } from "react-i18next"
 import { Search, Copy } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
@@ -36,6 +37,7 @@ export function ViewToolbar({
   onCopy,
   children,
 }: ViewToolbarProps) {
+  const { t } = useTranslation()
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3">
       <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
@@ -43,7 +45,7 @@ export function ViewToolbar({
           checked={selectAllChecked}
           onCheckedChange={onSelectAllChange}
         />
-        <span className="text-xs text-muted-foreground">全选</span>
+        <span className="text-xs text-muted-foreground">{t("toolbar.selectAll")}</span>
       </div>
 
       <div className="relative flex-1 min-w-[200px]">
@@ -67,13 +69,13 @@ export function ViewToolbar({
 
       {selectedCount > 0 && (
         <span className="text-xs text-primary font-medium tabular-nums">
-          已选 {selectedCount} {selectedLabel}
+          {t("toolbar.selected", { count: selectedCount })} {selectedLabel}
         </span>
       )}
 
       <Button size="sm" onClick={onCopy} disabled={selectedCount === 0}>
         <Copy className="size-3.5" />
-        复制选中
+        {t("toolbar.copySelected")}
       </Button>
     </div>
   )

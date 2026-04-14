@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { Copy, ChevronDown, ChevronRight, Key } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -56,6 +57,7 @@ function statusColorClass(status: number): string {
 }
 
 export function ResponsePanel({ response, onApplyToken }: ResponsePanelProps) {
+  const { t } = useTranslation()
   const [headersOpen, setHeadersOpen] = useState(false)
 
   const { isJson, tokenButtons } = useMemo(() => {
@@ -71,8 +73,8 @@ export function ResponsePanel({ response, onApplyToken }: ResponsePanelProps) {
     const tokenButtons: Array<{ key: string; value: string }> = []
     if (isJson && jsonObj && typeof jsonObj === "object" && response.status >= 200 && response.status < 300) {
       const tokens = findTokens(jsonObj, "").sort((a, b) => a.priority - b.priority)
-      for (const t of tokens) {
-        tokenButtons.push({ key: t.key, value: t.value })
+      for (const tk of tokens) {
+        tokenButtons.push({ key: tk.key, value: tk.value })
       }
     }
 
@@ -80,19 +82,19 @@ export function ResponsePanel({ response, onApplyToken }: ResponsePanelProps) {
   }, [response.body, response.status])
 
   const copyCurl = useCallback(() => {
-    navigator.clipboard.writeText(response.curlCommand).then(() => toast.success("curl 命令已复制"))
-  }, [response.curlCommand])
+    navigator.clipboard.writeText(response.curlCommand).then(() => toast.success(t("toast.curlCopied")))
+  }, [response.curlCommand, t])
 
   const copyBody = useCallback(() => {
-    navigator.clipboard.writeText(response.body).then(() => toast.success("Body 已复制"))
-  }, [response.body])
+    navigator.clipboard.writeText(response.body).then(() => toast.success(t("toast.bodyCopied")))
+  }, [response.body, t])
 
   const copyFull = useCallback(() => {
     let text = `HTTP ${response.status} ${response.statusText}\n`
     for (const [k, v] of Object.entries(response.headers)) text += `${k}: ${v}\n`
     text += `\n${response.body}`
-    navigator.clipboard.writeText(text).then(() => toast.success("完整响应已复制"))
-  }, [response])
+    navigator.clipboard.writeText(text).then(() => toast.success(t("toast.fullCopied")))
+  }, [response, t])
 
   const headersText = Object.entries(response.headers)
     .map(([k, v]) => `${k}: ${v}`)
@@ -135,7 +137,7 @@ export function ResponsePanel({ response, onApplyToken }: ResponsePanelProps) {
               onClick={() => setHeadersOpen(!headersOpen)}
             >
               {headersOpen ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-              Response Headers
+              {t("response.headers")}
             </button>
             {headersOpen && (
               <pre className="px-3 pb-2 text-[11px] font-mono text-muted-foreground whitespace-pre-wrap">
@@ -158,26 +160,26 @@ export function ResponsePanel({ response, onApplyToken }: ResponsePanelProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-t bg-muted/20">
-          {tokenButtons.map(t => (
+          {tokenButtons.map(tokenItem => (
             <Button
-              key={t.key}
+              key={tokenItem.key}
               variant="outline"
               size="xs"
-              onClick={() => onApplyToken?.(t.value, t.key)}
-              title={`${t.key}: ${t.value.substring(0, 40)}...`}
+              onClick={() => onApplyToken?.(tokenItem.value, tokenItem.key)}
+              title={`${tokenItem.key}: ${tokenItem.value.substring(0, 40)}...`}
             >
               <Key className="size-3" />
-              设为 Token ({t.key})
+              {t("response.setToken", { key: tokenItem.key })}
             </Button>
           ))}
           <div className="flex-1" />
           <Button variant="ghost" size="xs" onClick={copyBody}>
             <Copy className="size-3" />
-            复制 Body
+            {t("response.copyBody")}
           </Button>
           <Button variant="ghost" size="xs" onClick={copyFull}>
             <Copy className="size-3" />
-            复制完整响应
+            {t("response.copyFull")}
           </Button>
         </div>
       </div>

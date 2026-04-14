@@ -1,4 +1,5 @@
 import { useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { Copy } from "lucide-react"
 import type { ParsedRoute } from "@/lib/openapi/types"
 import { formatMarkdown } from "@/lib/format-route"
@@ -11,13 +12,14 @@ interface SchemaTabProps {
 }
 
 export function SchemaTab({ route, index: _index }: SchemaTabProps) {
+  const { t } = useTranslation()
   const schemaText = formatMarkdown(route)
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(schemaText).then(() => {
-      toast.success("已复制到剪贴板")
+      toast.success(t("toast.copied"))
     })
-  }, [schemaText])
+  }, [schemaText, t])
 
   return (
     <div className="space-y-3">
@@ -27,7 +29,7 @@ export function SchemaTab({ route, index: _index }: SchemaTabProps) {
       <div className="flex gap-2">
         <Button variant="default" size="sm" onClick={handleCopy}>
           <Copy className="size-3.5" />
-          复制此路由
+          {t("doc.copyRoute")}
         </Button>
       </div>
     </div>

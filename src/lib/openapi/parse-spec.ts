@@ -1,3 +1,4 @@
+import i18n from '@/lib/i18n'
 import type { OpenAPISpec, ParsedRoute } from './types'
 import { resolveRef } from './resolve-ref'
 import { convertV2toV3 } from './convert-v2'
@@ -13,7 +14,7 @@ export function parseRoutes(spec: OpenAPISpec): ParsedRoute[] {
     for (const method of HTTP_METHODS) {
       const op = (pathItem as any)[method];
       if (!op) continue;
-      const tags = op.tags || ['未分组'];
+      const tags = op.tags || [i18n.t('endpoints.ungrouped')];
       const resolved = resolveRef(op, spec, new Set());
       const pathParams = resolveRef(pathItem.parameters || [], spec, new Set());
       routes.push({

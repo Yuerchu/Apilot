@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { ChevronRight, X, ArrowLeftRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
 export function TagFilter() {
+  const { t } = useTranslation()
   const { state, toggleTag, clearTags, invertTags } = useOpenAPIContext()
   const { allTags, activeTags } = state
   const [isOpen, setIsOpen] = useState(false)
@@ -33,13 +35,13 @@ export function TagFilter() {
             isOpen && "rotate-90"
           )}
         />
-        <span className="font-medium">标签筛选</span>
+        <span className="font-medium">{t("tags.filter")}</span>
         <Badge variant="secondary" className="text-xs">
           {allTags.length}
         </Badge>
         {activeTags.size > 0 && (
           <span className="text-xs text-muted-foreground">
-            (已选 {activeTags.size} 个)
+            {t("tags.selectedCount", { count: activeTags.size })}
           </span>
         )}
       </button>
@@ -48,7 +50,7 @@ export function TagFilter() {
         <div className="border-t px-4 py-3 space-y-3">
           <Input
             type="text"
-            placeholder="搜索标签..."
+            placeholder={t("tags.search")}
             value={tagSearch}
             onChange={e => setTagSearch(e.target.value)}
             className="h-8 text-sm"
@@ -62,7 +64,7 @@ export function TagFilter() {
               disabled={activeTags.size === 0}
             >
               <X className="size-3" />
-              清除筛选
+              {t("tags.clear")}
             </Button>
             <Button
               variant="outline"
@@ -70,7 +72,7 @@ export function TagFilter() {
               onClick={() => invertTags(visibleTagNames)}
             >
               <ArrowLeftRight className="size-3" />
-              反选
+              {t("tags.invert")}
             </Button>
           </div>
 

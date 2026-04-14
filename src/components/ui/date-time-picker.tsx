@@ -1,4 +1,5 @@
 import * as React from "react"
+import { useTranslation } from "react-i18next"
 import { format, parse } from "date-fns"
 import { CalendarIcon, X } from "lucide-react"
 
@@ -27,6 +28,7 @@ export function DateTimePicker({
   placeholder,
   className,
 }: DateTimePickerProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = React.useState(false)
 
   // Parse value to Date
@@ -88,7 +90,7 @@ export function DateTimePicker({
             )}
           >
             <CalendarIcon className="size-3.5 shrink-0 text-muted-foreground" />
-            {displayText || placeholder || (mode === "date" ? "选择日期" : "选择日期和时间")}
+            {displayText || placeholder || (mode === "date" ? t("datePicker.selectDate") : t("datePicker.selectDateTime"))}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">

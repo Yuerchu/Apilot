@@ -1,4 +1,5 @@
 import { useCallback } from "react"
+import i18n from "@/lib/i18n"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import type {
   OpenAPISpec,
@@ -191,7 +192,7 @@ function parseRoutes(spec: OpenAPISpec): { routes: ParsedRoute[]; allTags: TagIn
     for (const method of HTTP_METHODS) {
       const op = pathItem[method]
       if (!op) continue
-      const tags = op.tags || ["未分组"]
+      const tags = op.tags || [i18n.t("endpoints.ungrouped")]
       tags.forEach(t => {
         tagSet.add(t)
         tagCounts[t] = (tagCounts[t] || 0) + 1
@@ -295,7 +296,7 @@ export function useOpenAPI() {
       }
     }
     reader.onerror = () => {
-      dispatch({ type: "SET_ERROR", error: "文件读取失败" })
+      dispatch({ type: "SET_ERROR", error: i18n.t("validation.fileReadFailed") })
       dispatch({ type: "SET_LOADING", loading: false })
     }
     reader.readAsText(file)
@@ -321,13 +322,18 @@ export function useOpenAPI() {
 
   const getSpecInfo = useCallback(() => {
     if (!state.spec) return null
-    const info = state.spec.info || {}
+    const info = state.spec.info as Record<string, any> || {}
     return {
       title: info.title || "API",
+      summary: info.summary || "",
       version: info.version || "",
       description: info.description || "",
       specVersion: state.spec.openapi || state.spec.swagger || "?",
       routeCount: state.routes.length,
+      license: (info.license as { name?: string; url?: string; identifier?: string }) || null,
+      contact: (info.contact as { name?: string; url?: string; email?: string }) || null,
+      termsOfService: (info.termsOfService as string) || null,
+      externalDocs: ((state.spec as any).externalDocs as { description?: string; url: string }) || null,
     }
   }, [state.spec, state.routes.length])
 

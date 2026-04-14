@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import type { ParsedRoute } from "@/lib/openapi/types"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { DocTab } from "./DocTab"
@@ -10,17 +11,18 @@ interface RouteDetailProps {
 }
 
 export function RouteDetail({ route, index }: RouteDetailProps) {
+  const { t } = useTranslation()
   return (
     <Tabs defaultValue="doc" className="mt-3">
       <TabsList className="h-8">
         <TabsTrigger value="doc" className="text-xs px-3">
-          文档
+          {t("doc.tabs.doc")}
         </TabsTrigger>
         <TabsTrigger value="try" className="text-xs px-3">
-          测试
+          {t("doc.tabs.test")}
         </TabsTrigger>
         <TabsTrigger value="schema" className="text-xs px-3">
-          Schema
+          {t("doc.tabs.schema")}
         </TabsTrigger>
       </TabsList>
 

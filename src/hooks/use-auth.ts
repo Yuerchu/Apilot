@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import i18n from "@/lib/i18n"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import type { AuthType } from "@/lib/openapi/types"
 
@@ -34,8 +35,8 @@ export function useAuth() {
     pass: string,
     tokenUrl: string,
   ): Promise<{ success: boolean; error?: string }> => {
-    if (!user || !pass) return { success: false, error: "请输入用户名和密码" }
-    if (!tokenUrl) return { success: false, error: "Token URL 为空" }
+    if (!user || !pass) return { success: false, error: i18n.t("validation.enterCredentials") }
+    if (!tokenUrl) return { success: false, error: i18n.t("validation.tokenUrlEmpty") }
 
     let resolvedUrl = tokenUrl
     if (!resolvedUrl.startsWith("http")) {
@@ -63,7 +64,7 @@ export function useAuth() {
       }
       const data = await res.json()
       const token = data.access_token
-      if (!token) throw new Error("响应中无 access_token")
+      if (!token) throw new Error(i18n.t("validation.noAccessToken"))
       setOAuth2Token(token)
       return { success: true }
     } catch (e) {

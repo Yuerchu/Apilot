@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { formatMarkdown, formatYaml } from "@/lib/format-route"
 import { useProgressiveRender } from "@/hooks/use-progressive-render"
@@ -13,6 +14,7 @@ import { toast } from "sonner"
 type FormatType = "markdown" | "yaml"
 
 export function EndpointsView() {
+  const { t } = useTranslation()
   const {
     state,
     selectRoutes,
@@ -45,7 +47,7 @@ export function EndpointsView() {
   const groupedRoutes = useMemo(() => {
     const grouped: Record<string, Array<{ route: typeof routes[number]; index: number }>> = {}
     for (const item of visibleRoutes) {
-      const tag = item.route.tags[0] || "未分组"
+      const tag = item.route.tags[0] || t("endpoints.ungrouped")
       if (!grouped[tag]) grouped[tag] = []
       grouped[tag].push(item)
     }
@@ -68,15 +70,15 @@ export function EndpointsView() {
   const handleCopySelected = useCallback(() => {
     const selected = routes.filter((_, i) => selectedRoutes.has(i))
     if (!selected.length) {
-      toast.error("请先选择路由")
+      toast.error(t("toast.selectRoutes"))
       return
     }
     const formatter = format === "markdown" ? formatMarkdown : formatYaml
     const text = selected.map(r => formatter(r, includeExamples)).join("\n---\n\n")
     navigator.clipboard.writeText(text).then(() => {
-      toast.success(`已复制 ${selected.length} 个路由到剪贴板`)
+      toast.success(t("toast.copiedRoutes", { count: selected.length }))
     })
-  }, [routes, selectedRoutes, format, includeExamples])
+  }, [routes, selectedRoutes, format, includeExamples, t])
 
   const handleGroupCheck = useCallback((indices: number[], checked: boolean) => {
     if (checked) {
@@ -91,7 +93,7 @@ export function EndpointsView() {
       <ViewToolbar
         selectAllChecked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
         onSelectAllChange={handleSelectAll}
-        searchPlaceholder="搜索路由..."
+        searchPlaceholder={t("endpoints.search")}
         filter={filter}
         onFilterChange={setFilter}
         selectedCount={selectedCount}
@@ -107,10 +109,10 @@ export function EndpointsView() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="markdown">Markdown</SelectItem>
-            <SelectItem value="markdown-ex">Markdown + 示例</SelectItem>
-            <SelectItem value="yaml">YAML</SelectItem>
-            <SelectItem value="yaml-ex">YAML + 示例</SelectItem>
+            <SelectItem value="markdown">{t("endpoints.markdown")}</SelectItem>
+            <SelectItem value="markdown-ex">{t("endpoints.markdownExample")}</SelectItem>
+            <SelectItem value="yaml">{t("endpoints.yaml")}</SelectItem>
+            <SelectItem value="yaml-ex">{t("endpoints.yamlExample")}</SelectItem>
           </SelectContent>
         </Select>
       </ViewToolbar>
@@ -157,7 +159,7 @@ export function EndpointsView() {
 
       {filteredRoutes.length === 0 && routes.length > 0 && (
         <div className="text-center py-12 text-muted-foreground">
-          <p className="text-sm">没有匹配的路由</p>
+          <p className="text-sm">{t("endpoints.noMatch")}</p>
         </div>
       )}
     </div>

@@ -62,23 +62,35 @@ export function useSettings(auth: AuthState & { setAuthType: (t: AuthType) => vo
   const { state, dispatch } = useOpenAPIContext()
   const initialized = useRef(false)
 
-  // Restore on mount
+  // Restore on mount — URL params take priority over localStorage
   useEffect(() => {
     if (initialized.current) return
     initialized.current = true
 
+    const params = new URLSearchParams(window.location.search)
     const saved = loadFromStorage()
-    if (saved.specUrl) dispatch({ type: "SET_SPEC_URL", url: saved.specUrl })
-    if (saved.baseUrl) dispatch({ type: "SET_BASE_URL", url: saved.baseUrl })
-    // Restore auth state
-    if (saved.authType !== "none") auth.setAuthType(saved.authType)
-    if (saved.authToken) auth.setAuthToken(saved.authToken)
+
+    // URL params override localStorage
+    const specUrl = params.get("openapi_url") || saved.specUrl
+    const baseUrl = params.get("base_url") || saved.baseUrl
+    const authType = (params.get("auth_type") as AuthType) || saved.authType
+    const authToken = params.get("auth_token") || saved.authToken
+
+    if (specUrl) dispatch({ type: "SET_SPEC_URL", url: specUrl })
+    if (baseUrl) dispatch({ type: "SET_BASE_URL", url: baseUrl })
+    if (authType !== "none") auth.setAuthType(authType)
+    if (authToken) auth.setAuthToken(authToken)
     if (saved.authUser) auth.setAuthUser(saved.authUser)
     if (saved.authKeyName) auth.setAuthKeyName(saved.authKeyName)
     if (saved.oauth2Token) auth.setOAuth2Token(saved.oauth2Token)
-    // Auto-load spec if URL was saved
-    if (saved.specUrl && autoLoad) {
-      setTimeout(() => autoLoad(saved.specUrl), 0)
+
+    // Set page title from URL param
+    const title = params.get("title")
+    if (title) document.title = title
+
+    // Auto-load spec
+    if (specUrl && autoLoad) {
+      setTimeout(() => autoLoad(specUrl), 0)
     }
 
     return undefined

@@ -10,7 +10,7 @@ export function generateExample(schema: SchemaObject | undefined, depth: number 
   if (schema.const !== undefined) return schema.const;
 
   if (schema.allOf) {
-    let merged: Record<string, any> = {};
+    const merged: Record<string, any> = {};
     for (const s of schema.allOf) Object.assign(merged, generateExample(s, depth + 1));
     return merged;
   }

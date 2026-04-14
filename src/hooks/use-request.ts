@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import i18n from "@/lib/i18n"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import type {
   ParsedRoute,
@@ -59,7 +60,7 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
 
     for (const p of route.parameters || []) {
       if (p.required && !params[p.name]?.trim()) {
-        errors.push({ field: p.name, message: `参数 "${p.name}" 为必填项` })
+        errors.push({ field: p.name, message: i18n.t("validation.paramRequired", { name: p.name }) })
       }
     }
 
@@ -71,7 +72,7 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
         if (schema?.required) {
           for (const key of schema.required) {
             if (bodyObj[key] === undefined || bodyObj[key] === null || bodyObj[key] === "") {
-              errors.push({ field: key, message: `请求体字段 "${key}" 为必填项` })
+              errors.push({ field: key, message: i18n.t("validation.bodyRequired", { name: key }) })
             }
           }
         }
@@ -87,7 +88,7 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
         for (const key of schema.required) {
           const val = formData[key]
           if (!val || (typeof val === "string" && !val.trim())) {
-            errors.push({ field: key, message: `表单字段 "${key}" 为必填项` })
+            errors.push({ field: key, message: i18n.t("validation.formRequired", { name: key }) })
           }
         }
       }
@@ -105,7 +106,7 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
   ): Promise<RequestResponse | null> => {
     const baseUrl = state.baseUrl.replace(/\/$/, "")
     if (!baseUrl) {
-      setError("请先在 Server 栏填写 Base URL")
+      setError(i18n.t("validation.baseUrl"))
       return null
     }
 

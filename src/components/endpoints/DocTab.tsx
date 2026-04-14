@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { Database } from "lucide-react"
 import type { ParsedRoute, SchemaObject } from "@/lib/openapi/types"
 import { getTypeStr } from "@/lib/openapi/type-str"
@@ -34,6 +35,7 @@ function StatusCodeColor({ code }: { code: string }) {
 }
 
 export function DocTab({ route }: DocTabProps) {
+  const { t } = useTranslation()
   const content = useMemo(() => {
     const sections: React.ReactNode[] = []
 
@@ -56,13 +58,13 @@ export function DocTab({ route }: DocTabProps) {
     if (route.operationId) {
       sections.push(
         <p key="opid" className="mt-2 text-xs text-muted-foreground">
-          Operation ID: <code className="bg-muted px-1 py-0.5 rounded text-xs">{route.operationId}</code>
+          {t("doc.operationId")}: <code className="bg-muted px-1 py-0.5 rounded text-xs">{route.operationId}</code>
         </p>
       )
     }
 
     return sections
-  }, [route.summary, route.description, route.operationId])
+  }, [route.summary, route.description, route.operationId, t])
 
   return (
     <div className="space-y-4">
@@ -70,14 +72,14 @@ export function DocTab({ route }: DocTabProps) {
 
       {route.parameters?.length > 0 && (
         <div>
-          <h4 className="text-sm font-semibold text-primary mb-2">Parameters</h4>
+          <h4 className="text-sm font-semibold text-primary mb-2">{t("doc.parameters")}</h4>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-xs">Name</TableHead>
-                <TableHead className="text-xs">In</TableHead>
-                <TableHead className="text-xs">Type</TableHead>
-                <TableHead className="text-xs">Description</TableHead>
+                <TableHead className="text-xs">{t("doc.name")}</TableHead>
+                <TableHead className="text-xs">{t("doc.in")}</TableHead>
+                <TableHead className="text-xs">{t("doc.type")}</TableHead>
+                <TableHead className="text-xs">{t("doc.description")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -109,9 +111,9 @@ export function DocTab({ route }: DocTabProps) {
       {route.requestBody && (
         <div>
           <h4 className="text-sm font-semibold text-primary mb-1">
-            Request Body
+            {t("doc.requestBody")}
             {route.requestBody.required && (
-              <span className="text-destructive ml-1 text-xs">(required)</span>
+              <span className="text-destructive ml-1 text-xs">{t("doc.required")}</span>
             )}
           </h4>
           {route.requestBody.description && (
@@ -121,7 +123,7 @@ export function DocTab({ route }: DocTabProps) {
           )}
           {Object.entries(route.requestBody.content || {}).map(([mt, mo]) => (
             <div key={mt} className="mb-2">
-              <p className="text-xs text-muted-foreground mb-1">Content-Type: {mt}</p>
+              <p className="text-xs text-muted-foreground mb-1">{t("doc.contentType")} {mt}</p>
               {mo.schema && <SchemaTree schema={mo.schema as SchemaObject} />}
             </div>
           ))}
@@ -129,7 +131,7 @@ export function DocTab({ route }: DocTabProps) {
       )}
 
       <div>
-        <h4 className="text-sm font-semibold text-primary mb-2">Responses</h4>
+        <h4 className="text-sm font-semibold text-primary mb-2">{t("doc.responses")}</h4>
         {Object.entries(route.responses).map(([code, resp]) => (
           <div key={code} className="mb-3">
             <div className="flex items-baseline gap-2 mb-1">
@@ -140,7 +142,7 @@ export function DocTab({ route }: DocTabProps) {
             </div>
             {Object.entries(resp.content || {}).map(([mt, mo]) => (
               <div key={mt} className="ml-0">
-                <p className="text-xs text-muted-foreground mb-1">Content-Type: {mt}</p>
+                <p className="text-xs text-muted-foreground mb-1">{t("doc.contentType")} {mt}</p>
                 {mo.schema && <SchemaTree schema={mo.schema as SchemaObject} />}
               </div>
             ))}
@@ -157,13 +159,14 @@ export function DocTab({ route }: DocTabProps) {
 }
 
 function ReferencedModels({ models }: { models: string[] }) {
+  const { t } = useTranslation()
   const { setMainView } = useOpenAPIContext()
 
   return (
     <div>
       <h4 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
         <Database className="size-3.5" />
-        关联数据模型
+        {t("doc.relatedModels")}
       </h4>
       <div className="flex flex-wrap gap-1.5">
         {models.map(name => (
@@ -172,7 +175,7 @@ function ReferencedModels({ models }: { models: string[] }) {
             variant="secondary"
             className="cursor-pointer hover:bg-accent text-xs"
             onClick={() => setMainView("models" as MainView)}
-            title={`查看模型: ${name}`}
+            title={t("doc.viewModel", { name })}
           >
             {name}
           </Badge>

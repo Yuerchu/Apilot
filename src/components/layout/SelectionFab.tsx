@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { Copy, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -10,6 +11,7 @@ interface SelectionFabProps {
 }
 
 export function SelectionFab({ count, label = "个", onCopy, onClear }: SelectionFabProps) {
+  const { t } = useTranslation()
   return (
     <div
       className={cn(
@@ -20,15 +22,15 @@ export function SelectionFab({ count, label = "个", onCopy, onClear }: Selectio
       )}
     >
       <span className="text-sm">
-        已选 <span className="font-medium text-primary">{count}</span> {label}
+        {t("toolbar.selected", { count })} {label}
       </span>
       <Button size="sm" onClick={onCopy}>
         <Copy className="size-3" />
-        复制选中
+        {t("toolbar.copySelected")}
       </Button>
       <Button size="sm" variant="destructive" onClick={onClear}>
         <X className="size-3" />
-        清除
+        {t("tags.clear")}
       </Button>
     </div>
   )

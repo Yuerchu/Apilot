@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import type { SchemaObject } from "@/lib/openapi/types"
 import { resolveEffectiveSchema } from "@/lib/openapi/resolve-schema"
 import { getTypeStr, getConstraints } from "@/lib/openapi/type-str"
@@ -147,6 +148,7 @@ function NestedSchema({
 }
 
 export function SchemaTree({ schema, maxDepth = 12 }: SchemaTreeProps) {
+  const { t } = useTranslation()
   const { topType, topTitle, topDesc, eff } = useMemo(() => {
     return {
       topType: getTypeStr(schema),
@@ -173,9 +175,9 @@ export function SchemaTree({ schema, maxDepth = 12 }: SchemaTreeProps) {
       {(eff.properties || eff.type === "object") && (
         <>
           <div className="grid grid-cols-[minmax(120px,1fr)_minmax(100px,1fr)_minmax(120px,2fr)] gap-x-3 py-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/60 bg-muted/30">
-            <div>Field</div>
-            <div>Type</div>
-            <div>Description</div>
+            <div>{t("schema.field")}</div>
+            <div>{t("schema.type")}</div>
+            <div>{t("schema.description")}</div>
           </div>
           <SchemaRows schema={eff} maxDepth={maxDepth} />
         </>
@@ -191,9 +193,9 @@ export function SchemaTree({ schema, maxDepth = 12 }: SchemaTreeProps) {
             {(items.properties || items.type === "object") && (
               <>
                 <div className="grid grid-cols-[minmax(120px,1fr)_minmax(100px,1fr)_minmax(120px,2fr)] gap-x-3 py-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/60 bg-muted/30">
-                  <div>Field</div>
-                  <div>Type</div>
-                  <div>Description</div>
+                  <div>{t("schema.field")}</div>
+                  <div>{t("schema.type")}</div>
+                  <div>{t("schema.description")}</div>
                 </div>
                 <SchemaRows schema={items} maxDepth={maxDepth - 1} />
               </>

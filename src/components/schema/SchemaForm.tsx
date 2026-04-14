@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react"
+import { useTranslation } from "react-i18next"
 import type { SchemaObject } from "@/lib/openapi"
 import { resolveEffectiveSchema, getTypeStr, getConstraints, generateExample } from "@/lib/openapi"
 import { cn } from "@/lib/utils"
@@ -63,6 +64,7 @@ function FieldLabel({
   constraints: string
   description: string
 }) {
+  const { t } = useTranslation()
   return (
     <div className="flex flex-wrap items-center gap-1.5 mb-1">
       <span className="font-mono text-xs font-medium text-foreground">{name}</span>
@@ -71,7 +73,7 @@ function FieldLabel({
       </Badge>
       {isRequired && (
         <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 font-normal">
-          必填
+          {t("tryIt.required")}
         </Badge>
       )}
       {constraints && (
@@ -103,6 +105,7 @@ function FormField({
   onFieldChange: (path: string[], val: unknown) => void
   showErrors?: boolean
 }) {
+  const { t } = useTranslation()
   const [touched, setTouched] = useState(false)
   const effectiveProp = resolveEffectiveSchema(prop)
   const isNullable = effectiveProp._nullable || false
@@ -137,11 +140,11 @@ function FormField({
             }}
           >
             <SelectTrigger className="w-full h-8 text-xs">
-              <SelectValue placeholder={isNullable ? "null" : "(空)"} />
+              <SelectValue placeholder={isNullable ? "null" : t("tryIt.empty")} />
             </SelectTrigger>
             <SelectContent>
               {(isNullable || !isRequired) && (
-                <SelectItem value=" ">{isNullable ? "null" : "(空)"}</SelectItem>
+                <SelectItem value=" ">{isNullable ? "null" : t("tryIt.empty")}</SelectItem>
               )}
               {effectiveProp.enum.map((v) => (
                 <SelectItem key={String(v)} value={String(v)}>
@@ -160,7 +163,7 @@ function FormField({
             </button>
           )}
         </div>
-        {hasError && <span className="text-[11px] text-destructive">此字段为必填项</span>}
+        {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
       </div>
     )
   }
@@ -282,7 +285,7 @@ function FormField({
             }
           }}
         />
-        {hasError && <span className="text-[11px] text-destructive">此字段为必填项</span>}
+        {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
       </div>
     )
   }
@@ -355,10 +358,10 @@ function FormField({
             className="shrink-0 h-8 px-2.5 rounded-md border border-input bg-muted/50 text-xs hover:bg-muted transition-colors"
             onClick={() => handleChange(fieldPath, crypto.randomUUID())}
           >
-            随机
+            {t("tryIt.random")}
           </button>
         </div>
-        {hasError && <span className="text-[11px] text-destructive">此字段为必填项</span>}
+        {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
       </div>
     )
   }
@@ -379,7 +382,7 @@ function FormField({
           onChange={(v) => handleChange(fieldPath, v)}
           mode={fmt === "date" ? "date" : "datetime"}
         />
-        {hasError && <span className="text-[11px] text-destructive">此字段为必填项</span>}
+        {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
       </div>
     )
   }
@@ -405,7 +408,7 @@ function FormField({
         onChange={(e) => handleChange(fieldPath, e.target.value)}
         onBlur={handleBlur}
       />
-      {hasError && <span className="text-[11px] text-destructive">此字段为必填项</span>}
+      {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
     </div>
   )
 }

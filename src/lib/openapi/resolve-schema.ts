@@ -5,7 +5,7 @@ export function resolveEffectiveSchema(schema: SchemaObject | undefined | null):
   let s: SchemaObject = schema;
   // Merge allOf into a flat object
   if (s.allOf) {
-    let merged: Record<string, any> = {};
+    const merged: Record<string, any> = {};
     for (const part of s.allOf) Object.assign(merged, part);
     for (const [k, v] of Object.entries(s)) {
       if (k !== 'allOf') merged[k] = v;

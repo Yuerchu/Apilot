@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { ChevronRight, Copy, Route } from "lucide-react"
 import type { SchemaObject, OpenAPISpec, MainView } from "@/lib/openapi/types"
 import { resolveRef } from "@/lib/openapi/resolve-ref"
@@ -36,6 +37,7 @@ function formatModel(name: string, schema: SchemaObject, spec: OpenAPISpec): str
 }
 
 export function ModelCard({ name, schema, spec, selected, onSelectChange }: ModelCardProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [built, setBuilt] = useState(false)
   const [resolved, setResolved] = useState<SchemaObject | null>(null)
@@ -56,9 +58,9 @@ export function ModelCard({ name, schema, spec, selected, onSelectChange }: Mode
     e.stopPropagation()
     const text = formatModel(name, schema, spec)
     navigator.clipboard.writeText(text).then(() => {
-      toast.success("已复制到剪贴板")
+      toast.success(t("toast.copied"))
     })
-  }, [name, schema, spec])
+  }, [name, schema, spec, t])
 
   return (
     <Collapsible open={open} onOpenChange={handleToggle}>
@@ -96,7 +98,7 @@ export function ModelCard({ name, schema, spec, selected, onSelectChange }: Mode
                 onClick={handleCopy}
               >
                 <Copy className="size-3" />
-                复制
+                {t("endpoints.copy")}
               </button>
             </div>
           </div>
@@ -113,6 +115,7 @@ export function ModelCard({ name, schema, spec, selected, onSelectChange }: Mode
 }
 
 function UsedByEndpoints({ modelName }: { modelName: string }) {
+  const { t } = useTranslation()
   const { state, setMainView } = useOpenAPIContext()
   const routeIndices = state.modelRouteMap.modelToRoutes[modelName]
   if (!routeIndices?.length) return null
@@ -129,7 +132,7 @@ function UsedByEndpoints({ modelName }: { modelName: string }) {
     <div>
       <h4 className="text-xs font-semibold mb-1.5 flex items-center gap-1.5 text-muted-foreground">
         <Route className="size-3" />
-        被 {routeIndices.length} 个端点使用
+        {t("models.usedBy", { count: routeIndices.length })}
       </h4>
       <div className="flex flex-wrap gap-1.5">
         {routeIndices.map(idx => {

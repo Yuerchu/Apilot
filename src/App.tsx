@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { OpenAPIProvider, useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { AuthProvider, useAuthContext } from "@/contexts/AuthContext"
 import { useOpenAPI } from "@/hooks/use-openapi"
@@ -23,6 +24,7 @@ export default function App() {
 }
 
 function AppContent() {
+  const { t } = useTranslation()
   const {
     state,
     clearRouteSelection,
@@ -57,18 +59,18 @@ function AppContent() {
 
   const handleCopyEndpoints = () => {
     if (state.selectedRoutes.size === 0) {
-      toast.warning("未选择任何端点")
+      toast.warning(t("toast.selectEndpoints"))
       return
     }
-    toast.info("请使用端点列表工具栏的复制按钮")
+    toast.info(t("toast.useToolbar"))
   }
 
   const handleCopyModels = () => {
     if (state.selectedModels.size === 0) {
-      toast.warning("未选择任何模型")
+      toast.warning(t("toast.selectModelsWarn"))
       return
     }
-    toast.info("请使用数据模型工具栏的复制按钮")
+    toast.info(t("toast.useModelToolbar"))
   }
 
   return (
@@ -86,9 +88,9 @@ function AppContent() {
 
           {!specLoaded && !state.loading && (
             <div className="flex flex-col items-center justify-center py-24 text-center">
-              <h2 className="text-xl font-semibold mb-2">OpenAPI Advance</h2>
+              <h2 className="text-xl font-semibold mb-2">{t("app.title")}</h2>
               <p className="text-muted-foreground">
-                在侧边栏中输入 OpenAPI 规范的 URL 或上传本地文件
+                {t("app.emptyDesc")}
               </p>
             </div>
           )}
@@ -107,7 +109,7 @@ function AppContent() {
         {state.mainView === "endpoints" && (
           <SelectionFab
             count={state.selectedRoutes.size}
-            label="个"
+            label={t("unit.count")}
             onCopy={handleCopyEndpoints}
             onClear={clearRouteSelection}
           />
@@ -116,7 +118,7 @@ function AppContent() {
         {state.mainView === "models" && (
           <SelectionFab
             count={state.selectedModels.size}
-            label="个模型"
+            label={t("unit.modelCount")}
             onCopy={handleCopyModels}
             onClear={clearModelSelection}
           />

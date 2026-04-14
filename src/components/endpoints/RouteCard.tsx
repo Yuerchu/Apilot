@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { Copy, ChevronDown, Lock } from "lucide-react"
 import type { ParsedRoute } from "@/lib/openapi/types"
 import { cn } from "@/lib/utils"
@@ -31,6 +32,7 @@ const METHOD_COLORS: Record<string, string> = {
 }
 
 export function RouteCard({ route, index }: RouteCardProps) {
+  const { t } = useTranslation()
   const { state, toggleRoute } = useOpenAPIContext()
   const isSelected = state.selectedRoutes.has(index)
 
@@ -44,8 +46,8 @@ export function RouteCard({ route, index }: RouteCardProps) {
   const handleCopy = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     const text = formatMarkdown(route)
-    navigator.clipboard.writeText(text).then(() => toast.success("已复制到剪贴板"))
-  }, [route])
+    navigator.clipboard.writeText(text).then(() => toast.success(t("toast.copied")))
+  }, [route, t])
 
   const handleCheckChange = useCallback((checked: boolean | "indeterminate") => {
     if (checked === "indeterminate") return
@@ -90,7 +92,7 @@ export function RouteCard({ route, index }: RouteCardProps) {
           </span>
 
           {route.security?.length > 0 && route.security.some(s => Object.keys(s).length > 0) && (
-            <span title="需要认证"><Lock className="size-3 text-muted-foreground shrink-0" /></span>
+            <span title={t("endpoints.authRequired")}><Lock className="size-3 text-muted-foreground shrink-0" /></span>
           )}
 
           {summary && (
@@ -108,7 +110,7 @@ export function RouteCard({ route, index }: RouteCardProps) {
             className="shrink-0"
           >
             <Copy className="size-3" />
-            复制
+            {t("endpoints.copy")}
           </Button>
 
           <ChevronDown

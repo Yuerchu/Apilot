@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { Send, Loader2, X } from "lucide-react"
 import type { ParsedRoute, SchemaObject } from "@/lib/openapi/types"
 import { resolveEffectiveSchema } from "@/lib/openapi/resolve-schema"
@@ -36,6 +37,7 @@ function ParameterField({
   onChange: (v: string) => void
   showErrors?: boolean
 }) {
+  const { t } = useTranslation()
   const [touched, setTouched] = useState(false)
   const ps = resolveEffectiveSchema(param.schema || ({} as SchemaObject))
   const psNullable = ps._nullable || false
@@ -51,11 +53,11 @@ function ParameterField({
       <div className="flex items-center gap-1">
         <Select value={value} onValueChange={wrapOnChange}>
           <SelectTrigger className="h-8 text-xs flex-1">
-            <SelectValue placeholder={psNullable ? "null" : "(空)"} />
+            <SelectValue placeholder={psNullable ? "null" : t("tryIt.empty")} />
           </SelectTrigger>
           <SelectContent>
             {psNullable && <SelectItem value="__null__">null</SelectItem>}
-            {!param.required && !psNullable && <SelectItem value="__empty__">(空)</SelectItem>}
+            {!param.required && !psNullable && <SelectItem value="__empty__">{t("tryIt.empty")}</SelectItem>}
             {ps.enum.map(v => (
               <SelectItem key={String(v)} value={String(v)}>{String(v)}</SelectItem>
             ))}
@@ -74,11 +76,11 @@ function ParameterField({
     return (
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger className="h-8 text-xs">
-          <SelectValue placeholder={psNullable ? "null" : "(空)"} />
+          <SelectValue placeholder={psNullable ? "null" : t("tryIt.empty")} />
         </SelectTrigger>
         <SelectContent>
           {(!param.required || psNullable) && (
-            <SelectItem value="__empty__">{psNullable ? "null" : "(空)"}</SelectItem>
+            <SelectItem value="__empty__">{psNullable ? "null" : t("tryIt.empty")}</SelectItem>
           )}
           <SelectItem value="true">true</SelectItem>
           <SelectItem value="false">false</SelectItem>
@@ -128,7 +130,7 @@ function ParameterField({
           type="button"
           onClick={() => wrapOnChange(crypto.randomUUID())}
         >
-          随机
+          {t("tryIt.random")}
         </Button>
       </div>
     )
@@ -160,7 +162,7 @@ function ParameterField({
     <div className="flex flex-col gap-0.5">
       {renderInput()}
       {hasError && (
-        <span className="text-[11px] text-destructive">此字段为必填项</span>
+        <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>
       )}
     </div>
   )
@@ -179,8 +181,9 @@ function FormDataFields({
   onChange: (key: string, val: string) => void
   onFileChange: (key: string, file: File | null) => void
 }) {
+  const { t } = useTranslation()
   if (!schema?.properties) {
-    return <p className="text-sm text-muted-foreground">无 Schema 定义</p>
+    return <p className="text-sm text-muted-foreground">{t("tryIt.noSchema")}</p>
   }
 
   const required = new Set(schema.required || [])
@@ -209,10 +212,10 @@ function FormDataFields({
               ) : ep.type === "boolean" ? (
                 <Select value={values[key] || ""} onValueChange={v => onChange(key, v)}>
                   <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="(空)" />
+                    <SelectValue placeholder={t("tryIt.empty")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {!isReq && <SelectItem value="__empty__">(空)</SelectItem>}
+                    {!isReq && <SelectItem value="__empty__">{t("tryIt.empty")}</SelectItem>}
                     <SelectItem value="true">true</SelectItem>
                     <SelectItem value="false">false</SelectItem>
                   </SelectContent>
@@ -220,10 +223,10 @@ function FormDataFields({
               ) : ep.enum ? (
                 <Select value={values[key] || ""} onValueChange={v => onChange(key, v)}>
                   <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="(空)" />
+                    <SelectValue placeholder={t("tryIt.empty")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {!isReq && <SelectItem value="__empty__">(空)</SelectItem>}
+                    {!isReq && <SelectItem value="__empty__">{t("tryIt.empty")}</SelectItem>}
                     {ep.enum.map(v => (
                       <SelectItem key={String(v)} value={String(v)}>{String(v)}</SelectItem>
                     ))}
@@ -262,6 +265,7 @@ function JsonEditorPane({
   value: string
   onChange: (v: string) => void
 }) {
+  const { t } = useTranslation()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const preRef = useRef<HTMLPreElement>(null)
 
@@ -293,8 +297,8 @@ function JsonEditorPane({
   return (
     <div className="relative rounded-md border overflow-hidden">
       <div className="flex items-center justify-between px-2 py-1 bg-muted/30 border-b">
-        <span className="text-[10px] text-muted-foreground font-medium">JSON 预览</span>
-        <span className="text-[10px] text-muted-foreground">可直接编辑</span>
+        <span className="text-[10px] text-muted-foreground font-medium">{t("tryIt.jsonPreview")}</span>
+        <span className="text-[10px] text-muted-foreground">{t("tryIt.editable")}</span>
       </div>
       <div className="relative">
         <pre
@@ -331,6 +335,7 @@ function SchemaFormFields({
   onChange: (fieldPath: string, value: unknown) => void
   showErrors?: boolean
 }) {
+  const { t } = useTranslation()
   if (!schema || (!schema.properties && schema.type !== "object")) return null
   const required = schema.required || []
 
@@ -360,7 +365,7 @@ function SchemaFormFields({
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-medium">{key}</span>
               <span className="text-[10px] text-muted-foreground">{typeStr}</span>
-              {isRequired && <span className="text-[10px] text-destructive font-medium">必填</span>}
+              {isRequired && <span className="text-[10px] text-destructive font-medium">{t("tryIt.required")}</span>}
               {constraints && <span className="text-[10px] text-muted-foreground">{constraints}</span>}
               {desc && (
                 <span className="text-[10px] text-muted-foreground truncate max-w-[200px]" title={desc}>
@@ -375,11 +380,11 @@ function SchemaFormFields({
                 onValueChange={v => onChange(fieldPath, v === "__null__" || v === "__empty__" ? null : v)}
               >
                 <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder={isNullable ? "null" : "(空)"} />
+                  <SelectValue placeholder={isNullable ? "null" : t("tryIt.empty")} />
                 </SelectTrigger>
                 <SelectContent>
                   {isNullable && <SelectItem value="__null__">null</SelectItem>}
-                  {!isRequired && !isNullable && <SelectItem value="__empty__">(空)</SelectItem>}
+                  {!isRequired && !isNullable && <SelectItem value="__empty__">{t("tryIt.empty")}</SelectItem>}
                   {ep.enum.map(v => (
                     <SelectItem key={String(v)} value={String(v)}>{String(v)}</SelectItem>
                   ))}
@@ -449,7 +454,7 @@ function SchemaFormFields({
                   type="button"
                   onClick={() => onChange(fieldPath, crypto.randomUUID())}
                 >
-                  随机
+                  {t("tryIt.random")}
                 </Button>
               </div>
             ) : ep.format === "date-time" ? (
@@ -476,7 +481,7 @@ function SchemaFormFields({
                 pattern={ep.pattern}
               />
             )}
-            {fieldError && <span className="text-[11px] text-destructive">此字段为必填项</span>}
+            {fieldError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
           </div>
         )
       })}
@@ -485,6 +490,7 @@ function SchemaFormFields({
 }
 
 export function TryTab({ route, index }: TryTabProps) {
+  const { t } = useTranslation()
   const { getAuthHeaders, applyToken } = useAuthContext()
   const { loading, response, error: requestError, sendRequest } = useRequest(getAuthHeaders)
   const [showErrors, setShowErrors] = useState(false)
@@ -618,7 +624,7 @@ export function TryTab({ route, index }: TryTabProps) {
       {/* Parameters */}
       {route.parameters?.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-sm font-semibold">Parameters</h4>
+          <h4 className="text-sm font-semibold">{t("tryIt.parameters")}</h4>
           <div className="space-y-2 px-0.5">
             {route.parameters.map((p, i) => (
               <div key={`${p.name}-${i}`} className="grid grid-cols-[120px_50px_1fr_auto] gap-2 items-center">
@@ -646,7 +652,7 @@ export function TryTab({ route, index }: TryTabProps) {
       {route.requestBody && (
         <div className="space-y-2">
           <div className="flex items-center gap-3">
-            <h4 className="text-sm font-semibold">Request Body</h4>
+            <h4 className="text-sm font-semibold">{t("tryIt.requestBody")}</h4>
             <div className="flex rounded-md border overflow-hidden">
               <button
                 type="button"
@@ -656,7 +662,7 @@ export function TryTab({ route, index }: TryTabProps) {
                 )}
                 onClick={() => setBodyView("example")}
               >
-                示例
+                {t("tryIt.example")}
               </button>
               <button
                 type="button"
@@ -666,7 +672,7 @@ export function TryTab({ route, index }: TryTabProps) {
                 )}
                 onClick={() => setBodyView("schema")}
               >
-                Schema
+                {t("tryIt.schema")}
               </button>
             </div>
           </div>
@@ -720,7 +726,7 @@ export function TryTab({ route, index }: TryTabProps) {
             )
           ) : (
             <pre className="rounded-md bg-muted/50 border p-3 text-xs font-mono whitespace-pre-wrap overflow-auto max-h-[300px]">
-              {currentSchema ? formatSchema(currentSchema, 0, 15) : "(no schema)"}
+              {currentSchema ? formatSchema(currentSchema, 0, 15) : t("tryIt.noSchema")}
             </pre>
           )}
         </div>
@@ -734,15 +740,15 @@ export function TryTab({ route, index }: TryTabProps) {
           ) : (
             <Send className="size-4" />
           )}
-          发送请求
+          {t("tryIt.send")}
         </Button>
         {loading && (
-          <span className="text-xs text-muted-foreground">请求中...</span>
+          <span className="text-xs text-muted-foreground">{t("tryIt.sending")}</span>
         )}
       </div>
 
       {/* Non-validation errors (e.g. base URL missing, network) */}
-      {requestError && !requestError.includes("必填") && (
+      {requestError && !requestError.includes(t("tryIt.required")) && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {requestError}
         </div>

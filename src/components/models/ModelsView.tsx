@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import type { SchemaObject, OpenAPISpec } from "@/lib/openapi/types"
 import { resolveRef } from "@/lib/openapi/resolve-ref"
 import { getTypeStr } from "@/lib/openapi/type-str"
@@ -25,6 +26,7 @@ function formatModel(name: string, schema: SchemaObject, spec: OpenAPISpec): str
 }
 
 export function ModelsView({ spec }: ModelsViewProps) {
+  const { t } = useTranslation()
   const [filter, setFilter] = useState("")
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set())
 
@@ -63,7 +65,7 @@ export function ModelsView({ spec }: ModelsViewProps) {
 
   const handleCopySelected = useCallback(() => {
     if (selectedModels.size === 0) {
-      toast.info("请先选择数据模型")
+      toast.info(t("toast.selectModels"))
       return
     }
     const parts: string[] = []
@@ -74,9 +76,9 @@ export function ModelsView({ spec }: ModelsViewProps) {
     }
     const text = parts.join("\n---\n\n")
     navigator.clipboard.writeText(text).then(() => {
-      toast.success(`已复制 ${selectedModels.size} 个数据模型`)
+      toast.success(t("toast.copiedModels", { count: selectedModels.size }))
     })
-  }, [selectedModels, schemas, spec])
+  }, [selectedModels, schemas, spec, t])
 
   const masterChecked = selectedModels.size === sortedNames.length && sortedNames.length > 0
   const masterIndeterminate = selectedModels.size > 0 && selectedModels.size < sortedNames.length
@@ -86,13 +88,13 @@ export function ModelsView({ spec }: ModelsViewProps) {
       <ViewToolbar
         selectAllChecked={masterIndeterminate ? "indeterminate" : masterChecked}
         onSelectAllChange={v => handleSelectAll(v === true)}
-        searchPlaceholder="搜索模型..."
+        searchPlaceholder={t("models.search")}
         filter={filter}
         onFilterChange={setFilter}
         totalCount={filteredNames.length}
-        totalLabel="个模型"
+        totalLabel={t("models.count", { count: filteredNames.length })}
         selectedCount={selectedModels.size}
-        selectedLabel="个模型"
+        selectedLabel={t("models.selectedCount", { count: selectedModels.size })}
         onCopy={handleCopySelected}
       />
 
@@ -117,7 +119,7 @@ export function ModelsView({ spec }: ModelsViewProps) {
         )}
         {filteredNames.length === 0 && (
           <div className="text-center py-8 text-sm text-muted-foreground">
-            {filter ? "没有匹配的模型" : "没有数据模型"}
+            {filter ? t("models.noMatch") : t("models.noModels")}
           </div>
         )}
       </div>
