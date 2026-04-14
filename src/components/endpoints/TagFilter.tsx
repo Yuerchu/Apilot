@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, memo } from "react"
 import { useTranslation } from "react-i18next"
 import { ChevronRight, X, ArrowLeftRight } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
-export function TagFilter() {
+export const TagFilter = memo(function TagFilter() {
   const { t } = useTranslation()
   const { state, toggleTag, clearTags, invertTags } = useOpenAPIContext()
   const { allTags, activeTags } = state
@@ -105,4 +105,4 @@ export function TagFilter() {
       )}
     </div>
   )
-}
+})

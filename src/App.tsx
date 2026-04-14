@@ -5,6 +5,7 @@ import { AuthProvider, useAuthContext } from "@/contexts/AuthContext"
 import { useOpenAPI } from "@/hooks/use-openapi"
 import { useSettings } from "@/hooks/use-settings"
 import { motion } from "motion/react"
+import { formatMarkdown } from "@/lib/format-route"
 import { Header } from "@/components/layout/Header"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AppSidebar } from "@/components/layout/AppSidebar"
@@ -59,28 +60,35 @@ function AppContent() {
   const specLoaded = !!state.spec
 
   const handleCopyEndpoints = () => {
-    if (state.selectedRoutes.size === 0) {
-      toast.warning(t("toast.selectEndpoints"))
-      return
-    }
-    toast.info(t("toast.useToolbar"))
+    const selected = state.routes.filter((_, i) => state.selectedRoutes.has(i))
+    if (!selected.length) return
+    const text = selected.map(r => formatMarkdown(r, false)).join("\n---\n\n")
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success(t("toast.copiedRoutes", { count: selected.length }))
+    })
   }
 
   const handleCopyModels = () => {
-    if (state.selectedModels.size === 0) {
-      toast.warning(t("toast.selectModelsWarn"))
-      return
+    if (state.selectedModels.size === 0) return
+    const schemas = state.spec?.components?.schemas || state.spec?.definitions || {}
+    const parts: string[] = []
+    for (const name of state.selectedModels) {
+      const schema = schemas[name]
+      if (!schema) continue
+      parts.push(`## ${name}\n${schema.description || ""}\n`)
     }
-    toast.info(t("toast.useModelToolbar"))
+    navigator.clipboard.writeText(parts.join("\n---\n\n")).then(() => {
+      toast.success(t("toast.copiedModels", { count: state.selectedModels.size }))
+    })
   }
 
   return (
     <SidebarProvider defaultOpen={!isEmbedded}>
       <AppSidebar auth={auth} />
-      <SidebarInset>
+      <SidebarInset className="flex flex-col h-screen overflow-hidden">
         <Header />
 
-        <div className="max-w-[1280px] mx-auto w-full px-4 pt-4 pb-20">
+        <div className="max-w-[1280px] mx-auto w-full px-4 pt-4 flex-1 flex flex-col min-h-0 overflow-hidden">
           {state.error && (
             <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
               {state.error}
@@ -110,7 +118,6 @@ function AppContent() {
         {state.mainView === "endpoints" && (
           <SelectionFab
             count={state.selectedRoutes.size}
-            label={t("unit.count")}
             onCopy={handleCopyEndpoints}
             onClear={clearRouteSelection}
           />
@@ -119,7 +126,6 @@ function AppContent() {
         {state.mainView === "models" && (
           <SelectionFab
             count={state.selectedModels.size}
-            label={t("unit.modelCount")}
             onCopy={handleCopyModels}
             onClear={clearModelSelection}
           />

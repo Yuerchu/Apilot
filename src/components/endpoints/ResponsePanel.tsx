@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, memo } from "react"
 import { useTranslation } from "react-i18next"
 import { Copy, ChevronDown, ChevronRight, Key } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -56,7 +56,7 @@ function statusColorClass(status: number): string {
   return "bg-method-delete/20 text-method-delete border-method-delete/30"
 }
 
-export function ResponsePanel({ response, onApplyToken }: ResponsePanelProps) {
+export const ResponsePanel = memo(function ResponsePanel({ response, onApplyToken }: ResponsePanelProps) {
   const { t } = useTranslation()
   const [headersOpen, setHeadersOpen] = useState(false)
 
@@ -185,4 +185,4 @@ export function ResponsePanel({ response, onApplyToken }: ResponsePanelProps) {
       </div>
     </div>
   )
-}
+})

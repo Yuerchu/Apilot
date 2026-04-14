@@ -19,7 +19,7 @@ const editorTheme = EditorView.theme({
     outline: "none",
   },
   ".cm-scroller": {
-    fontFamily: "'Maple Mono NF CN', 'Fira Code', 'JetBrains Mono', monospace",
+    fontFamily: "'Maple Mono NF CN', 'JetBrains Mono', 'Fira Code', monospace",
   },
   ".cm-gutters": {
     border: "none",

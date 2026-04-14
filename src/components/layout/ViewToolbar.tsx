@@ -1,9 +1,9 @@
+import { memo } from "react"
 import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
-import { Search, Copy } from "lucide-react"
+import { Search } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
 
 interface ViewToolbarProps {
   // Select all
@@ -17,24 +17,18 @@ interface ViewToolbarProps {
   totalCount?: number
   totalLabel?: string
   selectedCount: number
-  selectedLabel?: string
-  // Copy
-  onCopy: () => void
   // Extra controls (e.g. format selector, tag filter)
   children?: ReactNode
 }
 
-export function ViewToolbar({
+export const ViewToolbar = memo(function ViewToolbar({
   selectAllChecked,
   onSelectAllChange,
-  searchPlaceholder = "搜索...",
+  searchPlaceholder,
   filter,
   onFilterChange,
   totalCount,
-  totalLabel = "项",
-  selectedCount,
-  selectedLabel = "个",
-  onCopy,
+  totalLabel,
   children,
 }: ViewToolbarProps) {
   const { t } = useTranslation()
@@ -66,17 +60,6 @@ export function ViewToolbar({
           {totalCount} {totalLabel}
         </span>
       )}
-
-      {selectedCount > 0 && (
-        <span className="text-xs text-primary font-medium tabular-nums">
-          {t("toolbar.selected", { count: selectedCount })} {selectedLabel}
-        </span>
-      )}
-
-      <Button size="sm" onClick={onCopy} disabled={selectedCount === 0}>
-        <Copy className="size-3.5" />
-        {t("toolbar.copySelected")}
-      </Button>
     </div>
   )
-}
+})

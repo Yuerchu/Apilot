@@ -1,39 +1,24 @@
-import { useState, useMemo, useCallback } from "react"
-import { motion } from "motion/react"
+import { useState, useMemo, useCallback, useRef } from "react"
 import { useTranslation } from "react-i18next"
+import { useVirtualizer } from "@tanstack/react-virtual"
+import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import type { SchemaObject, OpenAPISpec } from "@/lib/openapi/types"
-import { resolveRef } from "@/lib/openapi/resolve-ref"
-import { getTypeStr } from "@/lib/openapi/type-str"
-import { formatSchema } from "@/lib/openapi/format-schema"
-import { useProgressiveRender } from "@/hooks/use-progressive-render"
 import { ModelCard } from "@/components/models/ModelCard"
-import { Skeleton } from "@/components/ui/skeleton"
 import { ViewToolbar } from "@/components/layout/ViewToolbar"
-import { toast } from "sonner"
 
 interface ModelsViewProps {
   spec: OpenAPISpec
 }
 
-function formatModel(name: string, schema: SchemaObject, spec: OpenAPISpec): string {
-  const resolved = resolveRef(schema, spec, new Set()) as SchemaObject
-  const typeStr = getTypeStr(resolved)
-  const desc = resolved.description || resolved.title || ""
-  let out = `## ${name}\n`
-  if (desc) out += `${desc}\n`
-  out += `Type: ${typeStr}\n\n`
-  out += `Schema:\n${formatSchema(resolved, 0, 15)}\n`
-  return out
-}
-
 export function ModelsView({ spec }: ModelsViewProps) {
   const { t } = useTranslation()
+  const { state, toggleModel, selectAllModels, clearModelSelection } = useOpenAPIContext()
+  const selectedModels = state.selectedModels
   const [filter, setFilter] = useState("")
-  const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set())
 
   const schemas = useMemo(() => {
     return spec.components?.schemas || spec.definitions || {}
-  }, [spec])
+  }, [spec]) as Record<string, SchemaObject>
 
   const sortedNames = useMemo(() => {
     return Object.keys(schemas).sort()
@@ -45,47 +30,33 @@ export function ModelsView({ spec }: ModelsViewProps) {
     return sortedNames.filter(name => name.toLowerCase().includes(q))
   }, [sortedNames, filter])
 
-  const { visible: visibleNames, isComplete } = useProgressiveRender(filteredNames, 30, 40)
-
-  const handleSelectChange = useCallback((name: string, selected: boolean) => {
-    setSelectedModels(prev => {
-      const next = new Set(prev)
-      if (selected) next.add(name)
-      else next.delete(name)
-      return next
-    })
-  }, [])
+  const handleSelectChange = useCallback((name: string) => {
+    toggleModel(name)
+  }, [toggleModel])
 
   const handleSelectAll = useCallback((checked: boolean) => {
     if (checked) {
-      setSelectedModels(new Set(sortedNames))
+      selectAllModels(filteredNames)
     } else {
-      setSelectedModels(new Set())
+      clearModelSelection()
     }
-  }, [sortedNames])
+  }, [filteredNames, selectAllModels, clearModelSelection])
 
-  const handleCopySelected = useCallback(() => {
-    if (selectedModels.size === 0) {
-      toast.info(t("toast.selectModels"))
-      return
-    }
-    const parts: string[] = []
-    for (const name of selectedModels) {
-      if (schemas[name]) {
-        parts.push(formatModel(name, schemas[name], spec))
-      }
-    }
-    const text = parts.join("\n---\n\n")
-    navigator.clipboard.writeText(text).then(() => {
-      toast.success(t("toast.copiedModels", { count: selectedModels.size }))
-    })
-  }, [selectedModels, schemas, spec, t])
+  const masterChecked = filteredNames.length > 0 && filteredNames.every(n => selectedModels.has(n))
+  const masterIndeterminate = !masterChecked && filteredNames.some(n => selectedModels.has(n))
 
-  const masterChecked = selectedModels.size === sortedNames.length && sortedNames.length > 0
-  const masterIndeterminate = selectedModels.size > 0 && selectedModels.size < sortedNames.length
+
+  // Virtual list
+  const parentRef = useRef<HTMLDivElement>(null)
+  const virtualizer = useVirtualizer({
+    count: filteredNames.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 44,
+    overscan: 10,
+  })
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3 flex-1 min-h-0">
       <ViewToolbar
         selectAllChecked={masterIndeterminate ? "indeterminate" : masterChecked}
         onSelectAllChange={v => handleSelectAll(v === true)}
@@ -93,37 +64,49 @@ export function ModelsView({ spec }: ModelsViewProps) {
         filter={filter}
         onFilterChange={setFilter}
         totalCount={filteredNames.length}
-        totalLabel={t("models.count", { count: filteredNames.length })}
+        totalLabel={t("unit.modelCount")}
         selectedCount={selectedModels.size}
-        selectedLabel={t("models.selectedCount", { count: selectedModels.size })}
-        onCopy={handleCopySelected}
       />
 
-      {/* Model list */}
-      <div className="space-y-2">
-        {visibleNames.map((name, i) => (
-          <motion.div
-            key={name}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.15, delay: i < 20 ? i * 0.02 : 0 }}
-          >
-          <ModelCard
-            name={name}
-            schema={schemas[name]}
-            spec={spec}
-            selected={selectedModels.has(name)}
-            onSelectChange={(sel) => handleSelectChange(name, sel)}
-          />
-          </motion.div>
-        ))}
-        {!isComplete && (
-          <div className="space-y-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 rounded-lg" />
-            ))}
-          </div>
-        )}
+      {/* Virtualized model list */}
+      <div
+        ref={parentRef}
+        className="overflow-auto flex-1 min-h-0"
+      >
+        <div
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            width: "100%",
+            position: "relative",
+          }}
+        >
+          {virtualizer.getVirtualItems().map(virtualRow => {
+            const name = filteredNames[virtualRow.index]
+            return (
+              <div
+                key={name}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <div className="pb-2">
+                  <ModelCard
+                    name={name}
+                    schema={schemas[name]}
+                    selected={selectedModels.has(name)}
+                    onSelectChange={() => handleSelectChange(name)}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
         {filteredNames.length === 0 && (
           <div className="text-center py-8 text-sm text-muted-foreground">
             {filter ? t("models.noMatch") : t("models.noModels")}

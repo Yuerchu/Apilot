@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 import { marked } from "marked"
+import DOMPurify from "dompurify"
 import { cn } from "@/lib/utils"
 
 marked.setOptions({
@@ -15,9 +16,10 @@ interface MarkdownProps {
 export function Markdown({ children, className }: MarkdownProps) {
   const html = useMemo(() => {
     try {
-      return marked.parse(children) as string
+      const raw = marked.parse(children) as string
+      return DOMPurify.sanitize(raw)
     } catch {
-      return children.replace(/</g, "&lt;").replace(/\n/g, "<br>")
+      return DOMPurify.sanitize(children.replace(/</g, "&lt;").replace(/\n/g, "<br>"))
     }
   }, [children])
 

@@ -2,8 +2,8 @@ export function buildCurl(
   method: string,
   url: string,
   headers: Record<string, string>,
-  body?: string | FormData,
-  contentType?: string
+  body?: string | FormData | null,
+  contentType?: string | null,
 ): string {
   const parts: string[] = ['curl'];
   if (method !== 'GET') parts.push(`-X ${method}`);

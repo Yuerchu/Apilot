@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, memo } from "react"
 import { useTranslation } from "react-i18next"
 import { Database } from "lucide-react"
 import type { ParsedRoute, SchemaObject } from "@/lib/openapi/types"
@@ -34,7 +34,7 @@ function StatusCodeColor({ code }: { code: string }) {
   return <span className={`font-bold text-sm ${colorClass}`}>{code}</span>
 }
 
-export function DocTab({ route }: DocTabProps) {
+export const DocTab = memo(function DocTab({ route }: DocTabProps) {
   const { t } = useTranslation()
   const content = useMemo(() => {
     const sections: React.ReactNode[] = []
@@ -156,7 +156,7 @@ export function DocTab({ route }: DocTabProps) {
       )}
     </div>
   )
-}
+})
 
 function ReferencedModels({ models }: { models: string[] }) {
   const { t } = useTranslation()

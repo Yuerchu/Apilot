@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, memo } from "react"
 import { useTranslation } from "react-i18next"
 import { Copy, ChevronDown, Lock } from "lucide-react"
 import type { ParsedRoute } from "@/lib/openapi/types"
@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import {
   Collapsible,
   CollapsibleTrigger,
-  CollapsibleContent,
+  AnimatedCollapsibleContent,
 } from "@/components/ui/collapsible"
 import { RouteDetail } from "./RouteDetail"
 import { toast } from "sonner"
@@ -31,7 +31,7 @@ const METHOD_COLORS: Record<string, string> = {
   options: "bg-method-options/15 text-method-options border-method-options/30",
 }
 
-export function RouteCard({ route, index }: RouteCardProps) {
+export const RouteCard = memo(function RouteCard({ route, index }: RouteCardProps) {
   const { t } = useTranslation()
   const { state, toggleRoute } = useOpenAPIContext()
   const isSelected = state.selectedRoutes.has(index)
@@ -123,11 +123,11 @@ export function RouteCard({ route, index }: RouteCardProps) {
         </div>
       </CollapsibleTrigger>
 
-      <CollapsibleContent>
+      <AnimatedCollapsibleContent>
         <div className="px-3 pb-3 border-t">
           {detailLoaded && <RouteDetail route={route} index={index} />}
         </div>
-      </CollapsibleContent>
+      </AnimatedCollapsibleContent>
     </Collapsible>
   )
-}
+})

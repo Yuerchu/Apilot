@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { useTranslation } from "react-i18next"
 import type { ParsedRoute } from "@/lib/openapi/types"
 import {
@@ -16,7 +17,7 @@ interface RouteDetailProps {
   index: number
 }
 
-export function RouteDetail({ route, index }: RouteDetailProps) {
+export const RouteDetail = memo(function RouteDetail({ route, index }: RouteDetailProps) {
   const { t } = useTranslation()
   return (
     <Tabs defaultValue="doc" className="mt-3">
@@ -56,4 +57,4 @@ export function RouteDetail({ route, index }: RouteDetailProps) {
       </TabsContents>
     </Tabs>
   )
-}
+})

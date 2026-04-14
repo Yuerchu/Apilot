@@ -1,13 +1,20 @@
+import type { OpenAPIV3, OpenAPIV3_1 } from "openapi-types"
+
+// Re-export standard types for convenience
+export type OpenAPIDocument = OpenAPIV3.Document | OpenAPIV3_1.Document
+
+// Extended spec type that also covers Swagger 2.0 fields (post-conversion)
 export interface OpenAPISpec {
   openapi?: string
   swagger?: string
-  info?: { title?: string; version?: string; description?: string }
+  info?: Record<string, any>
   servers?: ServerObject[]
   paths?: Record<string, PathItem>
   components?: {
     schemas?: Record<string, SchemaObject>
     securitySchemes?: Record<string, SecurityScheme>
   }
+  externalDocs?: { description?: string; url: string }
   definitions?: Record<string, SchemaObject>
   security?: SecurityRequirement[]
   host?: string
@@ -18,11 +25,7 @@ export interface OpenAPISpec {
   securityDefinitions?: Record<string, SecurityScheme>
 }
 
-export interface ServerObject {
-  url: string
-  description?: string
-  variables?: Record<string, { default: string; enum?: string[] }>
-}
+export type ServerObject = OpenAPIV3.ServerObject
 
 export interface PathItem {
   get?: Operation
@@ -50,7 +53,7 @@ export interface Operation {
 
 export interface Parameter {
   name: string
-  in: 'query' | 'header' | 'path' | 'cookie' | 'body' | 'formData'
+  in: "query" | "header" | "path" | "cookie" | "body" | "formData"
   required?: boolean
   description?: string
   schema?: SchemaObject
@@ -71,7 +74,8 @@ export interface MediaTypeObject {
   example?: unknown
 }
 
-export interface SchemaObject {
+// Extended schema with internal marker fields
+export interface SchemaObject extends Record<string, any> {
   type?: string | string[]
   format?: string
   title?: string
@@ -84,7 +88,7 @@ export interface SchemaObject {
   default?: unknown
   example?: unknown
   nullable?: boolean
-  'x-nullable'?: boolean
+  "x-nullable"?: boolean
   allOf?: SchemaObject[]
   anyOf?: SchemaObject[]
   oneOf?: SchemaObject[]
@@ -100,6 +104,7 @@ export interface SchemaObject {
   minItems?: number
   maxItems?: number
   uniqueItems?: boolean
+  // Internal markers (set by resolveRef)
   _circular?: string
   _unresolved?: string
   _nullable?: boolean
@@ -127,6 +132,8 @@ export interface SecurityScheme {
 
 export type SecurityRequirement = Record<string, string[]>
 
+// ---- Application-level types ----
+
 export interface ParsedRoute {
   method: string
   path: string
@@ -143,9 +150,7 @@ export interface ParsedRoute {
 }
 
 export interface ModelRouteMap {
-  /** model name → route indices that reference it */
   modelToRoutes: Record<string, number[]>
-  /** route index → model names it references */
   routeToModels: Record<number, string[]>
 }
 

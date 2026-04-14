@@ -1,18 +1,18 @@
-import { useMemo, useState, useCallback } from "react"
+import { useMemo, useState, useCallback, useRef } from "react"
 import { useTranslation } from "react-i18next"
-import { motion } from "motion/react"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
-import { formatMarkdown, formatYaml } from "@/lib/format-route"
-import { useProgressiveRender } from "@/hooks/use-progressive-render"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ViewToolbar } from "@/components/layout/ViewToolbar"
 import { TagFilter } from "./TagFilter"
 import { RouteCard } from "./RouteCard"
-import { toast } from "sonner"
 
 type FormatType = "markdown" | "yaml"
+
+type VirtualRow =
+  | { type: "group"; tag: string; indices: number[] }
+  | { type: "route"; route: any; index: number }
 
 export function EndpointsView() {
   const { t } = useTranslation()
@@ -27,12 +27,12 @@ export function EndpointsView() {
   const [format, setFormat] = useState<FormatType>("markdown")
   const [includeExamples, setIncludeExamples] = useState(false)
 
-  // Filter routes by search + tags
+  // Filter routes
   const filteredRoutes = useMemo(() => {
     return routes
       .map((r, i) => ({ route: r, index: i }))
       .filter(({ route }) => {
-        if (activeTags.size > 0 && !route.tags.some(t => activeTags.has(t))) return false
+        if (activeTags.size > 0 && !route.tags.some(tg => activeTags.has(tg))) return false
         if (filter) {
           const haystack = `${route.method} ${route.path} ${route.summary} ${route.description} ${route.tags.join(" ")} ${route.operationId}`.toLowerCase()
           if (!haystack.includes(filter.toLowerCase())) return false
@@ -41,19 +41,23 @@ export function EndpointsView() {
       })
   }, [routes, activeTags, filter])
 
-  // Progressive rendering — show first batch immediately, then add more
-  const { visible: visibleRoutes, isComplete } = useProgressiveRender(filteredRoutes, 30, 40)
-
-  // Group by first tag (only visible items)
-  const groupedRoutes = useMemo(() => {
+  // Flatten grouped routes into virtual rows: [group header, route, route, group header, route, ...]
+  const virtualRows = useMemo<VirtualRow[]>(() => {
     const grouped: Record<string, Array<{ route: typeof routes[number]; index: number }>> = {}
-    for (const item of visibleRoutes) {
+    for (const item of filteredRoutes) {
       const tag = item.route.tags[0] || t("endpoints.ungrouped")
       if (!grouped[tag]) grouped[tag] = []
       grouped[tag].push(item)
     }
-    return grouped
-  }, [visibleRoutes, t])
+    const rows: VirtualRow[] = []
+    for (const [tag, items] of Object.entries(grouped)) {
+      rows.push({ type: "group", tag, indices: items.map(it => it.index) })
+      for (const item of items) {
+        rows.push({ type: "route", route: item.route, index: item.index })
+      }
+    }
+    return rows
+  }, [filteredRoutes, t])
 
   const selectedCount = selectedRoutes.size
   const allFilteredIndices = filteredRoutes.map(r => r.index)
@@ -68,18 +72,6 @@ export function EndpointsView() {
     }
   }, [allFilteredIndices, selectRoutes, deselectRoutes])
 
-  const handleCopySelected = useCallback(() => {
-    const selected = routes.filter((_, i) => selectedRoutes.has(i))
-    if (!selected.length) {
-      toast.error(t("toast.selectRoutes"))
-      return
-    }
-    const formatter = format === "markdown" ? formatMarkdown : formatYaml
-    const text = selected.map(r => formatter(r, includeExamples)).join("\n---\n\n")
-    navigator.clipboard.writeText(text).then(() => {
-      toast.success(t("toast.copiedRoutes", { count: selected.length }))
-    })
-  }, [routes, selectedRoutes, format, includeExamples, t])
 
   const handleGroupCheck = useCallback((indices: number[], checked: boolean) => {
     if (checked) {
@@ -89,8 +81,17 @@ export function EndpointsView() {
     }
   }, [selectRoutes, deselectRoutes])
 
+  // Virtual list
+  const parentRef = useRef<HTMLDivElement>(null)
+  const virtualizer = useVirtualizer({
+    count: virtualRows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: (i) => virtualRows[i].type === "group" ? 36 : 44,
+    overscan: 15,
+  })
+
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3 flex-1 min-h-0">
       <ViewToolbar
         selectAllChecked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
         onSelectAllChange={handleSelectAll}
@@ -98,7 +99,6 @@ export function EndpointsView() {
         filter={filter}
         onFilterChange={setFilter}
         selectedCount={selectedCount}
-        onCopy={handleCopySelected}
       >
         <Select value={`${format}${includeExamples ? "-ex" : ""}`} onValueChange={v => {
           const hasEx = v.endsWith("-ex")
@@ -121,55 +121,67 @@ export function EndpointsView() {
       {/* Tag filter */}
       <TagFilter />
 
-      {/* Route groups */}
-      {Object.entries(groupedRoutes).map(([tag, items]) => {
-        const indices = items.map(it => it.index)
-        const allSelected = indices.every(i => selectedRoutes.has(i))
-        const someSelected = indices.some(i => selectedRoutes.has(i))
-
-        return (
-          <div key={tag} className="space-y-2">
-            <div className="flex items-center gap-2 px-1">
-              <div onClick={e => e.stopPropagation()}>
-                <Checkbox
-                  checked={allSelected ? true : someSelected ? "indeterminate" : false}
-                  onCheckedChange={checked => {
-                    handleGroupCheck(indices, checked === true)
-                  }}
-                />
+      {/* Virtualized route list */}
+      <div
+        ref={parentRef}
+        className="overflow-auto flex-1 min-h-0"
+      >
+        <div
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            width: "100%",
+            position: "relative",
+          }}
+        >
+          {virtualizer.getVirtualItems().map(virtualRow => {
+            const row = virtualRows[virtualRow.index]
+            return (
+              <div
+                key={virtualRow.key}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                {row.type === "group" ? (
+                  <div className="flex items-center gap-2 px-1 pb-1 pt-3">
+                    <div onClick={e => e.stopPropagation()}>
+                      <Checkbox
+                        checked={
+                          row.indices.every(i => selectedRoutes.has(i))
+                            ? true
+                            : row.indices.some(i => selectedRoutes.has(i))
+                              ? "indeterminate"
+                              : false
+                        }
+                        onCheckedChange={checked => {
+                          handleGroupCheck(row.indices, checked === true)
+                        }}
+                      />
+                    </div>
+                    <h2 className="text-sm font-semibold text-foreground">{row.tag}</h2>
+                  </div>
+                ) : (
+                  <div className="pb-2">
+                    <RouteCard route={row.route} index={row.index} />
+                  </div>
+                )}
               </div>
-              <h2 className="text-sm font-semibold text-foreground">{tag}</h2>
-            </div>
+            )
+          })}
+        </div>
 
-            <div className="space-y-2">
-              {items.map(({ route, index }, i) => (
-                <motion.div
-                  key={`${route.method}-${route.path}-${index}`}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.15, delay: i < 20 ? i * 0.02 : 0 }}
-                >
-                  <RouteCard route={route} index={index} />
-                </motion.div>
-              ))}
-            </div>
+        {filteredRoutes.length === 0 && routes.length > 0 && (
+          <div className="text-center py-12 text-muted-foreground">
+            <p className="text-sm">{t("endpoints.noMatch")}</p>
           </div>
-        )
-      })}
-
-      {!isComplete && (
-        <div className="space-y-2">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-10 rounded-lg" />
-          ))}
-        </div>
-      )}
-
-      {filteredRoutes.length === 0 && routes.length > 0 && (
-        <div className="text-center py-12 text-muted-foreground">
-          <p className="text-sm">{t("endpoints.noMatch")}</p>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

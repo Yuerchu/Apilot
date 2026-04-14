@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, memo } from "react"
 import { useTranslation } from "react-i18next"
 import type { SchemaObject } from "@/lib/openapi/types"
 import { resolveEffectiveSchema } from "@/lib/openapi/resolve-schema"
@@ -147,7 +147,7 @@ function NestedSchema({
   return null
 }
 
-export function SchemaTree({ schema, maxDepth = 12 }: SchemaTreeProps) {
+export const SchemaTree = memo(function SchemaTree({ schema, maxDepth = 12 }: SchemaTreeProps) {
   const { t } = useTranslation()
   const { topType, topTitle, topDesc, eff } = useMemo(() => {
     return {
@@ -235,4 +235,4 @@ export function SchemaTree({ schema, maxDepth = 12 }: SchemaTreeProps) {
       })()}
     </div>
   )
-}
+})

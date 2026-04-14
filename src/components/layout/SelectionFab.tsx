@@ -5,12 +5,11 @@ import { Button } from "@/components/ui/button"
 
 interface SelectionFabProps {
   count: number
-  label?: string
   onCopy: () => void
   onClear: () => void
 }
 
-export function SelectionFab({ count, label = "个", onCopy, onClear }: SelectionFabProps) {
+export function SelectionFab({ count, onCopy, onClear }: SelectionFabProps) {
   const { t } = useTranslation()
   return (
     <AnimatePresence>
@@ -23,7 +22,7 @@ export function SelectionFab({ count, label = "个", onCopy, onClear }: Selectio
           className="fixed bottom-4 left-4 z-50 flex items-center gap-2 rounded-lg border border-border bg-card p-3 shadow-lg"
         >
           <span className="text-sm">
-            {t("toolbar.selected", { count })} {label}
+            {t("toolbar.selected", { count })}
           </span>
           <Button size="sm" onClick={onCopy}>
             <Copy className="size-3" />

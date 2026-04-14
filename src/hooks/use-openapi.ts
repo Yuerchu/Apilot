@@ -1,4 +1,13 @@
 import { useCallback } from "react"
+import {
+  compileErrors,
+  dereference,
+  parse as parseOpenAPIDocument,
+  validate,
+} from "@readme/openapi-parser"
+import type { ParserOptions, ValidationResult } from "@readme/openapi-parser"
+import { Buffer } from "buffer"
+import YAML from "yaml"
 import i18n from "@/lib/i18n"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import type {
@@ -11,6 +20,60 @@ import type {
 } from "@/lib/openapi/types"
 
 const HTTP_METHODS = ["get", "post", "put", "patch", "delete", "head", "options"] as const
+const globalScope = globalThis as typeof globalThis & { Buffer?: typeof Buffer }
+globalScope.Buffer ??= Buffer
+
+const PARSER_OPTIONS = {
+  dereference: {
+    circular: "ignore",
+  },
+  resolve: {
+    external: true,
+    file: false,
+  },
+} satisfies ParserOptions
+
+type ParserInput = Parameters<typeof parseOpenAPIDocument>[0]
+
+function asParserInput(input: string | OpenAPISpec): ParserInput {
+  return input as ParserInput
+}
+
+function cloneSpec<T>(spec: T): T {
+  return structuredClone(spec)
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function formatValidationError(result: ValidationResult): string {
+  if (result.valid) return ""
+  return compileErrors(result).trim()
+    || result.errors[0]?.message
+    || "Invalid OpenAPI document"
+}
+
+async function parseValidatedSpec(input: string | OpenAPISpec): Promise<{
+  spec: OpenAPISpec
+  sourceSpec: OpenAPISpec
+}> {
+  const parserInput = asParserInput(input)
+  const sourceSpec = await parseOpenAPIDocument(parserInput, PARSER_OPTIONS) as OpenAPISpec
+  const validationInput = typeof input === "string" ? parserInput : asParserInput(cloneSpec(sourceSpec))
+  const validation = await validate(validationInput, PARSER_OPTIONS)
+  if (!validation.valid) {
+    throw new Error(formatValidationError(validation))
+  }
+
+  const dereferenceInput = typeof input === "string" ? parserInput : asParserInput(cloneSpec(sourceSpec))
+  const spec = await dereference(dereferenceInput, PARSER_OPTIONS)
+
+  return {
+    spec: spec as OpenAPISpec,
+    sourceSpec: sourceSpec as OpenAPISpec,
+  }
+}
 
 function resolveServerUrl(srv: ServerObject): string {
   let url = srv.url
@@ -35,7 +98,7 @@ function rewriteRefs(obj: unknown): void {
   for (const v of Object.values(record)) rewriteRefs(v)
 }
 
-function convertV2toV3(s: OpenAPISpec): OpenAPISpec {
+function normalizeSwaggerV2(s: OpenAPISpec): OpenAPISpec {
   const scheme = s.schemes?.[0] || "https"
   const host = s.host || ""
   const basePath = (s.basePath || "").replace(/\/$/, "")
@@ -121,38 +184,6 @@ function convertV2toV3(s: OpenAPISpec): OpenAPISpec {
   return s
 }
 
-function resolveRef(obj: unknown, root: OpenAPISpec, seen: Set<string>): unknown {
-  if (!obj || typeof obj !== "object") return obj
-  const record = obj as Record<string, unknown>
-
-  if (typeof record.$ref === "string") {
-    const refPath = record.$ref.replace(/^#\//, "").split("/")
-    let resolved: unknown = root
-    for (const p of refPath) {
-      resolved = (resolved as Record<string, unknown>)?.[decodeURIComponent(p)]
-    }
-    if (!resolved) return { _unresolved: record.$ref }
-    if (seen.has(record.$ref)) return { _circular: record.$ref }
-    seen.add(record.$ref)
-    const resolvedObj = resolveRef(resolved, root, seen)
-    const siblings = Object.keys(record).filter(k => k !== "$ref")
-    if (siblings.length && typeof resolvedObj === "object" && resolvedObj && !Array.isArray(resolvedObj)) {
-      const merged = { ...(resolvedObj as Record<string, unknown>) }
-      for (const k of siblings) merged[k] = record[k]
-      return merged
-    }
-    return resolvedObj
-  }
-
-  if (Array.isArray(obj)) return obj.map(item => resolveRef(item, root, new Set(seen)))
-
-  const result: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(record)) {
-    result[k] = resolveRef(v, root, new Set(seen))
-  }
-  return result
-}
-
 /** Collect all schema model names referenced via $ref in an operation */
 function collectModelRefs(obj: unknown, found: Set<string>): void {
   if (!obj || typeof obj !== "object") return
@@ -183,12 +214,13 @@ function buildModelRouteMap(routes: ParsedRoute[]): ModelRouteMap {
   return { modelToRoutes, routeToModels }
 }
 
-function parseRoutes(spec: OpenAPISpec): { routes: ParsedRoute[]; allTags: TagInfo[]; modelRouteMap: ModelRouteMap } {
+function extractRoutes(spec: OpenAPISpec, sourceSpec: OpenAPISpec): { routes: ParsedRoute[]; allTags: TagInfo[]; modelRouteMap: ModelRouteMap } {
   const routes: ParsedRoute[] = []
   const tagSet = new Set<string>()
   const tagCounts: Record<string, number> = {}
 
   for (const [path, pathItem] of Object.entries(spec.paths || {})) {
+    const sourcePathItem = sourceSpec.paths?.[path]
     for (const method of HTTP_METHODS) {
       const op = pathItem[method]
       if (!op) continue
@@ -199,21 +231,19 @@ function parseRoutes(spec: OpenAPISpec): { routes: ParsedRoute[]; allTags: TagIn
       })
       // Collect model $refs before resolving
       const refs = new Set<string>()
-      collectModelRefs(op, refs)
+      collectModelRefs(sourcePathItem?.[method] || op, refs)
 
-      const resolved = resolveRef(op, spec, new Set()) as Record<string, unknown>
-      const pathParams = resolveRef(pathItem.parameters || [], spec, new Set()) as Parameter[]
       routes.push({
         method,
         path,
         tags,
-        summary: (resolved.summary as string) || "",
-        description: (resolved.description as string) || "",
-        operationId: (resolved.operationId as string) || "",
-        parameters: [...pathParams, ...((resolved.parameters as Parameter[]) || [])],
-        requestBody: (resolved.requestBody as ParsedRoute["requestBody"]) || null,
-        responses: (resolved.responses as ParsedRoute["responses"]) || {},
-        security: (resolved.security as ParsedRoute["security"]) || spec.security || [],
+        summary: op.summary || "",
+        description: op.description || "",
+        operationId: op.operationId || "",
+        parameters: [...(pathItem.parameters || []), ...(op.parameters || [])],
+        requestBody: op.requestBody || null,
+        responses: op.responses || {},
+        security: op.security || spec.security || [],
         selected: false,
         referencedModels: [...refs],
       })
@@ -254,13 +284,15 @@ export function useOpenAPI() {
   // Yield to UI between heavy parsing steps
   const yieldToUI = () => new Promise<void>(r => requestAnimationFrame(() => setTimeout(r, 0)))
 
-  const processSpec = useCallback(async (spec: OpenAPISpec, url: string) => {
-    if (spec.swagger === "2.0") spec = convertV2toV3(spec)
+  const processSpec = useCallback(async (input: string | OpenAPISpec, url: string) => {
+    const { spec: parsedSpec, sourceSpec } = await parseValidatedSpec(input)
+    let spec = parsedSpec
+    if (spec.swagger === "2.0") spec = normalizeSwaggerV2(spec)
     dispatch({ type: "SET_SPEC", spec })
     dispatch({ type: "SET_SPEC_URL", url })
     // Let loading skeleton render before heavy parsing
     await yieldToUI()
-    const { routes, allTags, modelRouteMap } = parseRoutes(spec)
+    const { routes, allTags, modelRouteMap } = extractRoutes(spec, sourceSpec)
     const baseUrl = detectBaseUrl(spec, url)
     dispatch({ type: "SET_ROUTES", routes, allTags, modelRouteMap })
     dispatch({ type: "SET_BASE_URL", url: baseUrl })
@@ -272,12 +304,9 @@ export function useOpenAPI() {
     dispatch({ type: "SET_LOADING", loading: true })
     dispatch({ type: "SET_ERROR", error: null })
     try {
-      const res = await fetch(url)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const spec: OpenAPISpec = await res.json()
-      await processSpec(spec, url)
+      await processSpec(url, url)
     } catch (e) {
-      dispatch({ type: "SET_ERROR", error: (e as Error).message })
+      dispatch({ type: "SET_ERROR", error: getErrorMessage(e) })
       dispatch({ type: "SET_LOADING", loading: false })
     }
   }, [dispatch, processSpec])
@@ -288,10 +317,19 @@ export function useOpenAPI() {
     const reader = new FileReader()
     reader.onload = async (e) => {
       try {
-        const spec: OpenAPISpec = JSON.parse(e.target?.result as string)
+        const result = e.target?.result
+        if (typeof result !== "string") throw new Error(i18n.t("validation.fileReadFailed"))
+        // Support both JSON and YAML
+        let spec: OpenAPISpec
+        const trimmed = result.trim()
+        if (trimmed.startsWith("{")) {
+          spec = JSON.parse(trimmed) as OpenAPISpec
+        } else {
+          spec = YAML.parse(trimmed) as OpenAPISpec
+        }
         await processSpec(spec, "")
       } catch (err) {
-        dispatch({ type: "SET_ERROR", error: (err as Error).message })
+        dispatch({ type: "SET_ERROR", error: getErrorMessage(err) })
         dispatch({ type: "SET_LOADING", loading: false })
       }
     }
@@ -322,7 +360,7 @@ export function useOpenAPI() {
 
   const getSpecInfo = useCallback(() => {
     if (!state.spec) return null
-    const info = state.spec.info as Record<string, any> || {}
+    const info = state.spec.info || {}
     return {
       title: info.title || "API",
       summary: info.summary || "",
@@ -330,10 +368,10 @@ export function useOpenAPI() {
       description: info.description || "",
       specVersion: state.spec.openapi || state.spec.swagger || "?",
       routeCount: state.routes.length,
-      license: (info.license as { name?: string; url?: string; identifier?: string }) || null,
-      contact: (info.contact as { name?: string; url?: string; email?: string }) || null,
-      termsOfService: (info.termsOfService as string) || null,
-      externalDocs: ((state.spec as any).externalDocs as { description?: string; url: string }) || null,
+      license: info.license || null,
+      contact: info.contact || null,
+      termsOfService: info.termsOfService || null,
+      externalDocs: state.spec.externalDocs || null,
     }
   }, [state.spec, state.routes.length])
 
