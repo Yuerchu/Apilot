@@ -63,6 +63,7 @@ export function AppSidebar({ auth }: AppSidebarProps) {
 
   const detectedTokenUrl = getOAuth2TokenUrl()
 
+  /* eslint-disable react-hooks/set-state-in-effect -- sync initial values from context/spec */
   useEffect(() => {
     if (servers.length && !state.baseUrl) setBaseUrl(servers[0].url)
   }, [servers, state.baseUrl, setBaseUrl])
@@ -74,6 +75,7 @@ export function AppSidebar({ auth }: AppSidebarProps) {
   useEffect(() => {
     if (state.specUrl && !url) setUrl(state.specUrl)
   }, [state.specUrl]) // eslint-disable-line react-hooks/exhaustive-deps
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleLoad = () => {
     if (url.trim()) loadFromUrl(url.trim())

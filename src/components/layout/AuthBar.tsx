@@ -26,6 +26,7 @@ export function AuthBar({ auth }: AuthBarProps) {
 
   const detectedTokenUrl = getOAuth2TokenUrl()
 
+   
   useEffect(() => {
     if (detectedTokenUrl && !oauth2TokenUrl) {
       setOAuth2TokenUrl(detectedTokenUrl)

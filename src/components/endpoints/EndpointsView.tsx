@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback } from "react"
 import { useTranslation } from "react-i18next"
+import { motion } from "motion/react"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { formatMarkdown, formatYaml } from "@/lib/format-route"
 import { useProgressiveRender } from "@/hooks/use-progressive-render"
@@ -52,7 +53,7 @@ export function EndpointsView() {
       grouped[tag].push(item)
     }
     return grouped
-  }, [visibleRoutes])
+  }, [visibleRoutes, t])
 
   const selectedCount = selectedRoutes.size
   const allFilteredIndices = filteredRoutes.map(r => r.index)
@@ -141,8 +142,15 @@ export function EndpointsView() {
             </div>
 
             <div className="space-y-2">
-              {items.map(({ route, index }) => (
-                <RouteCard key={`${route.method}-${route.path}-${index}`} route={route} index={index} />
+              {items.map(({ route, index }, i) => (
+                <motion.div
+                  key={`${route.method}-${route.path}-${index}`}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.15, delay: i < 20 ? i * 0.02 : 0 }}
+                >
+                  <RouteCard route={route} index={index} />
+                </motion.div>
               ))}
             </div>
           </div>

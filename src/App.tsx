@@ -4,6 +4,7 @@ import { OpenAPIProvider, useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { AuthProvider, useAuthContext } from "@/contexts/AuthContext"
 import { useOpenAPI } from "@/hooks/use-openapi"
 import { useSettings } from "@/hooks/use-settings"
+import { motion } from "motion/react"
 import { Header } from "@/components/layout/Header"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AppSidebar } from "@/components/layout/AppSidebar"
@@ -130,7 +131,12 @@ function AppContent() {
 
 function LoadingSkeleton() {
   return (
-    <div className="space-y-4">
+    <motion.div
+      className="space-y-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
       {/* Toolbar skeleton */}
       <div className="flex items-center gap-3">
         <Skeleton className="h-8 w-8" />
@@ -150,6 +156,6 @@ function LoadingSkeleton() {
           </div>
         </div>
       ))}
-    </div>
+    </motion.div>
   )
 }

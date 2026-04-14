@@ -14,6 +14,7 @@ export function useProgressiveRender<T>(
   const prevItemsRef = useRef(items)
 
   // Reset when items array changes (new filter / new spec)
+   
   useEffect(() => {
     if (prevItemsRef.current !== items) {
       prevItemsRef.current = items

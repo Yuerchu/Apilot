@@ -39,6 +39,7 @@ export function RouteCard({ route, index }: RouteCardProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [detailLoaded, setDetailLoaded] = useState(false)
 
+   
   useEffect(() => {
     if (isOpen && !detailLoaded) setDetailLoaded(true)
   }, [isOpen, detailLoaded])

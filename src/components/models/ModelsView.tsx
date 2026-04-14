@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react"
+import { motion } from "motion/react"
 import { useTranslation } from "react-i18next"
 import type { SchemaObject, OpenAPISpec } from "@/lib/openapi/types"
 import { resolveRef } from "@/lib/openapi/resolve-ref"
@@ -100,15 +101,21 @@ export function ModelsView({ spec }: ModelsViewProps) {
 
       {/* Model list */}
       <div className="space-y-2">
-        {visibleNames.map(name => (
-          <ModelCard
+        {visibleNames.map((name, i) => (
+          <motion.div
             key={name}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15, delay: i < 20 ? i * 0.02 : 0 }}
+          >
+          <ModelCard
             name={name}
             schema={schemas[name]}
             spec={spec}
             selected={selectedModels.has(name)}
             onSelectChange={(sel) => handleSelectChange(name, sel)}
           />
+          </motion.div>
         ))}
         {!isComplete && (
           <div className="space-y-2">
