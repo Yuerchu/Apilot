@@ -1,6 +1,6 @@
 export default {
   app: {
-    title: "OpenAPI Advance",
+    title: "Apilot",
     emptyDesc: "Enter an OpenAPI spec URL or upload a local file in the sidebar",
   },
   sidebar: {

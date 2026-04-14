@@ -1,6 +1,6 @@
 export default {
   app: {
-    title: "OpenAPI Advance",
+    title: "Apilot",
     emptyDesc: "在侧边栏中输入 OpenAPI 规范的 URL 或上传本地文件",
   },
   sidebar: {
