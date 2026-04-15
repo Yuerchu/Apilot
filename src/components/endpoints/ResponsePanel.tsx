@@ -53,13 +53,20 @@ export const ResponsePanel = memo(function ResponsePanel({ response, onApplyToke
   const { t } = useTranslation()
   const [headersOpen, setHeadersOpen] = useState(false)
   const [snippetLang, setSnippetLang] = useState("shell-curl")
-  const [snippetCode, setSnippetCode] = useState(response.curlCommand)
+  const snippetKey = useMemo(() => JSON.stringify({
+    lang: snippetLang,
+    method: response.requestMethod,
+    url: response.requestUrl,
+    headers: response.requestHeaders,
+    body: response.requestBody,
+  }), [snippetLang, response.requestMethod, response.requestUrl, response.requestHeaders, response.requestBody])
+  const [generatedSnippet, setGeneratedSnippet] = useState<{ key: string; code: string } | null>(null)
+  const snippetCode = snippetLang === "shell-curl"
+    ? response.curlCommand
+    : generatedSnippet?.key === snippetKey ? generatedSnippet.code : ""
 
   useEffect(() => {
-    if (snippetLang === "shell-curl") {
-      setSnippetCode(response.curlCommand)
-      return
-    }
+    if (snippetLang === "shell-curl") return
     let cancelled = false
     buildSnippet(
       response.requestMethod,
@@ -67,9 +74,11 @@ export const ResponsePanel = memo(function ResponsePanel({ response, onApplyToke
       response.requestHeaders,
       response.requestBody,
       snippetLang,
-    ).then(code => { if (!cancelled) setSnippetCode(code) })
+    ).then(code => {
+      if (!cancelled) setGeneratedSnippet({ key: snippetKey, code })
+    })
     return () => { cancelled = true }
-  }, [snippetLang, response])
+  }, [snippetLang, response, snippetKey])
 
   const { isJson, tokenButtons } = useMemo(() => {
     let isJson = false

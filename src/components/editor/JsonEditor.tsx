@@ -12,7 +12,7 @@ interface JsonEditorProps {
 const theme = EditorView.theme({
   "&": { fontSize: "12px" },
   ".cm-scroller": {
-    fontFamily: "'Maple Mono NF CN', 'JetBrains Mono', 'Fira Code', monospace",
+    fontFamily: "var(--font-mono)",
   },
   ".cm-gutters": {
     border: "none",

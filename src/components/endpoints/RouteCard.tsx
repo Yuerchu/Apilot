@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from "react"
+import { useState, useCallback, memo } from "react"
 import { useTranslation } from "react-i18next"
 import { Copy, ChevronDown, Lock } from "lucide-react"
 import type { ParsedRoute } from "@/lib/openapi/types"
@@ -39,10 +39,10 @@ export const RouteCard = memo(function RouteCard({ route, index }: RouteCardProp
   const [isOpen, setIsOpen] = useState(false)
   const [detailLoaded, setDetailLoaded] = useState(false)
 
-   
-  useEffect(() => {
-    if (isOpen && !detailLoaded) setDetailLoaded(true)
-  }, [isOpen, detailLoaded])
+  const handleOpenChange = useCallback((open: boolean) => {
+    setIsOpen(open)
+    if (open) setDetailLoaded(true)
+  }, [])
 
   const handleCopy = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -63,7 +63,7 @@ export const RouteCard = memo(function RouteCard({ route, index }: RouteCardProp
   return (
     <Collapsible
       open={isOpen}
-      onOpenChange={setIsOpen}
+      onOpenChange={handleOpenChange}
       className={cn(
         "rounded-lg border transition-colors",
         isSelected ? "border-primary/50 bg-primary/5" : "border-border bg-card"
