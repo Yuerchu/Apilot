@@ -1,5 +1,10 @@
 export type {
   OpenAPISpec,
+  OpenAPIInfo,
+  OpenAPISchemaType,
+  JsonObject,
+  JsonPrimitive,
+  JsonValue,
   ServerObject,
   PathItem,
   Operation,

@@ -1,9 +1,18 @@
-import { useState, useMemo, useCallback, memo } from "react"
+import { useState, useMemo, useCallback, useEffect, memo } from "react"
 import { useTranslation } from "react-i18next"
 import { Copy, ChevronDown, ChevronRight, Key } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { buildSnippet, SNIPPET_TARGETS } from "@/lib/build-snippet"
+import { CodeViewer } from "@/components/editor/CodeViewer"
 import type { RequestResponse } from "@/lib/openapi/types"
 import { toast } from "sonner"
 
@@ -22,8 +31,9 @@ function findTokens(obj: Record<string, unknown>, path: string): Array<{ key: st
   const found: Array<{ key: string; value: string; priority: number }> = []
   for (const [k, v] of Object.entries(obj)) {
     const p = path ? `${path}.${k}` : k
-    if (typeof v === "string" && v.length >= 8 && k in TOKEN_KEYS_PRIO) {
-      found.push({ key: p, value: v, priority: TOKEN_KEYS_PRIO[k] })
+    const priority = TOKEN_KEYS_PRIO[k]
+    if (typeof v === "string" && v.length >= 8 && priority !== undefined) {
+      found.push({ key: p, value: v, priority })
     } else if (typeof v === "object" && v && !Array.isArray(v)) {
       found.push(...findTokens(v as Record<string, unknown>, p))
     }
@@ -31,23 +41,6 @@ function findTokens(obj: Record<string, unknown>, path: string): Array<{ key: st
   return found
 }
 
-function highlightJson(str: string): string {
-  return str.replace(
-    /("(?:[^"\\]|\\.)*")(\s*:)?|-?\b\d+\.?\d*(?:[eE][+-]?\d+)?\b|\b(?:true|false)\b|\bnull\b|[{}[\],:]|[^"{}[\],:\s]+/g,
-    (m, strMatch?: string, colon?: string) => {
-      const e = m.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-      if (strMatch) {
-        const eStr = strMatch.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-        if (colon) return `<span class="text-sky-400">${eStr}</span>${colon}`
-        return `<span class="text-emerald-400">${eStr}</span>`
-      }
-      if (/^-?\d/.test(m)) return `<span class="text-orange-400">${e}</span>`
-      if (m === "true" || m === "false") return `<span class="text-violet-400">${e}</span>`
-      if (m === "null") return `<span class="text-red-400">${e}</span>`
-      return e
-    }
-  )
-}
 
 function statusColorClass(status: number): string {
   if (status >= 200 && status < 300) return "bg-method-get/20 text-method-get border-method-get/30"
@@ -59,6 +52,24 @@ function statusColorClass(status: number): string {
 export const ResponsePanel = memo(function ResponsePanel({ response, onApplyToken }: ResponsePanelProps) {
   const { t } = useTranslation()
   const [headersOpen, setHeadersOpen] = useState(false)
+  const [snippetLang, setSnippetLang] = useState("shell-curl")
+  const [snippetCode, setSnippetCode] = useState(response.curlCommand)
+
+  useEffect(() => {
+    if (snippetLang === "shell-curl") {
+      setSnippetCode(response.curlCommand)
+      return
+    }
+    let cancelled = false
+    buildSnippet(
+      response.requestMethod,
+      response.requestUrl,
+      response.requestHeaders,
+      response.requestBody,
+      snippetLang,
+    ).then(code => { if (!cancelled) setSnippetCode(code) })
+    return () => { cancelled = true }
+  }, [snippetLang, response])
 
   const { isJson, tokenButtons } = useMemo(() => {
     let isJson = false
@@ -81,9 +92,9 @@ export const ResponsePanel = memo(function ResponsePanel({ response, onApplyToke
     return { isJson, tokenButtons }
   }, [response.body, response.status])
 
-  const copyCurl = useCallback(() => {
-    navigator.clipboard.writeText(response.curlCommand).then(() => toast.success(t("toast.curlCopied")))
-  }, [response.curlCommand, t])
+  const copySnippet = useCallback(() => {
+    navigator.clipboard.writeText(snippetCode).then(() => toast.success(t("toast.curlCopied")))
+  }, [snippetCode, t])
 
   const copyBody = useCallback(() => {
     navigator.clipboard.writeText(response.body).then(() => toast.success(t("toast.bodyCopied")))
@@ -102,17 +113,35 @@ export const ResponsePanel = memo(function ResponsePanel({ response, onApplyToke
 
   return (
     <div className="space-y-2 mt-3">
-      {response.curlCommand && (
-        <div className="relative rounded-md bg-muted/50 border p-3 font-mono text-xs whitespace-pre-wrap overflow-auto max-h-32">
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="absolute top-2 right-2"
-            onClick={copyCurl}
-          >
-            <Copy className="size-3" />
-          </Button>
-          {response.curlCommand}
+      {snippetCode && (
+        <div className="rounded-md bg-muted/50 border overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30">
+            <Select value={snippetLang} onValueChange={setSnippetLang}>
+              <SelectTrigger className="h-6 w-auto text-[11px] gap-1 border-none bg-transparent shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SNIPPET_TARGETS.map(target => (
+                  <SelectItem key={target.id} value={target.id} className="text-xs">
+                    {target.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex-1" />
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              onClick={copySnippet}
+            >
+              <Copy className="size-3" />
+            </Button>
+          </div>
+          <CodeViewer
+            code={snippetCode}
+            language={SNIPPET_TARGETS.find(s => s.id === snippetLang)?.target || "shell"}
+            maxHeight="160px"
+          />
         </div>
       )}
 
@@ -148,14 +177,10 @@ export const ResponsePanel = memo(function ResponsePanel({ response, onApplyToke
         )}
 
         <div className="border-t">
-          <pre
-            className="p-3 text-xs font-mono whitespace-pre-wrap overflow-auto max-h-[400px] leading-relaxed"
-            dangerouslySetInnerHTML={{
-              __html: isJson ? highlightJson(response.body) : response.body
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-            }}
+          <CodeViewer
+            code={response.body}
+            language={isJson ? "json" : "shell"}
+            maxHeight="400px"
           />
         </div>
 

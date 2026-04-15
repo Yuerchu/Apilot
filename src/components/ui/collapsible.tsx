@@ -30,8 +30,8 @@ function CollapsibleContent({
   return (
     <CollapsiblePrimitive.CollapsibleContent
       data-slot="collapsible-content"
-      forceMount={forceMount}
       className={className}
+      {...(forceMount ? { forceMount } : {})}
       {...props}
     >
       {children}

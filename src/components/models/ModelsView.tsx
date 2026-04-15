@@ -82,6 +82,9 @@ export function ModelsView({ spec }: ModelsViewProps) {
         >
           {virtualizer.getVirtualItems().map(virtualRow => {
             const name = filteredNames[virtualRow.index]
+            if (name === undefined) return null
+            const schema = schemas[name]
+            if (!schema) return null
             return (
               <div
                 key={name}
@@ -98,7 +101,7 @@ export function ModelsView({ spec }: ModelsViewProps) {
                 <div className="pb-2">
                   <ModelCard
                     name={name}
-                    schema={schemas[name]}
+                    schema={schema}
                     selected={selectedModels.has(name)}
                     onSelectChange={() => handleSelectChange(name)}
                   />

@@ -46,36 +46,3 @@ export function formatMarkdown(r: ParsedRoute, includeExamples?: boolean): strin
   return out;
 }
 
-export function formatYaml(r: ParsedRoute, _includeExamples?: boolean): string {
-  let out = `${r.method.toUpperCase()} ${r.path}:\n`;
-  if (r.summary) out += `  summary: ${r.summary}\n`;
-  if (r.description && r.description !== r.summary) out += `  description: ${r.description}\n`;
-  if (r.operationId) out += `  operationId: ${r.operationId}\n`;
-  if (r.parameters?.length) {
-    out += `  parameters:\n`;
-    for (const p of r.parameters) {
-      out += `    - name: ${p.name}\n      in: ${p.in}\n`;
-      if (p.required) out += `      required: true\n`;
-      if (p.schema) out += `      type: ${getTypeStr(p.schema)}\n`;
-      if (p.description) out += `      description: ${p.description}\n`;
-    }
-  }
-  if (r.requestBody) {
-    out += `  requestBody:\n`;
-    if (r.requestBody.required) out += `    required: true\n`;
-    for (const [mt, mo] of Object.entries(r.requestBody.content || {})) {
-      out += `    ${mt}:\n`;
-      if (mo.schema) out += `      schema:\n${formatSchema(mo.schema, 4, 15)}\n`;
-    }
-  }
-  out += `  responses:\n`;
-  for (const [code, resp] of Object.entries(r.responses)) {
-    out += `    ${code}:\n`;
-    if (resp.description) out += `      description: ${resp.description}\n`;
-    for (const [mt, mo] of Object.entries(resp.content || {})) {
-      out += `      ${mt}:\n`;
-      if (mo.schema) out += `        schema:\n${formatSchema(mo.schema, 5, 15)}\n`;
-    }
-  }
-  return out;
-}

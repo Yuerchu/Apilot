@@ -5,12 +5,12 @@ export function resolveEffectiveSchema(schema: SchemaObject | undefined | null):
   let s: SchemaObject = schema;
   // Merge allOf into a flat object
   if (s.allOf) {
-    const merged: Record<string, any> = {};
+    const merged: SchemaObject = {};
     for (const part of s.allOf) Object.assign(merged, part);
     for (const [k, v] of Object.entries(s)) {
       if (k !== 'allOf') merged[k] = v;
     }
-    s = merged as SchemaObject;
+    s = merged;
   }
   let nullable = false;
   // OAS 3.1: type: ["string", "null"] → unwrap to type: "string", nullable
@@ -18,7 +18,7 @@ export function resolveEffectiveSchema(schema: SchemaObject | undefined | null):
     const hasNull = s.type.includes('null');
     const nonNull = s.type.filter(t => t !== 'null');
     if (hasNull) nullable = true;
-    s = { ...s, type: nonNull.length === 1 ? nonNull[0] : nonNull };
+    s = { ...s, type: nonNull.length === 1 ? nonNull[0]! : nonNull };
   }
   // OAS 3.0: nullable: true
   if (s.nullable) nullable = true;

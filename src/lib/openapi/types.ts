@@ -3,11 +3,37 @@ import type { OpenAPIV3, OpenAPIV3_1 } from "openapi-types"
 // Re-export standard types for convenience
 export type OpenAPIDocument = OpenAPIV3.Document | OpenAPIV3_1.Document
 
+export type JsonPrimitive = string | number | boolean | null
+export type JsonValue = JsonPrimitive | JsonObject | JsonValue[]
+export interface JsonObject {
+  [key: string]: JsonValue
+}
+
+export type OpenAPISchemaType =
+  | "array"
+  | "boolean"
+  | "integer"
+  | "null"
+  | "number"
+  | "object"
+  | "string"
+  | "file"
+
+export interface OpenAPIInfo extends Record<string, unknown> {
+  title?: string
+  summary?: string
+  version?: string
+  description?: string
+  license?: unknown
+  contact?: unknown
+  termsOfService?: string
+}
+
 // Extended spec type that also covers Swagger 2.0 fields (post-conversion)
 export interface OpenAPISpec {
   openapi?: string
   swagger?: string
-  info?: Record<string, any>
+  info?: OpenAPIInfo
   servers?: ServerObject[]
   paths?: Record<string, PathItem>
   components?: {
@@ -57,7 +83,7 @@ export interface Parameter {
   required?: boolean
   description?: string
   schema?: SchemaObject
-  type?: string
+  type?: OpenAPISchemaType
   format?: string
   enum?: unknown[]
   default?: unknown
@@ -75,8 +101,8 @@ export interface MediaTypeObject {
 }
 
 // Extended schema with internal marker fields
-export interface SchemaObject extends Record<string, any> {
-  type?: string | string[]
+export interface SchemaObject extends Record<string, unknown> {
+  type?: OpenAPISchemaType | OpenAPISchemaType[]
   format?: string
   title?: string
   description?: string
@@ -165,6 +191,11 @@ export interface RequestResponse {
   headers: Record<string, string>
   body: string
   curlCommand: string
+  // Stored for snippet regeneration in different languages
+  requestMethod: string
+  requestUrl: string
+  requestHeaders: Record<string, string>
+  requestBody: string | null
 }
 
 export interface ValidationError {

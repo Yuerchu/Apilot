@@ -41,8 +41,6 @@ export default {
     noMatch: "No matching routes",
     markdown: "Markdown",
     markdownExample: "Markdown + Examples",
-    yaml: "YAML",
-    yamlExample: "YAML + Examples",
   },
   models: {
     search: "Search models...",
@@ -56,7 +54,7 @@ export default {
     tabs: {
       doc: "Docs",
       test: "Try It",
-      schema: "Schema",
+      schema: "Copy",
     },
     parameters: "Parameters",
     requestBody: "Request Body",

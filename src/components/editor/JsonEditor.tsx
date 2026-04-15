@@ -1,8 +1,7 @@
-import { useRef, useEffect } from "react"
-import { EditorView, lineNumbers, highlightActiveLine } from "@codemirror/view"
-import { EditorState } from "@codemirror/state"
+import CodeMirror from "@uiw/react-codemirror"
 import { json } from "@codemirror/lang-json"
 import { oneDark } from "@codemirror/theme-one-dark"
+import { EditorView } from "@codemirror/view"
 
 interface JsonEditorProps {
   value: string
@@ -10,14 +9,8 @@ interface JsonEditorProps {
   minHeight?: string
 }
 
-const editorTheme = EditorView.theme({
-  "&": {
-    fontSize: "12px",
-    border: "none",
-  },
-  "&.cm-focused": {
-    outline: "none",
-  },
+const theme = EditorView.theme({
+  "&": { fontSize: "12px" },
   ".cm-scroller": {
     fontFamily: "'Maple Mono NF CN', 'JetBrains Mono', 'Fira Code', monospace",
   },
@@ -28,63 +21,22 @@ const editorTheme = EditorView.theme({
 })
 
 export function JsonEditor({ value, onChange, minHeight = "120px" }: JsonEditorProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const viewRef = useRef<EditorView | null>(null)
-  const onChangeRef = useRef(onChange)
-  useEffect(() => { onChangeRef.current = onChange }, [onChange])
-
-  useEffect(() => {
-    if (!containerRef.current) return
-
-    const state = EditorState.create({
-      doc: value,
-      extensions: [
-        lineNumbers(),
-        highlightActiveLine(),
-        json(),
-        oneDark,
-        editorTheme,
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
-            onChangeRef.current(update.state.doc.toString())
-          }
-        }),
-        EditorView.contentAttributes.of({ style: `min-height: ${minHeight}` }),
-      ],
-    })
-
-    const view = new EditorView({
-      state,
-      parent: containerRef.current,
-    })
-
-    viewRef.current = view
-
-    return () => {
-      view.destroy()
-      viewRef.current = null
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Sync external value changes into the editor
-  useEffect(() => {
-    const view = viewRef.current
-    if (!view) return
-    const currentContent = view.state.doc.toString()
-    if (value !== currentContent) {
-      view.dispatch({
-        changes: {
-          from: 0,
-          to: currentContent.length,
-          insert: value,
-        },
-      })
-    }
-  }, [value])
-
   return (
-    <div
-      ref={containerRef}
+    <CodeMirror
+      value={value}
+      onChange={onChange}
+      extensions={[json(), theme]}
+      theme={oneDark}
+      minHeight={minHeight}
+      basicSetup={{
+        lineNumbers: true,
+        highlightActiveLine: true,
+        bracketMatching: true,
+        closeBrackets: true,
+        autocompletion: true,
+        foldGutter: true,
+        indentOnInput: true,
+      }}
       className="overflow-hidden rounded-md [&_.cm-editor]:bg-transparent"
     />
   )

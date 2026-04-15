@@ -8,6 +8,8 @@ import { generateExample } from "@/lib/openapi/generate-example"
 import { formatSchema } from "@/lib/openapi/format-schema"
 import { useAuthContext } from "@/contexts/AuthContext"
 import { useRequest } from "@/hooks/use-request"
+import { SchemaForm } from "@/components/schema/SchemaForm"
+import { JsonEditor } from "@/components/editor/JsonEditor"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -126,7 +128,8 @@ function ParameterField({
         />
         <Button
           variant="outline"
-          size="xs"
+          size="sm"
+          className="h-8 shrink-0"
           type="button"
           onClick={() => wrapOnChange(crypto.randomUUID())}
         >
@@ -159,10 +162,10 @@ function ParameterField({
   }
 
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="relative">
       {renderInput()}
       {hasError && (
-        <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>
+        <span className="absolute -bottom-4 left-0 text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>
       )}
     </div>
   )
@@ -266,230 +269,19 @@ function JsonEditorPane({
   onChange: (v: string) => void
 }) {
   const { t } = useTranslation()
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const preRef = useRef<HTMLPreElement>(null)
-
-  const highlighted = useMemo(() => {
-    return value.replace(
-      /("(?:[^"\\]|\\.)*")(\s*:)?|-?\b\d+\.?\d*(?:[eE][+-]?\d+)?\b|\b(?:true|false)\b|\bnull\b|[{}[\],:]|[^"{}[\],:\s]+/g,
-      (m, strMatch?: string, colon?: string) => {
-        const e = m.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-        if (strMatch) {
-          const eStr = strMatch.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-          if (colon) return `<span class="text-sky-400">${eStr}</span>${colon}`
-          return `<span class="text-emerald-400">${eStr}</span>`
-        }
-        if (/^-?\d/.test(m)) return `<span class="text-orange-400">${e}</span>`
-        if (m === "true" || m === "false") return `<span class="text-violet-400">${e}</span>`
-        if (m === "null") return `<span class="text-red-400">${e}</span>`
-        return e
-      }
-    )
-  }, [value])
-
-  const handleScroll = useCallback(() => {
-    if (textareaRef.current && preRef.current) {
-      preRef.current.scrollTop = textareaRef.current.scrollTop
-      preRef.current.scrollLeft = textareaRef.current.scrollLeft
-    }
-  }, [])
 
   return (
-    <div className="relative rounded-md border overflow-hidden">
+    <div className="rounded-md border overflow-hidden">
       <div className="flex items-center justify-between px-2 py-1 bg-muted/30 border-b">
         <span className="text-[10px] text-muted-foreground font-medium">{t("tryIt.jsonPreview")}</span>
         <span className="text-[10px] text-muted-foreground">{t("tryIt.editable")}</span>
       </div>
-      <div className="relative">
-        <pre
-          ref={preRef}
-          className="p-3 text-xs font-mono whitespace-pre-wrap overflow-auto max-h-[300px] leading-relaxed pointer-events-none"
-          dangerouslySetInnerHTML={{ __html: highlighted }}
-          aria-hidden
-        />
-        <textarea
-          ref={textareaRef}
-          className="absolute inset-0 p-3 text-xs font-mono whitespace-pre-wrap overflow-auto bg-transparent text-transparent caret-foreground resize-none outline-none"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          onScroll={handleScroll}
-          spellCheck={false}
-        />
-      </div>
+      <JsonEditor value={value} onChange={onChange} minHeight="200px" />
     </div>
   )
 }
 
-function SchemaFormFields({
-  schema,
-  prefix,
-  path,
-  values,
-  onChange,
-  showErrors,
-}: {
-  schema: SchemaObject
-  prefix: string
-  path: string[]
-  values: Record<string, unknown>
-  onChange: (fieldPath: string, value: unknown) => void
-  showErrors?: boolean
-}) {
-  const { t } = useTranslation()
-  if (!schema || (!schema.properties && schema.type !== "object")) return null
-  const required = schema.required || []
-
-  return (
-    <div className="space-y-2">
-      {Object.entries(schema.properties || {}).map(([key, prop]) => {
-        const fieldPath = [...path, key].join(".")
-        const isRequired = required.includes(key)
-        const typeStr = getTypeStr(prop)
-        const ep = resolveEffectiveSchema(prop)
-        const isNullable = ep._nullable || false
-        const constraints = getConstraints(ep)
-        const desc = ep.description || prop.description
-
-        // Get current value from nested object
-        let currentVal: unknown = values
-        for (const p of [...path, key]) {
-          currentVal = (currentVal as Record<string, unknown>)?.[p]
-        }
-
-        const fieldEmpty = currentVal === undefined || currentVal === null || currentVal === ""
-        const fieldError = isRequired && fieldEmpty && !!showErrors
-        const fieldErrorClass = fieldError ? "border-destructive focus-visible:ring-destructive/30" : ""
-
-        return (
-          <div key={key} className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-medium">{key}</span>
-              <span className="text-[10px] text-muted-foreground">{typeStr}</span>
-              {isRequired && <span className="text-[10px] text-destructive font-medium">{t("tryIt.required")}</span>}
-              {constraints && <span className="text-[10px] text-muted-foreground">{constraints}</span>}
-              {desc && (
-                <span className="text-[10px] text-muted-foreground truncate max-w-[200px]" title={desc}>
-                  {desc}
-                </span>
-              )}
-            </div>
-
-            {ep.enum ? (
-              <Select
-                value={currentVal != null ? String(currentVal) : ""}
-                onValueChange={v => onChange(fieldPath, v === "__null__" || v === "__empty__" ? null : v)}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder={isNullable ? "null" : t("tryIt.empty")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {isNullable && <SelectItem value="__null__">null</SelectItem>}
-                  {!isRequired && !isNullable && <SelectItem value="__empty__">{t("tryIt.empty")}</SelectItem>}
-                  {ep.enum.map(v => (
-                    <SelectItem key={String(v)} value={String(v)}>{String(v)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : ep.type === "boolean" ? (
-              <button
-                type="button"
-                className={cn(
-                  "h-6 w-10 rounded-full transition-colors relative",
-                  currentVal ? "bg-primary" : "bg-muted"
-                )}
-                onClick={() => onChange(fieldPath, !currentVal)}
-              >
-                <div className={cn(
-                  "size-4 rounded-full bg-white absolute top-1 transition-transform",
-                  currentVal ? "translate-x-5" : "translate-x-1"
-                )} />
-              </button>
-            ) : (ep.type === "object" || ep.properties) ? (
-              <div className="ml-3 border-l-2 border-border/50 pl-3">
-                <SchemaFormFields
-                  schema={ep}
-                  prefix={prefix}
-                  path={[...path, key]}
-                  values={values}
-                  onChange={onChange}
-                  showErrors={showErrors}
-                />
-              </div>
-            ) : ep.type === "array" ? (
-              <textarea
-                className="w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm font-mono resize-y min-h-[60px]"
-                rows={3}
-                value={typeof currentVal === "string" ? currentVal : JSON.stringify(currentVal ?? [], null, 2)}
-                onChange={e => {
-                  try { onChange(fieldPath, JSON.parse(e.target.value)) } catch { onChange(fieldPath, e.target.value) }
-                }}
-              />
-            ) : (ep.type === "integer" || ep.type === "number") ? (
-              <Input
-                type="number"
-                className={cn("h-8 text-sm", fieldErrorClass)}
-                step={ep.type === "integer" ? "1" : "any"}
-                min={ep.minimum}
-                max={ep.maximum}
-                value={currentVal != null ? String(currentVal) : ""}
-                onChange={e => {
-                  const v = e.target.value
-                  onChange(fieldPath, v === "" ? (ep.type === "integer" ? 0 : 0.0) :
-                    ep.type === "integer" ? parseInt(v, 10) : parseFloat(v))
-                }}
-                placeholder={typeStr}
-              />
-            ) : ep.format === "uuid" ? (
-              <div className="flex items-center gap-1">
-                <Input
-                  type="text"
-                  className={cn("h-8 text-sm flex-1", fieldErrorClass)}
-                  value={currentVal != null ? String(currentVal) : ""}
-                  onChange={e => onChange(fieldPath, e.target.value)}
-                  placeholder="UUID"
-                />
-                <Button
-                  variant="outline"
-                  size="xs"
-                  type="button"
-                  onClick={() => onChange(fieldPath, crypto.randomUUID())}
-                >
-                  {t("tryIt.random")}
-                </Button>
-              </div>
-            ) : ep.format === "date-time" ? (
-              <DateTimePicker
-                value={currentVal != null ? String(currentVal) : ""}
-                onChange={v => onChange(fieldPath, v)}
-                mode="datetime"
-              />
-            ) : ep.format === "date" ? (
-              <DateTimePicker
-                value={currentVal != null ? String(currentVal) : ""}
-                onChange={v => onChange(fieldPath, v)}
-                mode="date"
-              />
-            ) : (
-              <Input
-                type={ep.format === "email" ? "email" : (ep.format === "uri" || ep.format === "url") ? "url" : "text"}
-                className={cn("h-8 text-sm", fieldErrorClass)}
-                value={currentVal != null ? String(currentVal) : ""}
-                onChange={e => onChange(fieldPath, e.target.value)}
-                placeholder={ep.format === "email" ? "user@example.com" : (ep.format === "uri" || ep.format === "url") ? "https://example.com" : typeStr}
-                minLength={ep.minLength}
-                maxLength={ep.maxLength}
-                pattern={ep.pattern}
-              />
-            )}
-            {fieldError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-export function TryTab({ route, index }: TryTabProps) {
+export function TryTab({ route, index: _index }: TryTabProps) {
   const { t } = useTranslation()
   const { getAuthHeaders, applyToken } = useAuthContext()
   const { loading, response, error: requestError, sendRequest } = useRequest(getAuthHeaders)
@@ -538,27 +330,11 @@ export function TryTab({ route, index }: TryTabProps) {
   // Sync form → JSON
   const syncingRef = useRef(false)
 
-  const handleFormChange = useCallback((fieldPath: string, value: unknown) => {
+  const handleFormChange = useCallback((newValues: Record<string, unknown>) => {
     if (syncingRef.current) return
     syncingRef.current = true
-
-    setBodyObj(prev => {
-      const next = { ...prev }
-      const parts = fieldPath.split(".")
-      let cur: Record<string, unknown> = next
-      for (let i = 0; i < parts.length - 1; i++) {
-        if (cur[parts[i]] === undefined || typeof cur[parts[i]] !== "object") {
-          cur[parts[i]] = {}
-        }
-        cur[parts[i]] = { ...(cur[parts[i]] as Record<string, unknown>) }
-        cur = cur[parts[i]] as Record<string, unknown>
-      }
-      cur[parts[parts.length - 1]] = value
-      const json = JSON.stringify(next, null, 2)
-      setBodyJson(json)
-      return next
-    })
-
+    setBodyObj(newValues)
+    setBodyJson(JSON.stringify(newValues, null, 2))
     syncingRef.current = false
   }, [])
 
@@ -627,7 +403,7 @@ export function TryTab({ route, index }: TryTabProps) {
           <h4 className="text-sm font-semibold">{t("tryIt.parameters")}</h4>
           <div className="space-y-2 px-0.5">
             {route.parameters.map((p, i) => (
-              <div key={`${p.name}-${i}`} className="grid grid-cols-[120px_50px_1fr_auto] gap-2 items-center">
+              <div key={`${p.name}-${i}`} className="grid grid-cols-[120px_50px_1fr_auto] gap-2 items-center mb-1">
                 <div className="text-sm font-medium truncate">
                   {p.name}
                   {p.required && <span className="text-destructive ml-0.5">*</span>}
@@ -704,11 +480,9 @@ export function TryTab({ route, index }: TryTabProps) {
             ) : hasObjectSchema ? (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2 max-h-[400px] overflow-auto px-1">
-                  <SchemaFormFields
+                  <SchemaForm
                     schema={currentSchema!}
-                    prefix={`bf-${index}`}
-                    path={[]}
-                    values={bodyObj}
+                    value={bodyObj}
                     onChange={handleFormChange}
                     showErrors={showErrors}
                   />

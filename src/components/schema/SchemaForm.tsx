@@ -1,12 +1,15 @@
-import { useCallback, useState } from "react"
+import { useEffect, useRef } from "react"
+import { useForm, Controller, useFieldArray, type Control, type UseFormReturn } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import type { SchemaObject } from "@/lib/openapi"
 import { resolveEffectiveSchema, getTypeStr, getConstraints, generateExample } from "@/lib/openapi"
+import { validateWithSchema } from "@/lib/validate-schema"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { DateTimePicker } from "@/components/ui/date-time-picker"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Select,
   SelectContent,
@@ -15,40 +18,27 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+type SchemaFormValues = Record<string, unknown>
+type ArrayFieldValues = Record<string, unknown[]>
+
 interface SchemaFormProps {
   schema: SchemaObject
-  value: Record<string, any>
-  onChange: (value: Record<string, any>) => void
+  value: SchemaFormValues
+  onChange: (value: SchemaFormValues) => void
   prefix?: string
   showErrors?: boolean
 }
 
-function setNestedValue(
-  obj: Record<string, any>,
-  path: string[],
-  val: unknown,
-): Record<string, any> {
-  const result = { ...obj }
-  let cur: Record<string, any> = result
-  for (let i = 0; i < path.length - 1; i++) {
-    if (cur[path[i]] === undefined || typeof cur[path[i]] !== "object") {
-      cur[path[i]] = {}
-    } else {
-      cur[path[i]] = { ...cur[path[i]] }
+function customResolver(schema: SchemaObject) {
+  return async (values: SchemaFormValues) => {
+    const errors = validateWithSchema(schema, values)
+    if (!errors.length) return { values, errors: {} }
+    const fieldErrors: Record<string, { message: string; type: string }> = {}
+    for (const err of errors) {
+      if (err.field) fieldErrors[err.field] = { message: err.message, type: "validate" }
     }
-    cur = cur[path[i]]
+    return { values: {}, errors: fieldErrors }
   }
-  cur[path[path.length - 1]] = val
-  return result
-}
-
-function getNestedValue(obj: Record<string, any>, path: string[]): unknown {
-  let cur: unknown = obj
-  for (const p of path) {
-    if (cur === undefined || cur === null || typeof cur !== "object") return undefined
-    cur = (cur as Record<string, unknown>)[p]
-  }
-  return cur
 }
 
 function FieldLabel({
@@ -88,41 +78,160 @@ function FieldLabel({
   )
 }
 
+function ArrayField({
+  name,
+  basePath,
+  prop,
+  isRequired,
+  form,
+  showErrors,
+}: {
+  name: string
+  basePath: string
+  prop: SchemaObject
+  isRequired: boolean
+  form: UseFormReturn<SchemaFormValues>
+  showErrors: boolean
+}) {
+  const { t } = useTranslation()
+  const effectiveProp = resolveEffectiveSchema(prop)
+  const typeStr = getTypeStr(prop)
+  const constraints = getConstraints(effectiveProp)
+  const desc = effectiveProp.description || prop.description || ""
+  const fieldName = basePath ? `${basePath}.${name}` : name
+  const itemSchema = effectiveProp.items ? resolveEffectiveSchema(effectiveProp.items as SchemaObject) : null
+  const isObjectItems = itemSchema && (itemSchema.type === "object" || itemSchema.properties)
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control as unknown as Control<ArrayFieldValues>,
+    name: fieldName as never,
+  })
+
+  if (isObjectItems) {
+    return (
+      <div className="space-y-1">
+        <FieldLabel
+          name={name}
+          typeStr={typeStr}
+          isRequired={isRequired}
+          constraints={constraints}
+          description={desc}
+        />
+        <div className="ml-3 pl-3 border-l-2 border-border/50 space-y-3">
+          {fields.map((field, index) => (
+            <div key={field.id} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground font-mono">[{index}]</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs text-destructive"
+                  onClick={() => remove(index)}
+                >
+                  {t("tryIt.remove", "Remove")}
+                </Button>
+              </div>
+              <div className="ml-3 pl-3 border-l-2 border-border/50 space-y-3">
+                <FormFields
+                  schema={itemSchema}
+                  basePath={`${fieldName}.${index}`}
+                  form={form}
+                  showErrors={showErrors}
+                />
+              </div>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => {
+              const example = generateExample(itemSchema)
+              append(example ?? {})
+            }}
+          >
+            {t("tryIt.addItem", "Add item")}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Primitive array items — use a JSON textarea as fallback
+  const example = generateExample(effectiveProp)
+  return (
+    <div className="space-y-1">
+      <FieldLabel
+        name={name}
+        typeStr={typeStr}
+        isRequired={isRequired}
+        constraints={constraints}
+        description={desc}
+      />
+      <Controller
+        name={fieldName}
+        control={form.control}
+        render={({ field }) => {
+          const currentVal = field.value !== undefined
+            ? (typeof field.value === "string" ? field.value : JSON.stringify(field.value, null, 2))
+            : JSON.stringify(example, null, 2)
+          return (
+            <textarea
+              className="w-full min-h-[60px] rounded-md border border-input bg-transparent px-3 py-2 text-xs font-mono shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+              rows={3}
+              value={currentVal}
+              onChange={(e) => {
+                try {
+                  const parsed = JSON.parse(e.target.value)
+                  field.onChange(parsed)
+                } catch {
+                  field.onChange(e.target.value)
+                }
+              }}
+              onBlur={field.onBlur}
+            />
+          )
+        }}
+      />
+    </div>
+  )
+}
+
 function FormField({
   name,
   prop,
   isRequired,
-  path,
-  value,
-  onFieldChange,
+  basePath,
+  form,
   showErrors,
 }: {
   name: string
   prop: SchemaObject
   isRequired: boolean
-  path: string[]
-  value: Record<string, any>
-  onFieldChange: (path: string[], val: unknown) => void
-  showErrors?: boolean
+  basePath: string
+  form: UseFormReturn<SchemaFormValues>
+  showErrors: boolean
 }) {
   const { t } = useTranslation()
-  const [touched, setTouched] = useState(false)
   const effectiveProp = resolveEffectiveSchema(prop)
   const isNullable = effectiveProp._nullable || false
   const typeStr = getTypeStr(prop)
   const constraints = getConstraints(effectiveProp)
   const desc = effectiveProp.description || prop.description || ""
-  const fieldPath = [...path, name]
-  const fieldValue = getNestedValue(value, fieldPath)
-  const isEmpty = fieldValue === undefined || fieldValue === null || fieldValue === ""
-  const hasError = isRequired && isEmpty && (touched || !!showErrors)
+  const fieldName = basePath ? `${basePath}.${name}` : name
+
+  const fieldState = form.getFieldState(fieldName, form.formState)
+  const isEmpty = (() => {
+    const v = form.getValues(fieldName)
+    return v === undefined || v === null || v === ""
+  })()
+  const hasError = isRequired && isEmpty && (fieldState.isTouched || !!showErrors)
   const errorClass = hasError ? "border-destructive focus-visible:ring-destructive/30" : ""
-  const handleBlur = () => setTouched(true)
-  const handleChange = (p: string[], v: unknown) => { if (!touched) setTouched(true); onFieldChange(p, v) }
 
   // Enum
   if (effectiveProp.enum) {
-    const currentVal = fieldValue !== undefined ? String(fieldValue) : ""
     return (
       <div className="space-y-1">
         <FieldLabel
@@ -133,31 +242,37 @@ function FormField({
           description={desc}
         />
         <div className="flex items-center gap-2">
-          <Select
-            value={currentVal}
-            onValueChange={(v) => {
-              onFieldChange(fieldPath, v === "" ? null : v)
-            }}
-          >
-            <SelectTrigger className="w-full h-8 text-xs">
-              <SelectValue placeholder={isNullable ? "null" : t("tryIt.empty")} />
-            </SelectTrigger>
-            <SelectContent>
-              {(isNullable || !isRequired) && (
-                <SelectItem value=" ">{isNullable ? "null" : t("tryIt.empty")}</SelectItem>
-              )}
-              {effectiveProp.enum.map((v) => (
-                <SelectItem key={String(v)} value={String(v)}>
-                  {String(v)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Controller
+            name={fieldName}
+            control={form.control}
+            render={({ field }) => (
+              <Select
+                value={field.value !== undefined ? String(field.value) : ""}
+                onValueChange={(v) => {
+                  field.onChange(v === "" || v === " " ? null : v)
+                }}
+              >
+                <SelectTrigger className="w-full h-8 text-xs">
+                  <SelectValue placeholder={isNullable ? "null" : t("tryIt.empty")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(isNullable || !isRequired) && (
+                    <SelectItem value=" ">{isNullable ? "null" : t("tryIt.empty")}</SelectItem>
+                  )}
+                  {effectiveProp.enum!.map((v) => (
+                    <SelectItem key={String(v)} value={String(v)}>
+                      {String(v)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
           {isNullable && (
             <button
               type="button"
               className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => handleChange(fieldPath, null)}
+              onClick={() => form.setValue(fieldName, null, { shouldTouch: true })}
             >
               ✕
             </button>
@@ -170,7 +285,6 @@ function FormField({
 
   // Boolean
   if (effectiveProp.type === "boolean") {
-    const checked = fieldValue === true
     return (
       <div className="space-y-1">
         <FieldLabel
@@ -180,14 +294,23 @@ function FormField({
           constraints={constraints}
           description={desc}
         />
-        <div className="flex items-center gap-2">
-          <Switch
-            size="sm"
-            checked={checked}
-            onCheckedChange={(v) => onFieldChange(fieldPath, v)}
-          />
-          <span className="text-xs text-muted-foreground">{String(checked)}</span>
-        </div>
+        <Controller
+          name={fieldName}
+          control={form.control}
+          render={({ field }) => {
+            const checked = field.value === true
+            return (
+              <div className="flex items-center gap-2">
+                <Switch
+                  size="sm"
+                  checked={checked}
+                  onCheckedChange={(v) => field.onChange(v)}
+                />
+                <span className="text-xs text-muted-foreground">{String(checked)}</span>
+              </div>
+            )
+          }}
+        />
       </div>
     )
   }
@@ -206,9 +329,9 @@ function FormField({
         <div className="ml-3 pl-3 border-l-2 border-border/50 space-y-3">
           <FormFields
             schema={effectiveProp}
-            path={fieldPath}
-            value={value}
-            onFieldChange={onFieldChange}
+            basePath={fieldName}
+            form={form}
+            showErrors={showErrors}
           />
         </div>
       </div>
@@ -217,43 +340,20 @@ function FormField({
 
   // Array
   if (effectiveProp.type === "array") {
-    const example = generateExample(effectiveProp)
-    const currentVal = fieldValue !== undefined
-      ? (typeof fieldValue === "string" ? fieldValue : JSON.stringify(fieldValue, null, 2))
-      : JSON.stringify(example, null, 2)
     return (
-      <div className="space-y-1">
-        <FieldLabel
-          name={name}
-          typeStr={typeStr}
-          isRequired={isRequired}
-          constraints={constraints}
-          description={desc}
-        />
-        <textarea
-          className="w-full min-h-[60px] rounded-md border border-input bg-transparent px-3 py-2 text-xs font-mono shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
-          rows={3}
-          value={currentVal}
-          onChange={(e) => {
-            try {
-              const parsed = JSON.parse(e.target.value)
-              onFieldChange(fieldPath, parsed)
-            } catch {
-              onFieldChange(fieldPath, e.target.value)
-            }
-          }}
-        />
-      </div>
+      <ArrayField
+        name={name}
+        basePath={basePath}
+        prop={prop}
+        isRequired={isRequired}
+        form={form}
+        showErrors={showErrors}
+      />
     )
   }
 
   // Integer / Number
   if (effectiveProp.type === "integer" || effectiveProp.type === "number") {
-    const def = fieldValue !== undefined
-      ? fieldValue
-      : (effectiveProp.default !== undefined
-        ? effectiveProp.default
-        : (effectiveProp.minimum !== undefined ? effectiveProp.minimum : ""))
     return (
       <div className="space-y-1">
         <FieldLabel
@@ -263,26 +363,37 @@ function FormField({
           constraints={constraints}
           description={desc}
         />
-        <Input
-          type="number"
-          className={cn("h-8 text-xs font-mono", errorClass)}
-          value={def !== null && def !== undefined ? String(def) : ""}
-          step={effectiveProp.type === "integer" ? "1" : "any"}
-          min={effectiveProp.minimum}
-          max={effectiveProp.maximum}
-          placeholder={typeStr}
-          onBlur={handleBlur}
-          onChange={(e) => {
-            if (!touched) setTouched(true)
-            const raw = e.target.value
-            if (raw === "") {
-              handleChange(fieldPath, null)
-            } else {
-              handleChange(
-                fieldPath,
-                effectiveProp.type === "integer" ? parseInt(raw, 10) : parseFloat(raw),
-              )
-            }
+        <Controller
+          name={fieldName}
+          control={form.control}
+          render={({ field }) => {
+            const def = field.value !== undefined
+              ? field.value
+              : (effectiveProp.default !== undefined
+                ? effectiveProp.default
+                : (effectiveProp.minimum !== undefined ? effectiveProp.minimum : ""))
+            return (
+              <Input
+                type="number"
+                className={cn("h-8 text-xs font-mono", errorClass)}
+                value={def !== null && def !== undefined ? String(def) : ""}
+                step={effectiveProp.type === "integer" ? "1" : "any"}
+                min={effectiveProp.minimum}
+                max={effectiveProp.maximum}
+                placeholder={typeStr}
+                onBlur={field.onBlur}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  if (raw === "") {
+                    field.onChange(null)
+                  } else {
+                    field.onChange(
+                      effectiveProp.type === "integer" ? parseInt(raw, 10) : parseFloat(raw),
+                    )
+                  }
+                }}
+              />
+            )
           }}
         />
         {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
@@ -301,13 +412,19 @@ function FormField({
           constraints={constraints}
           description={desc}
         />
-        <Input
-          type="file"
-          className="h-8 text-xs"
-          onChange={(e) => {
-            const file = e.target.files?.[0] ?? null
-            onFieldChange(fieldPath, file)
-          }}
+        <Controller
+          name={fieldName}
+          control={form.control}
+          render={({ field }) => (
+            <Input
+              type="file"
+              className="h-8 text-xs"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null
+                field.onChange(file)
+              }}
+            />
+          )}
         />
       </div>
     )
@@ -326,10 +443,6 @@ function FormField({
   else if (fmt === "email") placeholder = "user@example.com"
   else if (fmt === "uri" || fmt === "url") placeholder = "https://example.com"
 
-  const currentStrVal = fieldValue !== undefined
-    ? String(fieldValue)
-    : (effectiveProp.default !== undefined ? String(effectiveProp.default) : "")
-
   // UUID with random button
   if (fmt === "uuid") {
     return (
@@ -345,18 +458,17 @@ function FormField({
           <Input
             type="text"
             className={cn("h-8 text-xs font-mono flex-1", errorClass)}
-            value={currentStrVal}
+            value={String(form.getValues(fieldName) ?? (effectiveProp.default !== undefined ? effectiveProp.default : ""))}
             placeholder={placeholder}
             minLength={effectiveProp.minLength}
             maxLength={effectiveProp.maxLength}
             pattern={effectiveProp.pattern}
-            onChange={(e) => handleChange(fieldPath, e.target.value)}
-            onBlur={handleBlur}
+            {...form.register(fieldName)}
           />
           <button
             type="button"
             className="shrink-0 h-8 px-2.5 rounded-md border border-input bg-muted/50 text-xs hover:bg-muted transition-colors"
-            onClick={() => handleChange(fieldPath, crypto.randomUUID())}
+            onClick={() => form.setValue(fieldName, crypto.randomUUID(), { shouldTouch: true })}
           >
             {t("tryIt.random")}
           </button>
@@ -377,10 +489,16 @@ function FormField({
           constraints={constraints}
           description={desc}
         />
-        <DateTimePicker
-          value={currentStrVal}
-          onChange={(v) => handleChange(fieldPath, v)}
-          mode={fmt === "date" ? "date" : "datetime"}
+        <Controller
+          name={fieldName}
+          control={form.control}
+          render={({ field }) => (
+            <DateTimePicker
+              value={field.value !== undefined ? String(field.value) : (effectiveProp.default !== undefined ? String(effectiveProp.default) : "")}
+              onChange={(v) => field.onChange(v)}
+              mode={fmt === "date" ? "date" : "datetime"}
+            />
+          )}
         />
         {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
       </div>
@@ -400,13 +518,12 @@ function FormField({
       <Input
         type={inputType}
         className={cn("h-8 text-xs font-mono", errorClass)}
-        value={currentStrVal}
         placeholder={placeholder}
         minLength={effectiveProp.minLength}
         maxLength={effectiveProp.maxLength}
         pattern={effectiveProp.pattern}
-        onChange={(e) => handleChange(fieldPath, e.target.value)}
-        onBlur={handleBlur}
+        defaultValue={effectiveProp.default !== undefined ? String(effectiveProp.default) : ""}
+        {...form.register(fieldName)}
       />
       {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
     </div>
@@ -415,16 +532,14 @@ function FormField({
 
 function FormFields({
   schema,
-  path,
-  value,
-  onFieldChange,
+  basePath,
+  form,
   showErrors,
 }: {
   schema: SchemaObject
-  path: string[]
-  value: Record<string, any>
-  onFieldChange: (path: string[], val: unknown) => void
-  showErrors?: boolean
+  basePath: string
+  form: UseFormReturn<SchemaFormValues>
+  showErrors: boolean
 }) {
   if (!schema.properties) return null
   const required = new Set(schema.required || [])
@@ -437,9 +552,8 @@ function FormFields({
           name={key}
           prop={prop}
           isRequired={required.has(key)}
-          path={path}
-          value={value}
-          onFieldChange={onFieldChange}
+          basePath={basePath}
+          form={form}
           showErrors={showErrors}
         />
       ))}
@@ -447,13 +561,41 @@ function FormFields({
   )
 }
 
-export function SchemaForm({ schema, value, onChange, prefix: _prefix, showErrors }: SchemaFormProps) {
-  const onFieldChange = useCallback(
-    (path: string[], val: unknown) => {
-      onChange(setNestedValue(value, path, val))
-    },
-    [value, onChange],
-  )
+export function SchemaForm({ schema, value, onChange, prefix: _prefix, showErrors = false }: SchemaFormProps) {
+  const form = useForm<SchemaFormValues>({
+    defaultValues: value,
+    resolver: customResolver(schema),
+  })
+
+  const syncingRef = useRef(false)
+  const lastJsonRef = useRef(JSON.stringify(value))
+
+  // Sync form changes to parent
+  useEffect(() => {
+    const sub = form.watch((values) => {
+      if (syncingRef.current) return
+      const json = JSON.stringify(values)
+      if (json === lastJsonRef.current) return
+      lastJsonRef.current = json
+      onChange(values as SchemaFormValues)
+    })
+    return () => sub.unsubscribe()
+  }, [form, onChange])
+
+  // Reset form when external value changes (e.g. from JSON editor)
+  useEffect(() => {
+    const json = JSON.stringify(value)
+    if (json === lastJsonRef.current) return
+    lastJsonRef.current = json
+    syncingRef.current = true
+    form.reset(value, { keepTouched: true })
+    syncingRef.current = false
+  }, [value]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Trigger validation when showErrors becomes true
+  useEffect(() => {
+    if (showErrors) form.trigger()
+  }, [showErrors, form])
 
   if (!schema || (!schema.properties && schema.type !== "object")) {
     return null
@@ -463,9 +605,8 @@ export function SchemaForm({ schema, value, onChange, prefix: _prefix, showError
     <div className="space-y-3">
       <FormFields
         schema={schema}
-        path={[]}
-        value={value}
-        onFieldChange={onFieldChange}
+        basePath=""
+        form={form}
         showErrors={showErrors}
       />
     </div>

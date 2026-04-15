@@ -8,6 +8,6 @@ import "./index.css"
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
-    <Toaster position="bottom-right" theme="dark" />
+    <Toaster position="bottom-left" theme="dark" />
   </StrictMode>,
 )

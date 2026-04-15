@@ -15,6 +15,7 @@ import type {
   ParsedRoute,
   TagInfo,
   Parameter,
+  SchemaObject,
   ServerObject,
   ModelRouteMap,
 } from "@/lib/openapi/types"
@@ -87,31 +88,41 @@ function resolveServerUrl(srv: ServerObject): string {
 
 function rewriteRefs(obj: unknown): void {
   if (!obj || typeof obj !== "object") return
-  if (Array.isArray(obj)) {
-    obj.forEach(rewriteRefs)
-    return
-  }
-  const record = obj as Record<string, unknown>
-  if (typeof record.$ref === "string" && record.$ref.startsWith("#/definitions/")) {
-    record.$ref = record.$ref.replace("#/definitions/", "#/components/schemas/")
-  }
-  for (const v of Object.values(record)) rewriteRefs(v)
+  if (Array.isArray(obj)) { obj.forEach(rewriteRefs); return }
+  const r = obj as Record<string, unknown>
+  if (typeof r.$ref === "string" && r.$ref.startsWith("#/definitions/"))
+    r.$ref = r.$ref.replace("#/definitions/", "#/components/schemas/")
+  for (const v of Object.values(r)) rewriteRefs(v)
 }
 
-function normalizeSwaggerV2(s: OpenAPISpec): OpenAPISpec {
+function schemaFromSwaggerParameter(param: Parameter): SchemaObject {
+  if (param.type === "file") {
+    return {
+      type: "string",
+      format: "binary",
+      description: param.description || "",
+    }
+  }
+
+  const schema: SchemaObject = { type: param.type || "string" }
+  if (param.format) schema.format = param.format
+  if (param.enum) schema.enum = param.enum
+  if (param.default !== undefined) schema.default = param.default
+  if (param.description) schema.description = param.description
+  return schema
+}
+
+function convertSwaggerV2(s: OpenAPISpec): OpenAPISpec {
   const scheme = s.schemes?.[0] || "https"
   const host = s.host || ""
   const basePath = (s.basePath || "").replace(/\/$/, "")
-  if (host) {
-    s.servers = [{ url: `${scheme}://${host}${basePath}`, description: "Converted from Swagger 2.0" }]
-  }
+  if (host) s.servers = [{ url: `${scheme}://${host}${basePath}` }]
 
   if (s.definitions && !s.components) {
     s.components = { schemas: s.definitions }
     rewriteRefs(s.paths)
     rewriteRefs(s.components)
   }
-
   if (s.securityDefinitions) {
     if (!s.components) s.components = {}
     s.components.securitySchemes = s.securityDefinitions
@@ -122,60 +133,32 @@ function normalizeSwaggerV2(s: OpenAPISpec): OpenAPISpec {
     for (const method of HTTP_METHODS) {
       const op = pathItem[method]
       if (!op) continue
-      const params = (op.parameters || []) as Parameter[]
+      const params = op.parameters || []
       const bodyParam = params.find(p => p.in === "body")
       const formParams = params.filter(p => p.in === "formData")
       const consumes = op.consumes || globalConsumes
-
       op.parameters = params.filter(p => p.in !== "body" && p.in !== "formData")
 
       if (bodyParam && !op.requestBody) {
-        const ct = consumes[0] || "application/json"
-        op.requestBody = {
-          required: !!bodyParam.required,
-          content: { [ct]: { schema: bodyParam.schema || {} } },
-        }
+        op.requestBody = { required: !!bodyParam.required, content: { [consumes[0] || "application/json"]: { schema: bodyParam.schema || {} } } }
       } else if (formParams.length && !op.requestBody) {
-        const isFileUpload = formParams.some(p => p.type === "file")
-        const ct = isFileUpload
-          ? "multipart/form-data"
-          : consumes.includes("multipart/form-data")
-            ? "multipart/form-data"
-            : "application/x-www-form-urlencoded"
-        const props: Record<string, Record<string, unknown>> = {}
-        const required: string[] = []
+        const isFile = formParams.some(p => p.type === "file")
+        const ct = isFile ? "multipart/form-data" : consumes.includes("multipart/form-data") ? "multipart/form-data" : "application/x-www-form-urlencoded"
+        const props: Record<string, SchemaObject> = {}
+        const req: string[] = []
         for (const fp of formParams) {
-          if (fp.type === "file") {
-            props[fp.name] = { type: "string", format: "binary", description: fp.description || "" }
-          } else {
-            props[fp.name] = {
-              type: fp.type || "string",
-              format: fp.format,
-              enum: fp.enum,
-              default: fp.default,
-              description: fp.description || "",
-            }
-          }
-          if (fp.required) required.push(fp.name)
+          props[fp.name] = schemaFromSwaggerParameter(fp)
+          if (fp.required) req.push(fp.name)
         }
-        op.requestBody = {
-          content: {
-            [ct]: {
-              schema: {
-                type: "object",
-                properties: props,
-                required: required.length ? required : undefined,
-              },
-            },
-          },
-        }
+        const schema: SchemaObject = { type: "object", properties: props }
+        if (req.length) schema.required = req
+        op.requestBody = { content: { [ct]: { schema } } }
       }
 
       const produces = op.produces || s.produces || ["application/json"]
       for (const resp of Object.values(op.responses || {})) {
         if (resp.schema && !resp.content) {
-          const mt = produces[0] || "application/json"
-          resp.content = { [mt]: { schema: resp.schema } }
+          resp.content = { [produces[0] || "application/json"]: { schema: resp.schema } }
           delete resp.schema
         }
       }
@@ -191,7 +174,8 @@ function collectModelRefs(obj: unknown, found: Set<string>): void {
   if (typeof record.$ref === "string") {
     // Extract model name from #/components/schemas/Foo or #/definitions/Foo
     const match = record.$ref.match(/^#\/(components\/schemas|definitions)\/(.+)$/)
-    if (match) found.add(match[2])
+    const modelName = match?.[2]
+    if (modelName) found.add(modelName)
   }
   if (Array.isArray(obj)) {
     for (const item of obj) collectModelRefs(item, found)
@@ -203,8 +187,8 @@ function collectModelRefs(obj: unknown, found: Set<string>): void {
 function buildModelRouteMap(routes: ParsedRoute[]): ModelRouteMap {
   const modelToRoutes: Record<string, number[]> = {}
   const routeToModels: Record<number, string[]> = {}
-  for (let i = 0; i < routes.length; i++) {
-    const models = routes[i].referencedModels
+  for (const [i, route] of routes.entries()) {
+    const models = route.referencedModels
     routeToModels[i] = models
     for (const m of models) {
       if (!modelToRoutes[m]) modelToRoutes[m] = []
@@ -257,8 +241,9 @@ function extractRoutes(spec: OpenAPISpec, sourceSpec: OpenAPISpec): { routes: Pa
 
 function detectBaseUrl(spec: OpenAPISpec, specUrl: string): string {
   const servers = spec.servers || []
-  if (servers.length) {
-    return resolveServerUrl(servers[0])
+  const firstServer = servers[0]
+  if (firstServer) {
+    return resolveServerUrl(firstServer)
   }
   try {
     const u = new URL(specUrl)
@@ -287,7 +272,7 @@ export function useOpenAPI() {
   const processSpec = useCallback(async (input: string | OpenAPISpec, url: string) => {
     const { spec: parsedSpec, sourceSpec } = await parseValidatedSpec(input)
     let spec = parsedSpec
-    if (spec.swagger === "2.0") spec = normalizeSwaggerV2(spec)
+    if (spec.swagger === "2.0") spec = convertSwaggerV2(spec)
     dispatch({ type: "SET_SPEC", spec })
     dispatch({ type: "SET_SPEC_URL", url })
     // Let loading skeleton render before heavy parsing
@@ -368,8 +353,8 @@ export function useOpenAPI() {
       description: info.description || "",
       specVersion: state.spec.openapi || state.spec.swagger || "?",
       routeCount: state.routes.length,
-      license: info.license || null,
-      contact: info.contact || null,
+      license: (info.license || null) as { name?: string; url?: string; identifier?: string } | null,
+      contact: (info.contact || null) as { name?: string; url?: string; email?: string } | null,
       termsOfService: info.termsOfService || null,
       externalDocs: state.spec.externalDocs || null,
     }

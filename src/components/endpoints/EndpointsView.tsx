@@ -1,18 +1,16 @@
-import { useMemo, useState, useCallback, useRef } from "react"
+import { useMemo, useCallback, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
+import type { ParsedRoute } from "@/lib/openapi/types"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ViewToolbar } from "@/components/layout/ViewToolbar"
 import { TagFilter } from "./TagFilter"
 import { RouteCard } from "./RouteCard"
 
-type FormatType = "markdown" | "yaml"
-
 type VirtualRow =
   | { type: "group"; tag: string; indices: number[] }
-  | { type: "route"; route: any; index: number }
+  | { type: "route"; route: ParsedRoute; index: number }
 
 export function EndpointsView() {
   const { t } = useTranslation()
@@ -23,9 +21,6 @@ export function EndpointsView() {
     setFilter,
   } = useOpenAPIContext()
   const { routes, selectedRoutes, activeTags, filter } = state
-
-  const [format, setFormat] = useState<FormatType>("markdown")
-  const [includeExamples, setIncludeExamples] = useState(false)
 
   // Filter routes
   const filteredRoutes = useMemo(() => {
@@ -86,7 +81,7 @@ export function EndpointsView() {
   const virtualizer = useVirtualizer({
     count: virtualRows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: (i) => virtualRows[i].type === "group" ? 36 : 44,
+    estimateSize: (i) => virtualRows[i]?.type === "group" ? 36 : 44,
     overscan: 15,
   })
 
@@ -99,24 +94,7 @@ export function EndpointsView() {
         filter={filter}
         onFilterChange={setFilter}
         selectedCount={selectedCount}
-      >
-        <Select value={`${format}${includeExamples ? "-ex" : ""}`} onValueChange={v => {
-          const hasEx = v.endsWith("-ex")
-          const fmt = v.replace("-ex", "") as "markdown" | "yaml"
-          setFormat(fmt)
-          setIncludeExamples(hasEx)
-        }}>
-          <SelectTrigger className="w-auto h-8 text-xs gap-1.5">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="markdown">{t("endpoints.markdown")}</SelectItem>
-            <SelectItem value="markdown-ex">{t("endpoints.markdownExample")}</SelectItem>
-            <SelectItem value="yaml">{t("endpoints.yaml")}</SelectItem>
-            <SelectItem value="yaml-ex">{t("endpoints.yamlExample")}</SelectItem>
-          </SelectContent>
-        </Select>
-      </ViewToolbar>
+      />
 
       {/* Tag filter */}
       <TagFilter />
@@ -135,6 +113,7 @@ export function EndpointsView() {
         >
           {virtualizer.getVirtualItems().map(virtualRow => {
             const row = virtualRows[virtualRow.index]
+            if (!row) return null
             return (
               <div
                 key={virtualRow.key}

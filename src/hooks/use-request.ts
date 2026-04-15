@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react"
 import i18n from "@/lib/i18n"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
-import { buildCurl } from "@/lib/build-curl"
+import { buildSnippet } from "@/lib/build-snippet"
+import { validateWithSchema } from "@/lib/validate-schema"
 import type {
   ParsedRoute,
   ValidationError,
@@ -31,29 +32,29 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
   ): ValidationError[] => {
     const errors: ValidationError[] = []
 
+    // Validate required parameters
     for (const p of route.parameters || []) {
       if (p.required && !params[p.name]?.trim()) {
         errors.push({ field: p.name, message: i18n.t("validation.paramRequired", { name: p.name }) })
       }
     }
 
+    // Validate request body with ajv (JSON)
     if (route.requestBody && contentType === "application/json" && body.trim()) {
       try {
         const bodyObj = JSON.parse(body)
         const content = route.requestBody.content || {}
         const schema = content[contentType]?.schema || Object.values(content)[0]?.schema
-        if (schema?.required) {
-          for (const key of schema.required) {
-            if (bodyObj[key] === undefined || bodyObj[key] === null || bodyObj[key] === "") {
-              errors.push({ field: key, message: i18n.t("validation.bodyRequired", { name: key }) })
-            }
-          }
+        const schemaErrors = validateWithSchema(schema, bodyObj)
+        for (const err of schemaErrors) {
+          errors.push({ field: err.field, message: err.message })
         }
       } catch {
-        // JSON parse errors are not validation errors here
+        // JSON parse error — not a schema validation issue
       }
     }
 
+    // Validate formdata required fields
     if (route.requestBody && (contentType === "multipart/form-data" || contentType === "application/x-www-form-urlencoded")) {
       const content = route.requestBody.content || {}
       const schema = content[contentType]?.schema
@@ -84,8 +85,9 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
     }
 
     const validationErrors = validateRequest(route, params, body, contentType, formData)
-    if (validationErrors.length) {
-      setError(validationErrors[0].message)
+    const firstValidationError = validationErrors[0]
+    if (firstValidationError) {
+      setError(firstValidationError.message)
       return null
     }
 
@@ -114,11 +116,9 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
 
     const fetchOpts: RequestInit = { method: route.method.toUpperCase(), headers }
 
-    let curlContentType: string | null = null
     let fetchBody: string | FormData | null = null
 
     if (route.requestBody) {
-      curlContentType = contentType
       if (contentType === "multipart/form-data" || contentType === "application/x-www-form-urlencoded") {
         const form = new FormData()
         if (formData) {
@@ -145,12 +145,13 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
     fetchOpts.headers = headers
     if (fetchBody) fetchOpts.body = fetchBody
 
-    const curlCommand = buildCurl(
+    // Build default curl snippet
+    const bodyStr = typeof fetchBody === "string" ? fetchBody : null
+    const curlCommand = await buildSnippet(
       route.method.toUpperCase(),
       url,
       headers,
-      fetchBody,
-      curlContentType,
+      bodyStr,
     )
 
     const start = performance.now()
@@ -184,6 +185,10 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
         headers: respHeaders,
         body: bodyText,
         curlCommand,
+        requestMethod: route.method.toUpperCase(),
+        requestUrl: url,
+        requestHeaders: headers,
+        requestBody: bodyStr,
       }
       setResponse(result)
       setLoading(false)
@@ -197,6 +202,10 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
         headers: {},
         body: (e as Error).message,
         curlCommand,
+        requestMethod: route.method.toUpperCase(),
+        requestUrl: url,
+        requestHeaders: headers,
+        requestBody: bodyStr,
       }
       setResponse(result)
       setLoading(false)
@@ -219,8 +228,9 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
       const search = (o: Record<string, unknown>, path: string) => {
         for (const [k, v] of Object.entries(o)) {
           const p = path ? `${path}.${k}` : k
-          if (typeof v === "string" && v.length >= 8 && k in TOKEN_KEYS_PRIO) {
-            found.push({ key: p, value: v, priority: TOKEN_KEYS_PRIO[k] })
+          const priority = TOKEN_KEYS_PRIO[k]
+          if (typeof v === "string" && v.length >= 8 && priority !== undefined) {
+            found.push({ key: p, value: v, priority })
           } else if (typeof v === "object" && v && !Array.isArray(v)) {
             search(v as Record<string, unknown>, p)
           }

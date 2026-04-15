@@ -65,7 +65,8 @@ export function AppSidebar({ auth }: AppSidebarProps) {
 
   /* eslint-disable react-hooks/set-state-in-effect -- sync initial values from context/spec */
   useEffect(() => {
-    if (servers.length && !state.baseUrl) setBaseUrl(servers[0].url)
+    const firstServer = servers[0]
+    if (firstServer && !state.baseUrl) setBaseUrl(firstServer.url)
   }, [servers, state.baseUrl, setBaseUrl])
 
   useEffect(() => {

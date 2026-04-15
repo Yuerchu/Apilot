@@ -41,8 +41,6 @@ export default {
     noMatch: "没有匹配的路由",
     markdown: "Markdown",
     markdownExample: "Markdown + 示例",
-    yaml: "YAML",
-    yamlExample: "YAML + 示例",
   },
   models: {
     search: "搜索模型...",
@@ -56,7 +54,7 @@ export default {
     tabs: {
       doc: "文档",
       test: "测试",
-      schema: "Schema",
+      schema: "复制",
     },
     parameters: "Parameters",
     requestBody: "Request Body",

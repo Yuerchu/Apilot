@@ -96,10 +96,9 @@ export function DateTimePicker({
         <PopoverContent className="w-auto p-0" align="start">
           <Calendar
             mode="single"
-            selected={date}
             onSelect={handleDateSelect}
             captionLayout="dropdown"
-            defaultMonth={date}
+            {...(date ? { selected: date, defaultMonth: date } : {})}
           />
           {mode === "datetime" && (
             <div className="border-t px-3 py-2">
