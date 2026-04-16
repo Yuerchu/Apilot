@@ -10,6 +10,7 @@ import type {
 
 interface OpenAPIState {
   spec: OpenAPISpec | null
+  sourceSpec: OpenAPISpec | null
   routes: ParsedRoute[]
   modelRouteMap: ModelRouteMap
   selectedRoutes: Set<number>
@@ -25,7 +26,7 @@ interface OpenAPIState {
 }
 
 type Action =
-  | { type: "SET_SPEC"; spec: OpenAPISpec }
+  | { type: "SET_SPEC"; spec: OpenAPISpec; sourceSpec?: OpenAPISpec }
   | { type: "SET_ROUTES"; routes: ParsedRoute[]; allTags: TagInfo[]; modelRouteMap: ModelRouteMap }
   | { type: "TOGGLE_ROUTE"; index: number }
   | { type: "SELECT_ROUTES"; indices: number[] }
@@ -50,7 +51,7 @@ type Action =
 function reducer(state: OpenAPIState, action: Action): OpenAPIState {
   switch (action.type) {
     case "SET_SPEC":
-      return { ...state, spec: action.spec, error: null }
+      return { ...state, spec: action.spec, sourceSpec: action.sourceSpec ?? action.spec, error: null }
 
     case "SET_ROUTES": {
       return {
@@ -155,6 +156,7 @@ function reducer(state: OpenAPIState, action: Action): OpenAPIState {
 
 const initialState: OpenAPIState = {
   spec: null,
+  sourceSpec: null,
   routes: [],
   modelRouteMap: { modelToRoutes: {}, routeToModels: {} },
   selectedRoutes: new Set(),

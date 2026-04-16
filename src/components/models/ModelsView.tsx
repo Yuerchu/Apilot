@@ -4,21 +4,32 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import type { SchemaObject, OpenAPISpec } from "@/lib/openapi/types"
 import { ModelCard } from "@/components/models/ModelCard"
+import { ModelGraphView } from "@/components/models/ModelGraphView"
 import { ViewToolbar } from "@/components/layout/ViewToolbar"
+import { Button } from "@/components/ui/button"
 
 interface ModelsViewProps {
   spec: OpenAPISpec
+  sourceSpec: OpenAPISpec | null
 }
 
-export function ModelsView({ spec }: ModelsViewProps) {
+type ModelViewMode = "list" | "graph"
+
+export function ModelsView({ spec, sourceSpec }: ModelsViewProps) {
   const { t } = useTranslation()
   const { state, toggleModel, selectAllModels, clearModelSelection } = useOpenAPIContext()
   const selectedModels = state.selectedModels
   const [filter, setFilter] = useState("")
+  const [viewMode, setViewMode] = useState<ModelViewMode>("list")
+  const [graphMounted, setGraphMounted] = useState(false)
 
   const schemas = useMemo(() => {
     return spec.components?.schemas || spec.definitions || {}
   }, [spec]) as Record<string, SchemaObject>
+
+  const graphSchemas = useMemo(() => {
+    return sourceSpec?.components?.schemas || sourceSpec?.definitions || schemas
+  }, [sourceSpec, schemas]) as Record<string, SchemaObject>
 
   const sortedNames = useMemo(() => {
     return Object.keys(schemas).sort()
@@ -41,6 +52,11 @@ export function ModelsView({ spec }: ModelsViewProps) {
       clearModelSelection()
     }
   }, [filteredNames, selectAllModels, clearModelSelection])
+
+  const handleShowGraph = useCallback(() => {
+    setGraphMounted(true)
+    setViewMode("graph")
+  }, [])
 
   const masterChecked = filteredNames.length > 0 && filteredNames.every(n => selectedModels.has(n))
   const masterIndeterminate = !masterChecked && filteredNames.some(n => selectedModels.has(n))
@@ -66,12 +82,31 @@ export function ModelsView({ spec }: ModelsViewProps) {
         totalCount={filteredNames.length}
         totalLabel={t("unit.modelCount")}
         selectedCount={selectedModels.size}
-      />
+      >
+        <div className="flex items-center gap-1 rounded-md border bg-background p-0.5">
+          <Button
+            type="button"
+            variant={viewMode === "list" ? "secondary" : "ghost"}
+            size="xs"
+            onClick={() => setViewMode("list")}
+          >
+            {t("models.listView", "List")}
+          </Button>
+          <Button
+            type="button"
+            variant={viewMode === "graph" ? "secondary" : "ghost"}
+            size="xs"
+            onClick={handleShowGraph}
+          >
+            {t("models.graphView", "Graph")}
+          </Button>
+        </div>
+      </ViewToolbar>
 
       {/* Virtualized model list */}
       <div
         ref={parentRef}
-        className="overflow-auto flex-1 min-h-0"
+        className={viewMode === "list" ? "min-h-0 flex-1 overflow-auto" : "hidden"}
       >
         <div
           style={{
@@ -111,11 +146,22 @@ export function ModelsView({ spec }: ModelsViewProps) {
           })}
         </div>
         {filteredNames.length === 0 && (
-          <div className="text-center py-8 text-sm text-muted-foreground">
+          <div className="py-8 text-center text-sm text-muted-foreground">
             {filter ? t("models.noMatch") : t("models.noModels")}
           </div>
         )}
       </div>
+
+      {graphMounted && (
+        <div className={viewMode === "graph" ? "flex min-h-0 flex-1" : "hidden"}>
+          <ModelGraphView
+            schemas={graphSchemas}
+            filter={filter}
+            selectedModels={selectedModels}
+            modelRouteMap={state.modelRouteMap}
+          />
+        </div>
+      )}
     </div>
   )
 }

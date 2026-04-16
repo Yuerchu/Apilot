@@ -111,7 +111,7 @@ function AppContent() {
           )}
 
           {specLoaded && !state.loading && state.mainView === "models" && (
-            <ModelsView spec={state.spec!} />
+            <ModelsView spec={state.spec!} sourceSpec={state.sourceSpec} />
           )}
         </div>
 

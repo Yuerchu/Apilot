@@ -273,7 +273,7 @@ export function useOpenAPI() {
     const { spec: parsedSpec, sourceSpec } = await parseValidatedSpec(input)
     let spec = parsedSpec
     if (spec.swagger === "2.0") spec = convertSwaggerV2(spec)
-    dispatch({ type: "SET_SPEC", spec })
+    dispatch({ type: "SET_SPEC", spec, sourceSpec })
     dispatch({ type: "SET_SPEC_URL", url })
     // Let loading skeleton render before heavy parsing
     await yieldToUI()
