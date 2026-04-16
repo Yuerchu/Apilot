@@ -8,6 +8,10 @@ export const MODEL_GRAPH_MAX_AUTO_LAYOUT_EDGES = 2400
 export const MODEL_GRAPH_MAX_FOCUSED_LAYOUT_NODES = 1800
 export const MODEL_GRAPH_MAX_FOCUSED_LAYOUT_EDGES = 3600
 export const MODEL_GRAPH_FOCUS_DEPTH = 1
+export const MODEL_GRAPH_FOCUS_DEPTH_OPTIONS = [1, 2, 3] as const
+export const MODEL_GRAPH_EDGE_KINDS = ["extends", "variant", "references"] as const satisfies readonly SchemaGraphEdgeKind[]
+
+export type ModelGraphFocusDepth = (typeof MODEL_GRAPH_FOCUS_DEPTH_OPTIONS)[number]
 
 export type ModelGraphWorkerPhase = "queued" | "parsing" | "layout"
 
@@ -80,6 +84,7 @@ export interface ModelGraphWorkerRequest {
   filter: string
   focusModel?: string
   focusDepth: number
+  edgeKinds: SchemaGraphEdgeKind[]
   schemas?: Record<string, SchemaObject>
 }
 

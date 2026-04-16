@@ -182,7 +182,7 @@ export interface ModelRouteMap {
 
 export type AuthType = "none" | "bearer" | "basic" | "apikey" | "oauth2"
 
-export type MainView = "endpoints" | "models"
+export type MainView = "endpoints" | "models" | "tools"
 
 export interface RequestResponse {
   status: number

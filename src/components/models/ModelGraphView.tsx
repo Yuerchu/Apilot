@@ -19,13 +19,24 @@ import { getTypeStr } from "@/lib/openapi/type-str"
 import { resolveEffectiveSchema } from "@/lib/openapi/resolve-schema"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { SchemaTree } from "@/components/schema/SchemaTree"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 import ModelGraphWorker from "./model-graph.worker.ts?worker&inline"
-import { MODEL_GRAPH_FOCUS_DEPTH } from "./model-graph-types"
+import {
+  MODEL_GRAPH_EDGE_KINDS,
+  MODEL_GRAPH_FOCUS_DEPTH,
+  MODEL_GRAPH_FOCUS_DEPTH_OPTIONS,
+  MODEL_GRAPH_NODE_HEIGHT,
+  MODEL_GRAPH_NODE_WIDTH,
+} from "./model-graph-types"
 import type {
   ModelGraphComputedResult,
+  ModelGraphFocusDepth,
+  ModelGraphLayout,
   ModelGraphLayoutEdge,
+  ModelGraphLayoutNode,
   ModelGraphMetrics,
   ModelGraphTooLargeResult,
   ModelGraphWorkerMessage,
@@ -52,11 +63,16 @@ interface ModelNodeData extends Record<string, unknown> {
 
 type ModelFlowNode = Node<ModelNodeData, "model">
 type ModelFlowEdge = Edge<Record<string, never>, "smoothstep">
+type EnabledEdgeKinds = Record<SchemaGraphEdgeKind, boolean>
 
 interface ModelRelationSummary {
   name: string
   label: string
   kind: SchemaGraphEdgeKind
+}
+
+interface GraphExportOptions {
+  title: string
 }
 
 type GraphState =
@@ -170,10 +186,22 @@ function setCachedResult(
   cache.set(cacheKey, result)
 }
 
-function getGraphCacheKey(filter: string, focusedModel: string | null): string {
+const defaultEnabledEdgeKinds: EnabledEdgeKinds = {
+  extends: true,
+  variant: true,
+  references: true,
+}
+
+function getGraphCacheKey(
+  filter: string,
+  focusedModel: string | null,
+  focusDepth: ModelGraphFocusDepth,
+  edgeKinds: readonly SchemaGraphEdgeKind[],
+): string {
+  const edgeKindsKey = edgeKinds.join(",") || "none"
   return focusedModel
-    ? `focus:${focusedModel}:${MODEL_GRAPH_FOCUS_DEPTH}`
-    : `filter:${filter}`
+    ? `edges:${edgeKindsKey}:focus:${focusedModel}:${focusDepth}`
+    : `edges:${edgeKindsKey}:filter:${filter}`
 }
 
 function getEdgeColor(kind: SchemaGraphEdgeKind): string {
@@ -199,6 +227,191 @@ function toFlowEdge(edge: ModelGraphLayoutEdge): ModelFlowEdge {
   }
 }
 
+function getStaticEdgeColor(kind: SchemaGraphEdgeKind): string {
+  if (kind === "extends") return "#e8e8e8"
+  if (kind === "variant") return "#bba7ff"
+  return "#9ca3af"
+}
+
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+}
+
+function escapeMermaidLabel(value: string): string {
+  return value.replace(/"/g, "'").replace(/\n/g, " ")
+}
+
+function truncate(value: string, maxLength: number): string {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 3)}...` : value
+}
+
+function sanitizeFileName(value: string): string {
+  const sanitized = value
+    .trim()
+    .replace(/[<>:"/\\|?*]/g, "-")
+    .split("")
+    .filter(char => char.charCodeAt(0) >= 32)
+    .join("")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+  return sanitized || "model-graph"
+}
+
+function getLayoutBounds(nodes: ModelGraphLayoutNode[]) {
+  if (!nodes.length) {
+    return { minX: 0, minY: 0, maxX: MODEL_GRAPH_NODE_WIDTH, maxY: MODEL_GRAPH_NODE_HEIGHT }
+  }
+
+  let minX = Number.POSITIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+
+  for (const node of nodes) {
+    minX = Math.min(minX, node.position.x)
+    minY = Math.min(minY, node.position.y)
+    maxX = Math.max(maxX, node.position.x + MODEL_GRAPH_NODE_WIDTH)
+    maxY = Math.max(maxY, node.position.y + MODEL_GRAPH_NODE_HEIGHT)
+  }
+
+  return { minX, minY, maxX, maxY }
+}
+
+function makeGraphSvg(layout: ModelGraphLayout, options: GraphExportOptions): string {
+  const padding = 48
+  const bounds = getLayoutBounds(layout.nodes)
+  const width = Math.ceil(bounds.maxX - bounds.minX + padding * 2)
+  const height = Math.ceil(bounds.maxY - bounds.minY + padding * 2)
+  const offsetX = padding - bounds.minX
+  const offsetY = padding - bounds.minY
+  const nodeById = new Map(layout.nodes.map(node => [node.id, node]))
+
+  const edges = layout.edges.map(edge => {
+    const source = nodeById.get(edge.source)
+    const target = nodeById.get(edge.target)
+    if (!source || !target) return ""
+
+    const sourceX = source.position.x + offsetX + MODEL_GRAPH_NODE_WIDTH
+    const sourceY = source.position.y + offsetY + MODEL_GRAPH_NODE_HEIGHT / 2
+    const targetX = target.position.x + offsetX
+    const targetY = target.position.y + offsetY + MODEL_GRAPH_NODE_HEIGHT / 2
+    const midX = sourceX + (targetX - sourceX) / 2
+    const color = getStaticEdgeColor(edge.kind)
+    const labelX = (sourceX + targetX) / 2
+    const labelY = (sourceY + targetY) / 2 - 6
+    const label = truncate(edge.label, 28)
+
+    return `
+      <path d="M ${sourceX} ${sourceY} C ${midX} ${sourceY}, ${midX} ${targetY}, ${targetX} ${targetY}" fill="none" stroke="${color}" stroke-width="1.4" marker-end="url(#arrow-${edge.kind})" opacity="0.9" />
+      ${label ? `<text x="${labelX}" y="${labelY}" text-anchor="middle" fill="#a3a3a3" font-size="10" font-family="ui-monospace, monospace">${escapeXml(label)}</text>` : ""}`
+  }).join("")
+
+  const nodes = layout.nodes.map(node => {
+    const x = node.position.x + offsetX
+    const y = node.position.y + offsetY
+    const name = truncate(node.data.name, 26)
+    const type = truncate(node.data.type, 32)
+
+    return `
+      <g>
+        <rect x="${x}" y="${y}" width="${MODEL_GRAPH_NODE_WIDTH}" height="${MODEL_GRAPH_NODE_HEIGHT}" rx="6" fill="#171717" stroke="#3f3f46" stroke-width="1" />
+        <text x="${x + 14}" y="${y + 25}" fill="#f4f4f5" font-size="14" font-weight="600" font-family="ui-monospace, monospace">${escapeXml(name)}</text>
+        <text x="${x + 14}" y="${y + 45}" fill="#a1a1aa" font-size="11" font-family="system-ui, sans-serif">${escapeXml(type)}</text>
+        <text x="${x + 14}" y="${y + 65}" fill="#d4d4d8" font-size="10" font-family="system-ui, sans-serif">${node.data.fieldCount} fields</text>
+      </g>`
+  }).join("")
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeXml(options.title)}">
+  <defs>
+    ${MODEL_GRAPH_EDGE_KINDS.map(kind => {
+      const color = getStaticEdgeColor(kind)
+      return `<marker id="arrow-${kind}" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 8 3 L 0 6 z" fill="${color}" /></marker>`
+    }).join("")}
+  </defs>
+  <rect width="100%" height="100%" fill="#0f0f10" />
+  <text x="24" y="30" fill="#f4f4f5" font-size="14" font-weight="600" font-family="system-ui, sans-serif">${escapeXml(options.title)}</text>
+  <text x="24" y="50" fill="#a1a1aa" font-size="11" font-family="system-ui, sans-serif">${layout.visibleNodeCount} models / ${layout.visibleEdgeCount} relations</text>
+  <g transform="translate(0, 24)">
+    ${edges}
+    ${nodes}
+  </g>
+</svg>`
+}
+
+function makeMermaid(layout: ModelGraphLayout): string {
+  const nodeIds = new Map(layout.nodes.map((node, index) => [node.id, `n${index}`]))
+  const lines = ["flowchart LR"]
+
+  for (const node of layout.nodes) {
+    const id = nodeIds.get(node.id)
+    if (!id) continue
+    lines.push(`  ${id}["${escapeMermaidLabel(node.data.name)}"]`)
+  }
+
+  for (const edge of layout.edges) {
+    const source = nodeIds.get(edge.source)
+    const target = nodeIds.get(edge.target)
+    if (!source || !target) continue
+    const label = escapeMermaidLabel(edge.label || edge.kind)
+    lines.push(`  ${source} -->|"${label}"| ${target}`)
+  }
+
+  return `${lines.join("\n")}\n`
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.download = filename
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
+function downloadText(content: string, filename: string, type: string) {
+  downloadBlob(new Blob([content], { type }), filename)
+}
+
+async function downloadPngFromSvg(svg: string, filename: string): Promise<void> {
+  const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" })
+  const url = URL.createObjectURL(svgBlob)
+
+  try {
+    const image = new Image()
+    image.decoding = "async"
+    const loaded = new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve()
+      image.onerror = () => reject(new Error("Could not render SVG"))
+    })
+    image.src = url
+    await loaded
+
+    const canvas = document.createElement("canvas")
+    canvas.width = image.naturalWidth
+    canvas.height = image.naturalHeight
+    const context = canvas.getContext("2d")
+    if (!context) throw new Error("Canvas is not available")
+    context.drawImage(image, 0, 0)
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(result => {
+        if (result) resolve(result)
+        else reject(new Error("Could not create PNG"))
+      }, "image/png")
+    })
+    downloadBlob(blob, filename)
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
 function formatCount(value: number | undefined): string {
   return value === undefined ? "-" : value.toLocaleString()
 }
@@ -208,6 +421,133 @@ function MetricItem({ label, value }: { label: string; value: number | undefined
     <div className="rounded-md border bg-background px-3 py-2">
       <div className="text-[11px] text-muted-foreground">{label}</div>
       <div className="mt-1 font-mono text-sm text-foreground">{formatCount(value)}</div>
+    </div>
+  )
+}
+
+function getEdgeKindLabel(t: ReturnType<typeof useTranslation>["t"], kind: SchemaGraphEdgeKind): string {
+  if (kind === "extends") return t("models.edgeExtends", "Inheritance")
+  if (kind === "variant") return t("models.edgeVariant", "Union")
+  return t("models.edgeReferences", "References")
+}
+
+function GraphOptionsBar({
+  focusedModel,
+  enabledEdgeKinds,
+  focusDepth,
+  canExport,
+  onToggleEdgeKind,
+  onFocusDepthChange,
+  onClearFocus,
+  onExportSvg,
+  onExportPng,
+  onCopyMermaid,
+}: {
+  focusedModel: string | null
+  enabledEdgeKinds: EnabledEdgeKinds
+  focusDepth: ModelGraphFocusDepth
+  canExport: boolean
+  onToggleEdgeKind: (kind: SchemaGraphEdgeKind) => void
+  onFocusDepthChange: (depth: ModelGraphFocusDepth) => void
+  onClearFocus: () => void
+  onExportSvg: () => void
+  onExportPng: () => void
+  onCopyMermaid: () => void
+}) {
+  const { t } = useTranslation()
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+
+  const handleExportAction = (action: () => void) => {
+    setExportMenuOpen(false)
+    action()
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-2 py-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <span className="px-1 text-xs text-muted-foreground">
+          {t("models.relationTypes", "Relations")}
+        </span>
+        {MODEL_GRAPH_EDGE_KINDS.map(kind => (
+          <Button
+            key={kind}
+            type="button"
+            variant={enabledEdgeKinds[kind] ? "secondary" : "ghost"}
+            size="xs"
+            onClick={() => onToggleEdgeKind(kind)}
+          >
+            {getEdgeKindLabel(t, kind)}
+          </Button>
+        ))}
+      </div>
+
+      {focusedModel && (
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="max-w-[220px] truncate px-1 font-mono text-xs text-muted-foreground" title={focusedModel}>
+            {focusedModel}
+          </span>
+          <span className="px-1 text-xs text-muted-foreground">
+            {t("models.focusDepth", "Depth")}
+          </span>
+          {MODEL_GRAPH_FOCUS_DEPTH_OPTIONS.map(depth => (
+            <Button
+              key={depth}
+              type="button"
+              variant={focusDepth === depth ? "secondary" : "ghost"}
+              size="xs"
+              onClick={() => onFocusDepthChange(depth)}
+            >
+              {depth}
+            </Button>
+          ))}
+          <Button type="button" variant="ghost" size="xs" onClick={onClearFocus}>
+            {t("models.showFullGraph", "Full graph")}
+          </Button>
+        </div>
+      )}
+
+      <Popover
+        open={canExport && exportMenuOpen}
+        onOpenChange={open => setExportMenuOpen(canExport && open)}
+      >
+        <PopoverTrigger asChild>
+          <Button type="button" variant="ghost" size="xs" disabled={!canExport}>
+            {t("models.exportGraph", "Export")}
+            <span aria-hidden className="size-0 border-x-[3px] border-t-[4px] border-x-transparent border-t-current" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-32 p-1">
+          <div className="flex flex-col gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="w-full justify-start"
+              onClick={() => handleExportAction(onExportSvg)}
+            >
+              SVG
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="w-full justify-start"
+              onClick={() => handleExportAction(onExportPng)}
+            >
+              PNG
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              className="w-full justify-start"
+              onClick={() => handleExportAction(onCopyMermaid)}
+            >
+              Mermaid
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
     </div>
   )
 }
@@ -484,8 +824,10 @@ function useWorkerGraphResult(
   filter: string,
   schemaCount: number,
   focusedModel: string | null,
+  focusDepth: ModelGraphFocusDepth,
+  edgeKinds: readonly SchemaGraphEdgeKind[],
 ) {
-  const cacheKey = getGraphCacheKey(filter, focusedModel)
+  const cacheKey = getGraphCacheKey(filter, focusedModel, focusDepth, edgeKinds)
   const [graphState, setGraphState] = useState<GraphState>({
     status: "loading",
     schemas,
@@ -570,7 +912,8 @@ function useWorkerGraphResult(
       schemaId,
       schemaCount,
       filter,
-      focusDepth: MODEL_GRAPH_FOCUS_DEPTH,
+      focusDepth,
+      edgeKinds: [...edgeKinds],
     }
 
     if (focusedModel) {
@@ -588,7 +931,7 @@ function useWorkerGraphResult(
       worker.removeEventListener("message", handleMessage)
       worker.removeEventListener("error", handleError)
     }
-  }, [schemas, filter, schemaCount, focusedModel, cacheKey])
+  }, [schemas, filter, schemaCount, focusedModel, focusDepth, edgeKinds, cacheKey])
 
   const cachedResult = getCachedResult(schemas, cacheKey)
   const currentResult = getCurrentResult(cachedResult, graphState, schemas, cacheKey)
@@ -607,10 +950,23 @@ function useWorkerGraphResult(
 export function ModelGraphView({ schemas, filter, selectedModels, modelRouteMap }: ModelGraphViewProps) {
   const { t } = useTranslation()
   const [focusedModel, setFocusedModel] = useState<string | null>(null)
+  const [focusDepth, setFocusDepth] = useState<ModelGraphFocusDepth>(MODEL_GRAPH_FOCUS_DEPTH)
+  const [enabledEdgeKinds, setEnabledEdgeKinds] = useState<EnabledEdgeKinds>(defaultEnabledEdgeKinds)
   const normalizedFilter = filter.trim().toLowerCase()
   const schemaCount = useMemo(() => Object.keys(schemas).length, [schemas])
   const activeFocusedModel = focusedModel && schemas[focusedModel] ? focusedModel : null
-  const { result, error, loading } = useWorkerGraphResult(schemas, normalizedFilter, schemaCount, activeFocusedModel)
+  const enabledEdgeKindList = useMemo(
+    () => MODEL_GRAPH_EDGE_KINDS.filter(kind => enabledEdgeKinds[kind]),
+    [enabledEdgeKinds],
+  )
+  const { result, error, loading } = useWorkerGraphResult(
+    schemas,
+    normalizedFilter,
+    schemaCount,
+    activeFocusedModel,
+    focusDepth,
+    enabledEdgeKindList,
+  )
 
   const layout = result?.status === "ready" ? result.layout : null
   const tooLargeResult = result?.status === "too-large" ? result : null
@@ -625,6 +981,46 @@ export function ModelGraphView({ schemas, filter, selectedModels, modelRouteMap 
   const handleFocusModel = useCallback((name: string) => {
     setFocusedModel(name)
   }, [])
+  const handleToggleEdgeKind = useCallback((kind: SchemaGraphEdgeKind) => {
+    setEnabledEdgeKinds(current => ({
+      ...current,
+      [kind]: !current[kind],
+    }))
+  }, [])
+  const handleFocusDepthChange = useCallback((depth: ModelGraphFocusDepth) => {
+    setFocusDepth(depth)
+  }, [])
+  const exportTitle = activeFocusedModel
+    ? `Model graph: ${activeFocusedModel}`
+    : normalizedFilter
+      ? `Model graph: ${normalizedFilter}`
+      : "Model graph"
+  const exportFileBase = sanitizeFileName(
+    activeFocusedModel
+      ? `model-graph-${activeFocusedModel}`
+      : normalizedFilter
+        ? `model-graph-${normalizedFilter}`
+        : "model-graph",
+  )
+  const handleExportSvg = useCallback(() => {
+    if (!layout) return
+    const svg = makeGraphSvg(layout, { title: exportTitle })
+    downloadText(svg, `${exportFileBase}.svg`, "image/svg+xml;charset=utf-8")
+    toast.success(t("toast.graphSvgExported", "SVG exported"))
+  }, [exportFileBase, exportTitle, layout, t])
+  const handleExportPng = useCallback(() => {
+    if (!layout) return
+    const svg = makeGraphSvg(layout, { title: exportTitle })
+    void downloadPngFromSvg(svg, `${exportFileBase}.png`)
+      .then(() => toast.success(t("toast.graphPngExported", "PNG exported")))
+      .catch(() => toast.error(t("toast.graphExportFailed", "Graph export failed")))
+  }, [exportFileBase, exportTitle, layout, t])
+  const handleCopyMermaid = useCallback(() => {
+    if (!layout) return
+    navigator.clipboard.writeText(makeMermaid(layout))
+      .then(() => toast.success(t("toast.graphMermaidCopied", "Mermaid copied")))
+      .catch(() => toast.error(t("toast.graphExportFailed", "Graph export failed")))
+  }, [layout, t])
 
   const nodes = useMemo<ModelFlowNode[]>(
     () => (layout?.nodes ?? []).map(node => {
@@ -671,29 +1067,43 @@ export function ModelGraphView({ schemas, filter, selectedModels, modelRouteMap 
 
   return (
     <div className="mb-4 flex min-h-[420px] flex-1 flex-col gap-3 xl:flex-row">
-      <div className="min-h-[420px] min-w-0 flex-1 overflow-hidden rounded-lg border bg-card">
-        <ReactFlow
-          key={flowKey}
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          colorMode="dark"
-          style={{ background: "var(--color-card)" }}
-          fitView
-          fitViewOptions={{ padding: 0.2 }}
-          minZoom={0.2}
-          maxZoom={1.5}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          edgesReconnectable={false}
-          elementsSelectable={false}
-          onlyRenderVisibleElements
-          proOptions={{ hideAttribution: true }}
-          onNodeClick={(_, node) => setFocusedModel(node.data.name)}
-        >
-          <Background color="var(--color-border)" gap={18} />
-          <Controls showInteractive={false} />
-        </ReactFlow>
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <GraphOptionsBar
+          focusedModel={activeFocusedModel}
+          enabledEdgeKinds={enabledEdgeKinds}
+          focusDepth={focusDepth}
+          canExport={!!layout}
+          onToggleEdgeKind={handleToggleEdgeKind}
+          onFocusDepthChange={handleFocusDepthChange}
+          onClearFocus={handleClearFocus}
+          onExportSvg={handleExportSvg}
+          onExportPng={handleExportPng}
+          onCopyMermaid={handleCopyMermaid}
+        />
+        <div className="min-h-[420px] min-w-0 flex-1 overflow-hidden rounded-lg border bg-card">
+          <ReactFlow
+            key={flowKey}
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            colorMode="dark"
+            style={{ background: "var(--color-card)" }}
+            fitView
+            fitViewOptions={{ padding: 0.2 }}
+            minZoom={0.2}
+            maxZoom={1.5}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            edgesReconnectable={false}
+            elementsSelectable={false}
+            onlyRenderVisibleElements
+            proOptions={{ hideAttribution: true }}
+            onNodeClick={(_, node) => setFocusedModel(node.data.name)}
+          >
+            <Background color="var(--color-border)" gap={18} />
+            <Controls showInteractive={false} />
+          </ReactFlow>
+        </div>
       </div>
 
       {activeFocusedModel && focusedSchema && (

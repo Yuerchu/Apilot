@@ -12,6 +12,7 @@ import { AppSidebar } from "@/components/layout/AppSidebar"
 import { SelectionFab } from "@/components/layout/SelectionFab"
 import { EndpointsView } from "@/components/endpoints/EndpointsView"
 import { ModelsView } from "@/components/models/ModelsView"
+import { ProjectToolsView } from "@/components/tools/ProjectToolsView"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { toast } from "sonner"
 
@@ -112,6 +113,10 @@ function AppContent() {
 
           {specLoaded && !state.loading && state.mainView === "models" && (
             <ModelsView spec={state.spec!} sourceSpec={state.sourceSpec} />
+          )}
+
+          {specLoaded && !state.loading && state.mainView === "tools" && (
+            <ProjectToolsView spec={state.spec!} sourceSpec={state.sourceSpec} />
           )}
         </div>
 

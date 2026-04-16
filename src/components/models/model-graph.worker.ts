@@ -1,5 +1,5 @@
 import dagre from "@dagrejs/dagre"
-import { buildSchemaGraph, type SchemaGraph, type SchemaGraphEdge, type SchemaGraphNode } from "@/lib/openapi/schema-graph"
+import { buildSchemaGraph, type SchemaGraph, type SchemaGraphEdge, type SchemaGraphEdgeKind, type SchemaGraphNode } from "@/lib/openapi/schema-graph"
 import {
   MODEL_GRAPH_MAX_AUTO_LAYOUT_EDGES,
   MODEL_GRAPH_MAX_AUTO_LAYOUT_NODES,
@@ -43,7 +43,7 @@ function postProgress(requestId: number, phase: "parsing" | "layout", metrics: M
   })
 }
 
-function getVisibleNames(graph: SchemaGraph, filter: string): Set<string> {
+function getVisibleNames(graph: SchemaGraph, edges: SchemaGraphEdge[], filter: string): Set<string> {
   const query = filter.trim().toLowerCase()
   if (!query) return new Set(graph.nodes.map(node => node.id))
 
@@ -53,7 +53,7 @@ function getVisibleNames(graph: SchemaGraph, filter: string): Set<string> {
       .map(node => node.id),
   )
 
-  for (const edge of graph.edges) {
+  for (const edge of edges) {
     if (visible.has(edge.source) || visible.has(edge.target)) {
       visible.add(edge.source)
       visible.add(edge.target)
@@ -63,14 +63,14 @@ function getVisibleNames(graph: SchemaGraph, filter: string): Set<string> {
   return visible
 }
 
-function getFocusedNames(graph: SchemaGraph, focusModel: string, focusDepth: number): Set<string> {
+function getFocusedNames(edges: SchemaGraphEdge[], focusModel: string, focusDepth: number): Set<string> {
   const visible = new Set<string>([focusModel])
   let frontier = new Set<string>([focusModel])
   const maxDepth = Math.max(1, focusDepth)
 
   for (let depth = 0; depth < maxDepth; depth += 1) {
     const nextFrontier = new Set<string>()
-    for (const edge of graph.edges) {
+    for (const edge of edges) {
       if (frontier.has(edge.source) && !visible.has(edge.target)) {
         visible.add(edge.target)
         nextFrontier.add(edge.target)
@@ -96,10 +96,17 @@ function getConnectedNames(edges: ModelGraphLayoutEdge[]): Set<string> {
   return connected
 }
 
+function getEnabledEdges(graph: SchemaGraph, edgeKinds: SchemaGraphEdgeKind[]): SchemaGraphEdge[] {
+  const enabledKinds = new Set(edgeKinds)
+  if (!enabledKinds.size) return []
+  return graph.edges.filter(edge => enabledKinds.has(edge.kind))
+}
+
 function getRequestCacheKey(request: ModelGraphWorkerRequest): string {
+  const edgeKindsKey = request.edgeKinds.join(",") || "none"
   return request.focusModel
-    ? `focus:${request.focusModel}:${request.focusDepth}`
-    : `filter:${request.filter}`
+    ? `edges:${edgeKindsKey}:focus:${request.focusModel}:${request.focusDepth}`
+    : `edges:${edgeKindsKey}:filter:${request.filter}`
 }
 
 function hashLayoutKey(cacheKey: string, nodes: SchemaGraphNode[], edges: SchemaGraphEdge[]): string {
@@ -243,15 +250,16 @@ function handleLayoutRequest(request: ModelGraphWorkerRequest) {
     return
   }
 
+  const enabledEdges = getEnabledEdges(cache.graph, request.edgeKinds)
   const visibleNames = request.focusModel
-    ? getFocusedNames(cache.graph, request.focusModel, request.focusDepth)
-    : getVisibleNames(cache.graph, request.filter)
+    ? getFocusedNames(enabledEdges, request.focusModel, request.focusDepth)
+    : getVisibleNames(cache.graph, enabledEdges, request.filter)
   const visibleGraphNodes = cache.graph.nodes.filter(node => visibleNames.has(node.id))
-  const visibleGraphEdges = cache.graph.edges.filter(edge => visibleNames.has(edge.source) && visibleNames.has(edge.target))
+  const visibleGraphEdges = enabledEdges.filter(edge => visibleNames.has(edge.source) && visibleNames.has(edge.target))
   const metrics: Required<ModelGraphMetrics> = {
     schemaCount: request.schemaCount,
     nodeCount: cache.graph.nodes.length,
-    edgeCount: cache.graph.edges.length,
+    edgeCount: enabledEdges.length,
     visibleNodeCount: visibleGraphNodes.length,
     visibleEdgeCount: visibleGraphEdges.length,
   }

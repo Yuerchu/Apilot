@@ -1,204 +1,28 @@
 import { useCallback } from "react"
-import {
-  compileErrors,
-  dereference,
-  parse as parseOpenAPIDocument,
-  validate,
-} from "@readme/openapi-parser"
-import type { ParserOptions, ValidationResult } from "@readme/openapi-parser"
-import { Buffer } from "buffer"
-import YAML from "yaml"
 import i18n from "@/lib/i18n"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import type {
+  ModelRouteMap,
   OpenAPISpec,
   ParsedRoute,
   TagInfo,
-  Parameter,
-  SchemaObject,
-  ServerObject,
-  ModelRouteMap,
 } from "@/lib/openapi/types"
+import {
+  HTTP_METHODS,
+  buildModelRouteMap,
+  collectModelRefs,
+  getErrorMessage,
+  normalizeParsedSpec,
+  parseSpecText,
+  parseValidatedSpec,
+  resolveServerUrl,
+} from "@/lib/openapi/parser"
 
-const HTTP_METHODS = ["get", "post", "put", "patch", "delete", "head", "options"] as const
-const globalScope = globalThis as typeof globalThis & { Buffer?: typeof Buffer }
-globalScope.Buffer ??= Buffer
-
-const PARSER_OPTIONS = {
-  dereference: {
-    circular: "ignore",
-  },
-  resolve: {
-    external: true,
-    file: false,
-  },
-} satisfies ParserOptions
-
-type ParserInput = Parameters<typeof parseOpenAPIDocument>[0]
-
-function asParserInput(input: string | OpenAPISpec): ParserInput {
-  return input as ParserInput
-}
-
-function cloneSpec<T>(spec: T): T {
-  return structuredClone(spec)
-}
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
-
-function formatValidationError(result: ValidationResult): string {
-  if (result.valid) return ""
-  return compileErrors(result).trim()
-    || result.errors[0]?.message
-    || "Invalid OpenAPI document"
-}
-
-async function parseValidatedSpec(input: string | OpenAPISpec): Promise<{
-  spec: OpenAPISpec
-  sourceSpec: OpenAPISpec
-}> {
-  const parserInput = asParserInput(input)
-  const sourceSpec = await parseOpenAPIDocument(parserInput, PARSER_OPTIONS) as OpenAPISpec
-  const validationInput = typeof input === "string" ? parserInput : asParserInput(cloneSpec(sourceSpec))
-  const validation = await validate(validationInput, PARSER_OPTIONS)
-  if (!validation.valid) {
-    throw new Error(formatValidationError(validation))
-  }
-
-  const dereferenceInput = typeof input === "string" ? parserInput : asParserInput(cloneSpec(sourceSpec))
-  const spec = await dereference(dereferenceInput, PARSER_OPTIONS)
-
-  return {
-    spec: spec as OpenAPISpec,
-    sourceSpec: sourceSpec as OpenAPISpec,
-  }
-}
-
-function resolveServerUrl(srv: ServerObject): string {
-  let url = srv.url
-  if (srv.variables) {
-    for (const [k, v] of Object.entries(srv.variables)) {
-      url = url.replace(`{${k}}`, v.default || "")
-    }
-  }
-  return url
-}
-
-function rewriteRefs(obj: unknown): void {
-  if (!obj || typeof obj !== "object") return
-  if (Array.isArray(obj)) { obj.forEach(rewriteRefs); return }
-  const r = obj as Record<string, unknown>
-  if (typeof r.$ref === "string" && r.$ref.startsWith("#/definitions/"))
-    r.$ref = r.$ref.replace("#/definitions/", "#/components/schemas/")
-  for (const v of Object.values(r)) rewriteRefs(v)
-}
-
-function schemaFromSwaggerParameter(param: Parameter): SchemaObject {
-  if (param.type === "file") {
-    return {
-      type: "string",
-      format: "binary",
-      description: param.description || "",
-    }
-  }
-
-  const schema: SchemaObject = { type: param.type || "string" }
-  if (param.format) schema.format = param.format
-  if (param.enum) schema.enum = param.enum
-  if (param.default !== undefined) schema.default = param.default
-  if (param.description) schema.description = param.description
-  return schema
-}
-
-function convertSwaggerV2(s: OpenAPISpec): OpenAPISpec {
-  const scheme = s.schemes?.[0] || "https"
-  const host = s.host || ""
-  const basePath = (s.basePath || "").replace(/\/$/, "")
-  if (host) s.servers = [{ url: `${scheme}://${host}${basePath}` }]
-
-  if (s.definitions && !s.components) {
-    s.components = { schemas: s.definitions }
-    rewriteRefs(s.paths)
-    rewriteRefs(s.components)
-  }
-  if (s.securityDefinitions) {
-    if (!s.components) s.components = {}
-    s.components.securitySchemes = s.securityDefinitions
-  }
-
-  const globalConsumes = s.consumes || ["application/json"]
-  for (const pathItem of Object.values(s.paths || {})) {
-    for (const method of HTTP_METHODS) {
-      const op = pathItem[method]
-      if (!op) continue
-      const params = op.parameters || []
-      const bodyParam = params.find(p => p.in === "body")
-      const formParams = params.filter(p => p.in === "formData")
-      const consumes = op.consumes || globalConsumes
-      op.parameters = params.filter(p => p.in !== "body" && p.in !== "formData")
-
-      if (bodyParam && !op.requestBody) {
-        op.requestBody = { required: !!bodyParam.required, content: { [consumes[0] || "application/json"]: { schema: bodyParam.schema || {} } } }
-      } else if (formParams.length && !op.requestBody) {
-        const isFile = formParams.some(p => p.type === "file")
-        const ct = isFile ? "multipart/form-data" : consumes.includes("multipart/form-data") ? "multipart/form-data" : "application/x-www-form-urlencoded"
-        const props: Record<string, SchemaObject> = {}
-        const req: string[] = []
-        for (const fp of formParams) {
-          props[fp.name] = schemaFromSwaggerParameter(fp)
-          if (fp.required) req.push(fp.name)
-        }
-        const schema: SchemaObject = { type: "object", properties: props }
-        if (req.length) schema.required = req
-        op.requestBody = { content: { [ct]: { schema } } }
-      }
-
-      const produces = op.produces || s.produces || ["application/json"]
-      for (const resp of Object.values(op.responses || {})) {
-        if (resp.schema && !resp.content) {
-          resp.content = { [produces[0] || "application/json"]: { schema: resp.schema } }
-          delete resp.schema
-        }
-      }
-    }
-  }
-  return s
-}
-
-/** Collect all schema model names referenced via $ref in an operation */
-function collectModelRefs(obj: unknown, found: Set<string>): void {
-  if (!obj || typeof obj !== "object") return
-  const record = obj as Record<string, unknown>
-  if (typeof record.$ref === "string") {
-    // Extract model name from #/components/schemas/Foo or #/definitions/Foo
-    const match = record.$ref.match(/^#\/(components\/schemas|definitions)\/(.+)$/)
-    const modelName = match?.[2]
-    if (modelName) found.add(modelName)
-  }
-  if (Array.isArray(obj)) {
-    for (const item of obj) collectModelRefs(item, found)
-  } else {
-    for (const v of Object.values(record)) collectModelRefs(v, found)
-  }
-}
-
-function buildModelRouteMap(routes: ParsedRoute[]): ModelRouteMap {
-  const modelToRoutes: Record<string, number[]> = {}
-  const routeToModels: Record<number, string[]> = {}
-  for (const [i, route] of routes.entries()) {
-    const models = route.referencedModels
-    routeToModels[i] = models
-    for (const m of models) {
-      if (!modelToRoutes[m]) modelToRoutes[m] = []
-      modelToRoutes[m].push(i)
-    }
-  }
-  return { modelToRoutes, routeToModels }
-}
-
-function extractRoutes(spec: OpenAPISpec, sourceSpec: OpenAPISpec): { routes: ParsedRoute[]; allTags: TagInfo[]; modelRouteMap: ModelRouteMap } {
+function extractRoutes(spec: OpenAPISpec, sourceSpec: OpenAPISpec): {
+  routes: ParsedRoute[]
+  allTags: TagInfo[]
+  modelRouteMap: ModelRouteMap
+} {
   const routes: ParsedRoute[] = []
   const tagSet = new Set<string>()
   const tagCounts: Record<string, number> = {}
@@ -213,7 +37,7 @@ function extractRoutes(spec: OpenAPISpec, sourceSpec: OpenAPISpec): { routes: Pa
         tagSet.add(t)
         tagCounts[t] = (tagCounts[t] || 0) + 1
       })
-      // Collect model $refs before resolving
+
       const refs = new Set<string>()
       collectModelRefs(sourcePathItem?.[method] || op, refs)
 
@@ -266,16 +90,13 @@ function detectOAuth2TokenUrl(spec: OpenAPISpec): string | null {
 export function useOpenAPI() {
   const { state, dispatch } = useOpenAPIContext()
 
-  // Yield to UI between heavy parsing steps
   const yieldToUI = () => new Promise<void>(r => requestAnimationFrame(() => setTimeout(r, 0)))
 
   const processSpec = useCallback(async (input: string | OpenAPISpec, url: string) => {
     const { spec: parsedSpec, sourceSpec } = await parseValidatedSpec(input)
-    let spec = parsedSpec
-    if (spec.swagger === "2.0") spec = convertSwaggerV2(spec)
+    const spec = normalizeParsedSpec(parsedSpec)
     dispatch({ type: "SET_SPEC", spec, sourceSpec })
     dispatch({ type: "SET_SPEC_URL", url })
-    // Let loading skeleton render before heavy parsing
     await yieldToUI()
     const { routes, allTags, modelRouteMap } = extractRoutes(spec, sourceSpec)
     const baseUrl = detectBaseUrl(spec, url)
@@ -304,15 +125,7 @@ export function useOpenAPI() {
       try {
         const result = e.target?.result
         if (typeof result !== "string") throw new Error(i18n.t("validation.fileReadFailed"))
-        // Support both JSON and YAML
-        let spec: OpenAPISpec
-        const trimmed = result.trim()
-        if (trimmed.startsWith("{")) {
-          spec = JSON.parse(trimmed) as OpenAPISpec
-        } else {
-          spec = YAML.parse(trimmed) as OpenAPISpec
-        }
-        await processSpec(spec, "")
+        await processSpec(parseSpecText(result), "")
       } catch (err) {
         dispatch({ type: "SET_ERROR", error: getErrorMessage(err) })
         dispatch({ type: "SET_LOADING", loading: false })
