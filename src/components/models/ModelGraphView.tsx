@@ -17,6 +17,7 @@ import type { ModelRouteMap, SchemaObject } from "@/lib/openapi/types"
 import type { SchemaGraphEdgeKind } from "@/lib/openapi/schema-graph"
 import { getTypeStr } from "@/lib/openapi/type-str"
 import { resolveEffectiveSchema } from "@/lib/openapi/resolve-schema"
+import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -949,12 +950,12 @@ function useWorkerGraphResult(
 
 export function ModelGraphView({ schemas, filter, selectedModels, modelRouteMap }: ModelGraphViewProps) {
   const { t } = useTranslation()
-  const [focusedModel, setFocusedModel] = useState<string | null>(null)
+  const { state, setActiveModelName } = useOpenAPIContext()
   const [focusDepth, setFocusDepth] = useState<ModelGraphFocusDepth>(MODEL_GRAPH_FOCUS_DEPTH)
   const [enabledEdgeKinds, setEnabledEdgeKinds] = useState<EnabledEdgeKinds>(defaultEnabledEdgeKinds)
   const normalizedFilter = filter.trim().toLowerCase()
   const schemaCount = useMemo(() => Object.keys(schemas).length, [schemas])
-  const activeFocusedModel = focusedModel && schemas[focusedModel] ? focusedModel : null
+  const activeFocusedModel = state.activeModelName && schemas[state.activeModelName] ? state.activeModelName : null
   const enabledEdgeKindList = useMemo(
     () => MODEL_GRAPH_EDGE_KINDS.filter(kind => enabledEdgeKinds[kind]),
     [enabledEdgeKinds],
@@ -976,11 +977,11 @@ export function ModelGraphView({ schemas, filter, selectedModels, modelRouteMap 
     [activeFocusedModel, layout],
   )
   const handleClearFocus = useCallback(() => {
-    setFocusedModel(null)
-  }, [])
+    setActiveModelName("")
+  }, [setActiveModelName])
   const handleFocusModel = useCallback((name: string) => {
-    setFocusedModel(name)
-  }, [])
+    setActiveModelName(name)
+  }, [setActiveModelName])
   const handleToggleEdgeKind = useCallback((kind: SchemaGraphEdgeKind) => {
     setEnabledEdgeKinds(current => ({
       ...current,
@@ -1098,7 +1099,7 @@ export function ModelGraphView({ schemas, filter, selectedModels, modelRouteMap 
             elementsSelectable={false}
             onlyRenderVisibleElements
             proOptions={{ hideAttribution: true }}
-            onNodeClick={(_, node) => setFocusedModel(node.data.name)}
+            onNodeClick={(_, node) => setActiveModelName(node.data.name)}
           >
             <Background color="var(--color-border)" gap={18} />
             <Controls showInteractive={false} />

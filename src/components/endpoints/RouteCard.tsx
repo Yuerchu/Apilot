@@ -1,7 +1,8 @@
-import { useState, useCallback, memo } from "react"
+import { useCallback, memo } from "react"
 import { useTranslation } from "react-i18next"
 import { Copy, ChevronDown, Lock } from "lucide-react"
 import type { ParsedRoute } from "@/lib/openapi/types"
+import { getParsedRouteKey } from "@/lib/openapi/route-key"
 import { cn } from "@/lib/utils"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { formatMarkdown } from "@/lib/format-route"
@@ -13,6 +14,7 @@ import {
   CollapsibleTrigger,
   AnimatedCollapsibleContent,
 } from "@/components/ui/collapsible"
+import { PathTemplate } from "./PathTemplate"
 import { RouteDetail } from "./RouteDetail"
 import { toast } from "sonner"
 
@@ -33,16 +35,14 @@ const METHOD_COLORS: Record<string, string> = {
 
 export const RouteCard = memo(function RouteCard({ route, index }: RouteCardProps) {
   const { t } = useTranslation()
-  const { state, toggleRoute } = useOpenAPIContext()
+  const { state, toggleRoute, setActiveEndpointKey } = useOpenAPIContext()
   const isSelected = state.selectedRoutes.has(index)
-
-  const [isOpen, setIsOpen] = useState(false)
-  const [detailLoaded, setDetailLoaded] = useState(false)
+  const routeKey = getParsedRouteKey(route)
+  const isOpen = state.activeEndpointKey === routeKey
 
   const handleOpenChange = useCallback((open: boolean) => {
-    setIsOpen(open)
-    if (open) setDetailLoaded(true)
-  }, [])
+    setActiveEndpointKey(open ? routeKey : "")
+  }, [routeKey, setActiveEndpointKey])
 
   const handleCopy = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -88,9 +88,7 @@ export const RouteCard = memo(function RouteCard({ route, index }: RouteCardProp
             {route.method}
           </Badge>
 
-          <span className="font-mono text-sm font-medium truncate">
-            {route.path}
-          </span>
+          <PathTemplate path={route.path} />
 
           {route.security?.length > 0 && route.security.some(s => Object.keys(s).length > 0) && (
             <span title={t("endpoints.authRequired")}><Lock className="size-3 text-muted-foreground shrink-0" /></span>
@@ -125,7 +123,7 @@ export const RouteCard = memo(function RouteCard({ route, index }: RouteCardProp
 
       <AnimatedCollapsibleContent>
         <div className="px-3 pb-3 border-t">
-          {detailLoaded && <RouteDetail route={route} index={index} />}
+          {isOpen && <RouteDetail route={route} index={index} />}
         </div>
       </AnimatedCollapsibleContent>
     </Collapsible>

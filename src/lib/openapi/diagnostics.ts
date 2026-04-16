@@ -1,10 +1,5 @@
-import type {
-  OpenAPISpec,
-  Operation,
-  PathItem,
-  ResponseObject,
-  SchemaObject,
-} from "./types"
+import { createConfig, lintFromString } from "@redocly/openapi-core"
+import type { OpenAPISpec, Operation, PathItem, ResponseObject, SchemaObject } from "./types"
 import { HTTP_METHODS, getOperationKey } from "./parser"
 
 export type OpenAPIDiagnosticSeverity = "error" | "warning" | "info"
@@ -38,7 +33,7 @@ export interface OpenAPIDiagnosticsResult {
   }
 }
 
-type JsonRecord = Record<string, unknown>
+type RedoclyProblem = Awaited<ReturnType<typeof lintFromString>>[number]
 
 const DIAGNOSTIC_CODES: OpenAPIDiagnosticCode[] = [
   "unresolved-ref",
@@ -49,8 +44,20 @@ const DIAGNOSTIC_CODES: OpenAPIDiagnosticCode[] = [
   "enum-missing-description",
 ]
 
-function isRecord(value: unknown): value is JsonRecord {
-  return !!value && typeof value === "object" && !Array.isArray(value)
+let configPromise: ReturnType<typeof createConfig> | null = null
+
+function getDiagnosticsConfig() {
+  configPromise ??= createConfig({
+    extends: ["minimal"],
+    rules: {
+      "no-empty-servers": "off",
+      "operation-summary": "off",
+      "operation-description": "warn",
+      "parameter-description": "warn",
+      "operation-operationId-unique": "error",
+    },
+  })
+  return configPromise
 }
 
 function hasText(value: unknown): boolean {
@@ -65,32 +72,14 @@ function makePointer(parts: string[]): string {
   return `#/${parts.map(pointerSegment).join("/")}`
 }
 
-function decodePointerSegment(value: string): string {
-  return value.replace(/~1/g, "/").replace(/~0/g, "~")
-}
-
-function resolveJsonPointer(root: unknown, ref: string): unknown {
-  if (ref === "#") return root
-  if (!ref.startsWith("#/")) return undefined
-  let current: unknown = root
-  for (const part of ref.slice(2).split("/").map(decodePointerSegment)) {
-    if (!isRecord(current) && !Array.isArray(current)) return undefined
-    current = (current as Record<string, unknown>)[part]
-    if (current === undefined) return undefined
+function countOperations(spec: OpenAPISpec): number {
+  let count = 0
+  for (const pathItem of Object.values(spec.paths || {})) {
+    for (const method of HTTP_METHODS) {
+      if (pathItem[method]) count += 1
+    }
   }
-  return current
-}
-
-function walkJson(value: unknown, path: string[], visit: (value: unknown, path: string[]) => void) {
-  visit(value, path)
-  if (Array.isArray(value)) {
-    value.forEach((item, index) => walkJson(item, [...path, String(index)], visit))
-    return
-  }
-  if (!isRecord(value)) return
-  for (const [key, child] of Object.entries(value)) {
-    walkJson(child, [...path, key], visit)
-  }
+  return count
 }
 
 function isEmptySchema(schema: SchemaObject): boolean {
@@ -124,16 +113,6 @@ function responseHasSchema(response: ResponseObject): boolean {
   return Object.values(content).some(media => !!media.schema)
 }
 
-function countOperations(spec: OpenAPISpec): number {
-  let count = 0
-  for (const pathItem of Object.values(spec.paths || {})) {
-    for (const method of HTTP_METHODS) {
-      if (pathItem[method]) count += 1
-    }
-  }
-  return count
-}
-
 function addIssue(
   issues: OpenAPIDiagnosticIssue[],
   issue: Omit<OpenAPIDiagnosticIssue, "id">,
@@ -151,32 +130,42 @@ function contextFields(options: { model?: string; operation?: string }) {
   }
 }
 
-function scanRefs(spec: OpenAPISpec, sourceSpec: OpenAPISpec, issues: OpenAPIDiagnosticIssue[]) {
-  walkJson(sourceSpec, [], (value, path) => {
-    if (!isRecord(value) || typeof value.$ref !== "string") return
-    const ref = value.$ref
-    if (!ref.startsWith("#")) return
-    if (resolveJsonPointer(sourceSpec, ref) !== undefined) return
-    addIssue(issues, {
-      code: "unresolved-ref",
-      severity: "error",
-      title: "Unresolved $ref",
-      message: `Reference "${ref}" cannot be resolved.`,
-      location: makePointer(path),
-    })
-  })
+function getPrimaryLocation(problem: RedoclyProblem): string {
+  const location = problem.location[0]
+  return location?.pointer || "#"
+}
 
-  if (sourceSpec !== spec) {
-    walkJson(spec, [], (value, path) => {
-      if (!isRecord(value) || typeof value._unresolved !== "string") return
-      addIssue(issues, {
-        code: "unresolved-ref",
-        severity: "error",
-        title: "Unresolved $ref",
-        message: `Reference "${value._unresolved}" cannot be resolved.`,
-        location: makePointer(path),
-      })
-    })
+function getProblemOperation(pointer: string): string | undefined {
+  const match = pointer.match(/^#\/paths\/((?:~1|~0|[^/])+)\/(get|post|put|patch|delete|head|options)\b/)
+  if (!match?.[1] || !match[2]) return undefined
+  const path = match[1].replace(/~1/g, "/").replace(/~0/g, "~")
+  return getOperationKey(match[2], path)
+}
+
+function mapRedoclyCode(ruleId: string): OpenAPIDiagnosticCode | null {
+  if (ruleId === "no-unresolved-refs") return "unresolved-ref"
+  if (ruleId === "operation-operationId-unique") return "duplicate-operation-id"
+  if (ruleId === "operation-description" || ruleId === "parameter-description") return "missing-description"
+  return null
+}
+
+function mapRedoclySeverity(severity: RedoclyProblem["severity"]): OpenAPIDiagnosticSeverity {
+  return severity === "error" ? "error" : "warning"
+}
+
+function redoclyProblemToIssue(problem: RedoclyProblem, index: number): OpenAPIDiagnosticIssue | null {
+  const code = mapRedoclyCode(problem.ruleId)
+  if (!code) return null
+  const location = getPrimaryLocation(problem)
+  const operation = getProblemOperation(location)
+  return {
+    id: `redocly:${problem.ruleId}:${location}:${index}`,
+    code,
+    severity: mapRedoclySeverity(problem.severity),
+    title: problem.ruleId,
+    message: problem.message,
+    location,
+    ...(operation ? { operation } : {}),
   }
 }
 
@@ -241,7 +230,6 @@ function scanSchema(
     scanSchema(schema.items, [...path, "items"], issues, {
       ...options,
       label: `${options.label}[]`,
-      requireDescription: false,
     })
   }
 
@@ -252,47 +240,15 @@ function scanSchema(
       scanSchema(part, [...path, key, String(index)], issues, {
         ...options,
         label: `${options.label}.${key}[${index}]`,
-        requireDescription: false,
       })
     })
   }
 
-  if (isRecord(schema.additionalProperties)) {
-    scanSchema(schema.additionalProperties as SchemaObject, [...path, "additionalProperties"], issues, {
+  if (schema.additionalProperties && typeof schema.additionalProperties === "object") {
+    scanSchema(schema.additionalProperties, [...path, "additionalProperties"], issues, {
       ...options,
       label: `${options.label}.additionalProperties`,
-      requireDescription: false,
     })
-  }
-}
-
-function scanDuplicateOperationIds(spec: OpenAPISpec, issues: OpenAPIDiagnosticIssue[]) {
-  const seen = new Map<string, Array<{ operation: string; location: string }>>()
-  for (const [path, pathItem] of Object.entries(spec.paths || {})) {
-    for (const method of HTTP_METHODS) {
-      const op = pathItem[method]
-      if (!op?.operationId) continue
-      const items = seen.get(op.operationId) || []
-      items.push({
-        operation: getOperationKey(method, path),
-        location: makePointer(["paths", path, method, "operationId"]),
-      })
-      seen.set(op.operationId, items)
-    }
-  }
-
-  for (const [operationId, items] of seen) {
-    if (items.length < 2) continue
-    for (const item of items) {
-      addIssue(issues, {
-        code: "duplicate-operation-id",
-        severity: "error",
-        title: "Duplicate operationId",
-        message: `operationId "${operationId}" is used by ${items.length} operations.`,
-        location: item.location,
-        operation: item.operation,
-      })
-    }
   }
 }
 
@@ -305,30 +261,9 @@ function scanOperation(
 ) {
   const operation = getOperationKey(method, path)
   const operationPath = ["paths", path, method]
-
-  if (!hasText(op.summary) && !hasText(op.description)) {
-    addIssue(issues, {
-      code: "missing-description",
-      severity: "info",
-      title: "Missing description",
-      message: `${operation} has no summary or description.`,
-      location: makePointer(operationPath),
-      operation,
-    })
-  }
-
   const parameters = [...(pathItem.parameters || []), ...(op.parameters || [])]
+
   parameters.forEach((parameter, index) => {
-    if (!hasText(parameter.description)) {
-      addIssue(issues, {
-        code: "missing-description",
-        severity: "info",
-        title: "Missing description",
-        message: `Parameter "${parameter.name}" has no description.`,
-        location: makePointer([...operationPath, "parameters", String(index)]),
-        operation,
-      })
-    }
     scanSchema(parameter.schema, [...operationPath, "parameters", String(index), "schema"], issues, {
       operation,
       label: `${operation} parameter ${parameter.name}`,
@@ -346,17 +281,6 @@ function scanOperation(
 
   for (const [status, response] of Object.entries(op.responses || {})) {
     const responsePath = [...operationPath, "responses", status]
-    if (!hasText(response.description)) {
-      addIssue(issues, {
-        code: "missing-description",
-        severity: "info",
-        title: "Missing description",
-        message: `${operation} response ${status} has no description.`,
-        location: makePointer(responsePath),
-        operation,
-      })
-    }
-
     if (shouldCheckResponseSchema(status) && !responseHasSchema(response)) {
       addIssue(issues, {
         code: "missing-response-schema",
@@ -383,9 +307,11 @@ function scanOperation(
   }
 }
 
-function scanSchemas(spec: OpenAPISpec, issues: OpenAPIDiagnosticIssue[]) {
+function scanSupplementalRules(spec: OpenAPISpec): OpenAPIDiagnosticIssue[] {
+  const issues: OpenAPIDiagnosticIssue[] = []
   const schemas = spec.components?.schemas || spec.definitions || {}
   const schemaPath = spec.components?.schemas ? ["components", "schemas"] : ["definitions"]
+
   for (const [name, schema] of Object.entries(schemas)) {
     scanSchema(schema, [...schemaPath, name], issues, {
       model: name,
@@ -393,6 +319,16 @@ function scanSchemas(spec: OpenAPISpec, issues: OpenAPIDiagnosticIssue[]) {
       requireDescription: true,
     })
   }
+
+  for (const [path, pathItem] of Object.entries(spec.paths || {})) {
+    for (const method of HTTP_METHODS) {
+      const op = pathItem[method]
+      if (!op) continue
+      scanOperation(path, method, pathItem, op, issues)
+    }
+  }
+
+  return issues
 }
 
 function summarizeIssues(issues: OpenAPIDiagnosticIssue[]): OpenAPIDiagnosticsResult["counts"] {
@@ -408,20 +344,17 @@ function summarizeByCode(issues: OpenAPIDiagnosticIssue[]): OpenAPIDiagnosticsRe
   return initial
 }
 
-export function runOpenAPIDiagnostics(spec: OpenAPISpec, sourceSpec: OpenAPISpec = spec): OpenAPIDiagnosticsResult {
-  const issues: OpenAPIDiagnosticIssue[] = []
-
-  scanRefs(spec, sourceSpec, issues)
-  scanDuplicateOperationIds(sourceSpec, issues)
-  scanSchemas(sourceSpec, issues)
-
-  for (const [path, pathItem] of Object.entries(sourceSpec.paths || {})) {
-    for (const method of HTTP_METHODS) {
-      const op = pathItem[method]
-      if (!op) continue
-      scanOperation(path, method, pathItem, op, issues)
-    }
-  }
+export async function runOpenAPIDiagnostics(_spec: OpenAPISpec, sourceSpec: OpenAPISpec = _spec): Promise<OpenAPIDiagnosticsResult> {
+  const config = await getDiagnosticsConfig()
+  const problems = await lintFromString({
+    source: JSON.stringify(sourceSpec),
+    absoluteRef: "openapi.json",
+    config,
+  })
+  const issues = [
+    ...problems.map(redoclyProblemToIssue).filter((issue): issue is OpenAPIDiagnosticIssue => !!issue),
+    ...scanSupplementalRules(sourceSpec),
+  ]
 
   return {
     issues,

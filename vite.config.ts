@@ -26,6 +26,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      colorette: path.resolve(__dirname, "./src/lib/shims/colorette.ts"),
       path: "path-browserify",
     },
   },

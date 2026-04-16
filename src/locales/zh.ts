@@ -90,6 +90,7 @@ export default {
     diagnosticTotal: "问题",
     endpointCount: "端点",
     schemaChanges: "Schema 变化",
+    loadingDiagnostics: "正在诊断...",
     noDiagnostics: "未发现诊断问题",
     diffBefore: "变更前",
     diffAfter: "变更后",
@@ -97,6 +98,7 @@ export default {
     chooseFile: "选择文件",
     useCurrentSpec: "使用当前 Spec",
     loadingDiffFile: "正在加载 Spec...",
+    computingDiff: "正在计算差异...",
     diffNeedsFiles: "请选择两个 Spec 进行对比",
     noDiffChanges: "未发现变化",
     diagnosticCodes: {

@@ -1,4 +1,4 @@
-import { useState, useCallback, memo } from "react"
+import { useCallback, memo } from "react"
 import { useTranslation } from "react-i18next"
 import { ChevronRight, Copy, Route } from "lucide-react"
 import type { SchemaObject, MainView } from "@/lib/openapi/types"
@@ -8,6 +8,7 @@ import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { SchemaTree } from "@/components/schema/SchemaTree"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
+import { PathTemplate } from "@/components/endpoints/PathTemplate"
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -20,7 +21,9 @@ interface ModelCardProps {
   name: string
   schema: SchemaObject
   selected: boolean
+  open: boolean
   onSelectChange: (selected: boolean) => void
+  onOpenChange: (open: boolean) => void
 }
 
 function formatModel(name: string, schema: SchemaObject): string {
@@ -33,20 +36,22 @@ function formatModel(name: string, schema: SchemaObject): string {
   return out
 }
 
-export const ModelCard = memo(function ModelCard({ name, schema, selected, onSelectChange }: ModelCardProps) {
+export const ModelCard = memo(function ModelCard({
+  name,
+  schema,
+  selected,
+  open,
+  onSelectChange,
+  onOpenChange,
+}: ModelCardProps) {
   const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
-  const [built, setBuilt] = useState(false)
 
   const typeStr = getTypeStr(schema)
   const desc = schema.description || schema.title || ""
 
   const handleToggle = useCallback((isOpen: boolean) => {
-    setOpen(isOpen)
-    if (isOpen && !built) {
-      setBuilt(true)
-    }
-  }, [built])
+    onOpenChange(isOpen)
+  }, [onOpenChange])
 
   const handleCopy = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -99,7 +104,7 @@ export const ModelCard = memo(function ModelCard({ name, schema, selected, onSel
         </CollapsibleTrigger>
         <AnimatedCollapsibleContent>
           <div className="px-3 pt-3 pb-3 space-y-3">
-            {built && <SchemaTree schema={schema} />}
+            {open && <SchemaTree schema={schema} />}
             <UsedByEndpoints modelName={name} />
           </div>
         </AnimatedCollapsibleContent>
@@ -143,7 +148,7 @@ function UsedByEndpoints({ modelName }: { modelName: string }) {
               <span className={methodColors[r.method] || "text-muted-foreground"}>
                 {r.method.toUpperCase()}
               </span>
-              <span className="font-mono">{r.path}</span>
+              <PathTemplate path={r.path} className="text-xs font-normal" />
             </Badge>
           )
         })}

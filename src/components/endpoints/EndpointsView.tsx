@@ -1,8 +1,9 @@
-import { useMemo, useCallback, useRef } from "react"
+import { useMemo, useCallback, useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import type { ParsedRoute } from "@/lib/openapi/types"
+import { getParsedRouteKey } from "@/lib/openapi/route-key"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ViewToolbar } from "@/components/layout/ViewToolbar"
 import { TagFilter } from "./TagFilter"
@@ -54,6 +55,11 @@ export function EndpointsView() {
     return rows
   }, [filteredRoutes, t])
 
+  const activeRouteRowIndex = useMemo(() => {
+    if (!state.activeEndpointKey) return -1
+    return virtualRows.findIndex(row => row.type === "route" && getParsedRouteKey(row.route) === state.activeEndpointKey)
+  }, [state.activeEndpointKey, virtualRows])
+
   const selectedCount = selectedRoutes.size
   const allFilteredIndices = filteredRoutes.map(r => r.index)
   const allFilteredSelected = allFilteredIndices.length > 0 && allFilteredIndices.every(i => selectedRoutes.has(i))
@@ -84,6 +90,11 @@ export function EndpointsView() {
     estimateSize: (i) => virtualRows[i]?.type === "group" ? 36 : 44,
     overscan: 15,
   })
+
+  useEffect(() => {
+    if (activeRouteRowIndex < 0) return
+    virtualizer.scrollToIndex(activeRouteRowIndex, { align: "center" })
+  }, [activeRouteRowIndex, virtualizer])
 
   return (
     <div className="flex flex-col gap-3 flex-1 min-h-0">

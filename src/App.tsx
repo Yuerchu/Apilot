@@ -4,6 +4,7 @@ import { OpenAPIProvider, useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { AuthProvider, useAuthContext } from "@/contexts/AuthContext"
 import { useOpenAPI } from "@/hooks/use-openapi"
 import { useSettings } from "@/hooks/use-settings"
+import { useUrlState } from "@/hooks/use-url-state"
 import { motion } from "motion/react"
 import { formatMarkdown } from "@/lib/format-route"
 import { Header } from "@/components/layout/Header"
@@ -35,6 +36,7 @@ function AppContent() {
   } = useOpenAPIContext()
   const { loadFromUrl } = useOpenAPI()
   const auth = useAuthContext()
+  useUrlState()
 
   useSettings({
     authType: auth.authType,

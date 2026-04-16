@@ -3,10 +3,14 @@ import type { ReactNode } from "react"
 import type {
   OpenAPISpec,
   ParsedRoute,
+  EndpointDetailTab,
   MainView,
+  ModelViewMode,
   TagInfo,
   ModelRouteMap,
+  ToolsViewTab,
 } from "@/lib/openapi/types"
+import { getParsedRouteKey } from "@/lib/openapi/route-key"
 
 interface OpenAPIState {
   spec: OpenAPISpec | null
@@ -18,6 +22,12 @@ interface OpenAPIState {
   activeTags: Set<string>
   allTags: TagInfo[]
   filter: string
+  activeEndpointKey: string
+  endpointDetailTab: EndpointDetailTab
+  modelFilter: string
+  modelViewMode: ModelViewMode
+  activeModelName: string
+  toolsTab: ToolsViewTab
   mainView: MainView
   baseUrl: string
   specUrl: string
@@ -41,26 +51,60 @@ type Action =
   | { type: "CLEAR_TAGS" }
   | { type: "INVERT_TAGS"; visibleTags: string[] }
   | { type: "SET_FILTER"; filter: string }
+  | { type: "SET_ACTIVE_ENDPOINT_KEY"; key: string }
+  | { type: "SET_ENDPOINT_DETAIL_TAB"; tab: EndpointDetailTab }
+  | { type: "SET_MODEL_FILTER"; filter: string }
+  | { type: "SET_MODEL_VIEW_MODE"; mode: ModelViewMode }
+  | { type: "SET_ACTIVE_MODEL_NAME"; name: string }
+  | { type: "SET_TOOLS_TAB"; tab: ToolsViewTab }
   | { type: "SET_MAIN_VIEW"; view: MainView }
   | { type: "SET_BASE_URL"; url: string }
   | { type: "SET_SPEC_URL"; url: string }
   | { type: "SET_LOADING"; loading: boolean }
   | { type: "SET_ERROR"; error: string | null }
+  | { type: "APPLY_URL_STATE"; urlState: UrlState }
   | { type: "RESET" }
+
+export interface UrlState {
+  mainView: MainView
+  filter: string
+  activeTags: Set<string>
+  activeEndpointKey: string
+  endpointDetailTab: EndpointDetailTab
+  modelFilter: string
+  modelViewMode: ModelViewMode
+  activeModelName: string
+  toolsTab: ToolsViewTab
+}
+
+function hasModel(spec: OpenAPISpec, name: string): boolean {
+  if (!name) return false
+  return !!(spec.components?.schemas?.[name] || spec.definitions?.[name])
+}
 
 function reducer(state: OpenAPIState, action: Action): OpenAPIState {
   switch (action.type) {
     case "SET_SPEC":
-      return { ...state, spec: action.spec, sourceSpec: action.sourceSpec ?? action.spec, error: null }
+      return {
+        ...state,
+        spec: action.spec,
+        sourceSpec: action.sourceSpec ?? action.spec,
+        activeModelName: hasModel(action.spec, state.activeModelName) ? state.activeModelName : "",
+        error: null,
+      }
 
     case "SET_ROUTES": {
+      const availableTags = new Set(action.allTags.map(tag => tag.name))
+      const activeTags = new Set([...state.activeTags].filter(tag => availableTags.has(tag)))
+      const availableRouteKeys = new Set(action.routes.map(getParsedRouteKey))
       return {
         ...state,
         routes: action.routes,
         allTags: action.allTags,
         modelRouteMap: action.modelRouteMap,
         selectedRoutes: new Set(),
-        activeTags: new Set(),
+        activeTags,
+        activeEndpointKey: availableRouteKeys.has(state.activeEndpointKey) ? state.activeEndpointKey : "",
       }
     }
 
@@ -131,6 +175,24 @@ function reducer(state: OpenAPIState, action: Action): OpenAPIState {
     case "SET_FILTER":
       return { ...state, filter: action.filter }
 
+    case "SET_ACTIVE_ENDPOINT_KEY":
+      return { ...state, activeEndpointKey: action.key }
+
+    case "SET_ENDPOINT_DETAIL_TAB":
+      return { ...state, endpointDetailTab: action.tab }
+
+    case "SET_MODEL_FILTER":
+      return { ...state, modelFilter: action.filter }
+
+    case "SET_MODEL_VIEW_MODE":
+      return { ...state, modelViewMode: action.mode }
+
+    case "SET_ACTIVE_MODEL_NAME":
+      return { ...state, activeModelName: action.name }
+
+    case "SET_TOOLS_TAB":
+      return { ...state, toolsTab: action.tab }
+
     case "SET_MAIN_VIEW":
       return { ...state, mainView: action.view }
 
@@ -145,6 +207,20 @@ function reducer(state: OpenAPIState, action: Action): OpenAPIState {
 
     case "SET_ERROR":
       return { ...state, error: action.error }
+
+    case "APPLY_URL_STATE":
+      return {
+        ...state,
+        mainView: action.urlState.mainView,
+        filter: action.urlState.filter,
+        activeTags: action.urlState.activeTags,
+        activeEndpointKey: action.urlState.activeEndpointKey,
+        endpointDetailTab: action.urlState.endpointDetailTab,
+        modelFilter: action.urlState.modelFilter,
+        modelViewMode: action.urlState.modelViewMode,
+        activeModelName: action.urlState.activeModelName,
+        toolsTab: action.urlState.toolsTab,
+      }
 
     case "RESET":
       return { ...initialState }
@@ -164,6 +240,12 @@ const initialState: OpenAPIState = {
   activeTags: new Set(),
   allTags: [],
   filter: "",
+  activeEndpointKey: "",
+  endpointDetailTab: "doc",
+  modelFilter: "",
+  modelViewMode: "list",
+  activeModelName: "",
+  toolsTab: "diagnostics",
   mainView: "endpoints",
   baseUrl: "",
   specUrl: "",
@@ -186,6 +268,12 @@ interface OpenAPIContextValue {
   clearTags: () => void
   invertTags: (visibleTags: string[]) => void
   setFilter: (filter: string) => void
+  setActiveEndpointKey: (key: string) => void
+  setEndpointDetailTab: (tab: EndpointDetailTab) => void
+  setModelFilter: (filter: string) => void
+  setModelViewMode: (mode: ModelViewMode) => void
+  setActiveModelName: (name: string) => void
+  setToolsTab: (tab: ToolsViewTab) => void
   setMainView: (view: MainView) => void
   setBaseUrl: (url: string) => void
   setSpecUrl: (url: string) => void
@@ -244,6 +332,30 @@ export function OpenAPIProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "SET_FILTER", filter })
   }, [])
 
+  const setActiveEndpointKey = useCallback((key: string) => {
+    dispatch({ type: "SET_ACTIVE_ENDPOINT_KEY", key })
+  }, [])
+
+  const setEndpointDetailTab = useCallback((tab: EndpointDetailTab) => {
+    dispatch({ type: "SET_ENDPOINT_DETAIL_TAB", tab })
+  }, [])
+
+  const setModelFilter = useCallback((filter: string) => {
+    dispatch({ type: "SET_MODEL_FILTER", filter })
+  }, [])
+
+  const setModelViewMode = useCallback((mode: ModelViewMode) => {
+    dispatch({ type: "SET_MODEL_VIEW_MODE", mode })
+  }, [])
+
+  const setActiveModelName = useCallback((name: string) => {
+    dispatch({ type: "SET_ACTIVE_MODEL_NAME", name })
+  }, [])
+
+  const setToolsTab = useCallback((tab: ToolsViewTab) => {
+    dispatch({ type: "SET_TOOLS_TAB", tab })
+  }, [])
+
   const setMainView = useCallback((view: MainView) => {
     dispatch({ type: "SET_MAIN_VIEW", view })
   }, [])
@@ -271,6 +383,12 @@ export function OpenAPIProvider({ children }: { children: ReactNode }) {
     clearTags,
     invertTags,
     setFilter,
+    setActiveEndpointKey,
+    setEndpointDetailTab,
+    setModelFilter,
+    setModelViewMode,
+    setActiveModelName,
+    setToolsTab,
     setMainView,
     setBaseUrl,
     setSpecUrl,

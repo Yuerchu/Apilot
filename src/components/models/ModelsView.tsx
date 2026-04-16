@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useRef } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
@@ -13,14 +13,20 @@ interface ModelsViewProps {
   sourceSpec: OpenAPISpec | null
 }
 
-type ModelViewMode = "list" | "graph"
-
 export function ModelsView({ spec, sourceSpec }: ModelsViewProps) {
   const { t } = useTranslation()
-  const { state, toggleModel, selectAllModels, clearModelSelection } = useOpenAPIContext()
+  const {
+    state,
+    toggleModel,
+    selectAllModels,
+    clearModelSelection,
+    setActiveModelName,
+    setModelFilter,
+    setModelViewMode,
+  } = useOpenAPIContext()
   const selectedModels = state.selectedModels
-  const [filter, setFilter] = useState("")
-  const [viewMode, setViewMode] = useState<ModelViewMode>("list")
+  const filter = state.modelFilter
+  const viewMode = state.modelViewMode
   const [graphMounted, setGraphMounted] = useState(false)
 
   const schemas = useMemo(() => {
@@ -41,6 +47,11 @@ export function ModelsView({ spec, sourceSpec }: ModelsViewProps) {
     return sortedNames.filter(name => name.toLowerCase().includes(q))
   }, [sortedNames, filter])
 
+  const activeModelIndex = useMemo(() => {
+    if (!state.activeModelName) return -1
+    return filteredNames.indexOf(state.activeModelName)
+  }, [filteredNames, state.activeModelName])
+
   const handleSelectChange = useCallback((name: string) => {
     toggleModel(name)
   }, [toggleModel])
@@ -55,8 +66,8 @@ export function ModelsView({ spec, sourceSpec }: ModelsViewProps) {
 
   const handleShowGraph = useCallback(() => {
     setGraphMounted(true)
-    setViewMode("graph")
-  }, [])
+    setModelViewMode("graph")
+  }, [setModelViewMode])
 
   const masterChecked = filteredNames.length > 0 && filteredNames.every(n => selectedModels.has(n))
   const masterIndeterminate = !masterChecked && filteredNames.some(n => selectedModels.has(n))
@@ -71,6 +82,11 @@ export function ModelsView({ spec, sourceSpec }: ModelsViewProps) {
     overscan: 10,
   })
 
+  useEffect(() => {
+    if (viewMode !== "list" || activeModelIndex < 0) return
+    virtualizer.scrollToIndex(activeModelIndex, { align: "center" })
+  }, [activeModelIndex, viewMode, virtualizer])
+
   return (
     <div className="flex flex-col gap-3 flex-1 min-h-0">
       <ViewToolbar
@@ -78,7 +94,7 @@ export function ModelsView({ spec, sourceSpec }: ModelsViewProps) {
         onSelectAllChange={v => handleSelectAll(v === true)}
         searchPlaceholder={t("models.search")}
         filter={filter}
-        onFilterChange={setFilter}
+        onFilterChange={setModelFilter}
         totalCount={filteredNames.length}
         totalLabel={t("unit.modelCount")}
         selectedCount={selectedModels.size}
@@ -88,7 +104,7 @@ export function ModelsView({ spec, sourceSpec }: ModelsViewProps) {
             type="button"
             variant={viewMode === "list" ? "secondary" : "ghost"}
             size="xs"
-            onClick={() => setViewMode("list")}
+            onClick={() => setModelViewMode("list")}
           >
             {t("models.listView", "List")}
           </Button>
@@ -138,7 +154,9 @@ export function ModelsView({ spec, sourceSpec }: ModelsViewProps) {
                     name={name}
                     schema={schema}
                     selected={selectedModels.has(name)}
+                    open={state.activeModelName === name}
                     onSelectChange={() => handleSelectChange(name)}
+                    onOpenChange={open => setActiveModelName(open ? name : "")}
                   />
                 </div>
               </div>
@@ -152,7 +170,7 @@ export function ModelsView({ spec, sourceSpec }: ModelsViewProps) {
         )}
       </div>
 
-      {graphMounted && (
+      {(graphMounted || viewMode === "graph") && (
         <div className={viewMode === "graph" ? "flex min-h-0 flex-1" : "hidden"}>
           <ModelGraphView
             schemas={graphSchemas}

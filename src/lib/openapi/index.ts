@@ -17,19 +17,21 @@ export type {
   SecurityRequirement,
   ParsedRoute,
   AuthType,
+  EndpointDetailTab,
   MainView,
+  ModelViewMode,
   RequestResponse,
+  ToolsViewTab,
   ValidationError,
   TagInfo,
 } from './types'
 
+export { getParsedRouteKey, getRouteKey } from './route-key'
 export { resolveEffectiveSchema } from './resolve-schema'
 export { getTypeStr, getConstraints } from './type-str'
 export { generateExample } from './generate-example'
 export { formatSchema } from './format-schema'
 export { buildSchemaGraph } from './schema-graph'
-export { runOpenAPIDiagnostics } from './diagnostics'
-export { diffOpenAPISpecs } from './diff'
 export {
   HTTP_METHODS,
   getErrorMessage,

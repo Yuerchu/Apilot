@@ -90,6 +90,7 @@ export default {
     diagnosticTotal: "Issues",
     endpointCount: "Endpoints",
     schemaChanges: "Schema changes",
+    loadingDiagnostics: "Running diagnostics...",
     noDiagnostics: "No diagnostics found",
     diffBefore: "Before",
     diffAfter: "After",
@@ -97,6 +98,7 @@ export default {
     chooseFile: "Choose file",
     useCurrentSpec: "Use current spec",
     loadingDiffFile: "Loading spec...",
+    computingDiff: "Computing diff...",
     diffNeedsFiles: "Choose two specs to compare",
     noDiffChanges: "No changes found",
     diagnosticCodes: {
