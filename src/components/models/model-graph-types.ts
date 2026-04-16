@@ -7,6 +7,7 @@ export const MODEL_GRAPH_MAX_AUTO_LAYOUT_NODES = 1200
 export const MODEL_GRAPH_MAX_AUTO_LAYOUT_EDGES = 2400
 export const MODEL_GRAPH_MAX_FOCUSED_LAYOUT_NODES = 1800
 export const MODEL_GRAPH_MAX_FOCUSED_LAYOUT_EDGES = 3600
+export const MODEL_GRAPH_FOCUS_DEPTH = 1
 
 export type ModelGraphWorkerPhase = "queued" | "parsing" | "layout"
 
@@ -59,6 +60,7 @@ export interface ModelGraphLayout {
 export interface ModelGraphTooLargeResult {
   status: "too-large"
   filter: string
+  focusModel?: string
   metrics: Required<ModelGraphMetrics>
   limit: {
     nodes: number
@@ -76,6 +78,8 @@ export interface ModelGraphWorkerRequest {
   schemaId: number
   schemaCount: number
   filter: string
+  focusModel?: string
+  focusDepth: number
   schemas?: Record<string, SchemaObject>
 }
 

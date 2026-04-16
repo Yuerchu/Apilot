@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useMemo, useState, type ReactNode } from "react"
+import { startTransition, useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import {
   Background,
@@ -15,9 +15,14 @@ import {
 import "@xyflow/react/dist/style.css"
 import type { ModelRouteMap, SchemaObject } from "@/lib/openapi/types"
 import type { SchemaGraphEdgeKind } from "@/lib/openapi/schema-graph"
+import { getTypeStr } from "@/lib/openapi/type-str"
+import { resolveEffectiveSchema } from "@/lib/openapi/resolve-schema"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { SchemaTree } from "@/components/schema/SchemaTree"
 import { cn } from "@/lib/utils"
 import ModelGraphWorker from "./model-graph.worker.ts?worker&inline"
+import { MODEL_GRAPH_FOCUS_DEPTH } from "./model-graph-types"
 import type {
   ModelGraphComputedResult,
   ModelGraphLayoutEdge,
@@ -41,30 +46,37 @@ interface ModelNodeData extends Record<string, unknown> {
   fieldCount: number
   routeCount: number
   selected: boolean
+  focused: boolean
   connected: boolean
 }
 
 type ModelFlowNode = Node<ModelNodeData, "model">
 type ModelFlowEdge = Edge<Record<string, never>, "smoothstep">
 
+interface ModelRelationSummary {
+  name: string
+  label: string
+  kind: SchemaGraphEdgeKind
+}
+
 type GraphState =
   | {
       status: "loading"
       schemas: Record<string, SchemaObject>
-      filter: string
+      cacheKey: string
       phase: ModelGraphWorkerPhase
       metrics: ModelGraphMetrics
     }
   | {
       status: "result"
       schemas: Record<string, SchemaObject>
-      filter: string
+      cacheKey: string
       result: ModelGraphComputedResult
     }
   | {
       status: "error"
       schemas: Record<string, SchemaObject>
-      filter: string
+      cacheKey: string
       message: string
     }
 
@@ -81,8 +93,9 @@ function ModelNode({ data }: NodeProps<ModelFlowNode>) {
   return (
     <div
       className={cn(
-        "relative w-[220px] rounded-md border bg-card px-3 py-2 shadow-xs",
+        "relative w-[220px] cursor-pointer rounded-md border bg-card px-3 py-2 shadow-xs transition-colors",
         data.selected && "border-primary/60 bg-primary/5",
+        data.focused && "border-primary bg-primary/10 ring-2 ring-primary/20",
         !data.connected && "opacity-80",
       )}
     >
@@ -139,14 +152,14 @@ function getSchemaId(schemas: Record<string, SchemaObject>): number {
 
 function getCachedResult(
   schemas: Record<string, SchemaObject>,
-  filter: string,
+  cacheKey: string,
 ): ModelGraphComputedResult | undefined {
-  return graphResultCache.get(schemas)?.get(filter)
+  return graphResultCache.get(schemas)?.get(cacheKey)
 }
 
 function setCachedResult(
   schemas: Record<string, SchemaObject>,
-  filter: string,
+  cacheKey: string,
   result: ModelGraphComputedResult,
 ) {
   let cache = graphResultCache.get(schemas)
@@ -154,7 +167,13 @@ function setCachedResult(
     cache = new Map()
     graphResultCache.set(schemas, cache)
   }
-  cache.set(filter, result)
+  cache.set(cacheKey, result)
+}
+
+function getGraphCacheKey(filter: string, focusedModel: string | null): string {
+  return focusedModel
+    ? `focus:${focusedModel}:${MODEL_GRAPH_FOCUS_DEPTH}`
+    : `filter:${filter}`
 }
 
 function getEdgeColor(kind: SchemaGraphEdgeKind): string {
@@ -220,7 +239,7 @@ function GraphLoadingState({ phase, metrics }: { phase: ModelGraphWorkerPhase; m
 
 function GraphTooLargeState({ result }: { result: ModelGraphTooLargeResult }) {
   const { t } = useTranslation()
-  const hasFilter = result.filter.length > 0
+  const hasScope = result.filter.length > 0 || !!result.focusModel
 
   return (
     <GraphStatusShell>
@@ -229,12 +248,12 @@ function GraphTooLargeState({ result }: { result: ModelGraphTooLargeResult }) {
       </div>
       <div className="max-w-2xl">
         <div className="text-sm font-medium text-foreground">
-          {hasFilter
+          {hasScope
             ? t("models.graphFilteredTooLarge", "This focused graph is still large")
             : t("models.graphTooLarge", "This graph is too large to draw automatically")}
         </div>
         <div className="mt-1 text-xs text-muted-foreground">
-          {hasFilter
+          {hasScope
             ? t("models.graphFilteredTooLargeHint", "Use a more specific search term to narrow the model neighborhood.")
             : t("models.graphTooLargeHint", "Search for a model name above to render a smaller neighborhood first.")}
         </div>
@@ -277,40 +296,184 @@ function GraphStatusShell({ children }: { children: ReactNode }) {
   )
 }
 
+function getModelRelations(edges: ModelGraphLayoutEdge[], modelName: string): {
+  outgoing: ModelRelationSummary[]
+  incoming: ModelRelationSummary[]
+} {
+  const outgoing: ModelRelationSummary[] = []
+  const incoming: ModelRelationSummary[] = []
+
+  for (const edge of edges) {
+    if (edge.source === modelName) {
+      outgoing.push({ name: edge.target, label: edge.label, kind: edge.kind })
+    } else if (edge.target === modelName) {
+      incoming.push({ name: edge.source, label: edge.label, kind: edge.kind })
+    }
+  }
+
+  return { outgoing, incoming }
+}
+
+function RelationList({
+  title,
+  relations,
+  onFocusModel,
+}: {
+  title: string
+  relations: ModelRelationSummary[]
+  onFocusModel: (name: string) => void
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <div className="min-w-0 max-w-full">
+      <div className="mb-1.5 text-xs font-medium text-muted-foreground">{title}</div>
+      {relations.length ? (
+        <div className="flex min-w-0 max-w-full flex-col gap-1.5">
+          {relations.map(relation => (
+            <button
+              key={`${relation.kind}:${relation.name}:${relation.label}`}
+              type="button"
+              className="flex w-full min-w-0 max-w-full items-center justify-between gap-2 overflow-hidden rounded-md border bg-background px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted/50"
+              onClick={() => onFocusModel(relation.name)}
+              title={`${relation.name} (${relation.kind})`}
+            >
+              <span className="block min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-mono text-foreground">
+                {relation.name}
+              </span>
+              <Badge variant="outline" className="h-5 shrink-0 rounded-md px-1.5 text-[10px]">
+                {relation.kind}
+              </Badge>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-md border bg-background px-2 py-2 text-xs text-muted-foreground">
+          {t("models.noGraphRelations", "No relations")}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ModelDetailsPanel({
+  modelName,
+  schema,
+  routeCount,
+  outgoing,
+  incoming,
+  onClearFocus,
+  onFocusModel,
+}: {
+  modelName: string
+  schema: SchemaObject
+  routeCount: number
+  outgoing: ModelRelationSummary[]
+  incoming: ModelRelationSummary[]
+  onClearFocus: () => void
+  onFocusModel: (name: string) => void
+}) {
+  const { t } = useTranslation()
+  const effectiveSchema = useMemo(() => resolveEffectiveSchema(schema), [schema])
+  const typeStr = useMemo(() => getTypeStr(schema), [schema])
+  const fieldCount = Object.keys(effectiveSchema.properties || {}).length
+  const requiredCount = effectiveSchema.required?.length ?? 0
+  const description = schema.description || schema.title
+
+  return (
+    <aside className="max-h-[min(70vh,760px)] w-full overflow-x-hidden overflow-y-auto rounded-lg border bg-card p-3 xl:max-h-none xl:w-[360px] xl:max-w-[36%] xl:self-stretch">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-xs font-medium text-muted-foreground">{t("models.modelDetails", "Model details")}</div>
+          <div className="mt-1 truncate font-mono text-sm font-semibold text-foreground" title={modelName}>
+            {modelName}
+          </div>
+        </div>
+        <Button type="button" variant="ghost" size="xs" onClick={onClearFocus}>
+          {t("models.clearFocus", "Clear")}
+        </Button>
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <Badge variant="secondary" className="rounded-md font-mono text-[10px]">
+          {typeStr}
+        </Badge>
+        <Badge variant="outline" className="rounded-md text-[10px]">
+          {t("models.fields", { count: fieldCount, defaultValue: `${fieldCount} fields` })}
+        </Badge>
+        <Badge variant="outline" className="rounded-md text-[10px]">
+          {t("models.requiredFields", { count: requiredCount, defaultValue: `${requiredCount} required` })}
+        </Badge>
+        <Badge variant="outline" className="rounded-md text-[10px]">
+          {t("models.routes", { count: routeCount, defaultValue: `${routeCount} routes` })}
+        </Badge>
+      </div>
+
+      <div className="mt-3 break-words rounded-md border bg-background p-2 text-xs text-muted-foreground">
+        {description || t("models.noDescription", "No description")}
+      </div>
+
+      <div className="mt-3 grid gap-3">
+        <RelationList
+          title={t("models.references", "References")}
+          relations={outgoing}
+          onFocusModel={onFocusModel}
+        />
+        <RelationList
+          title={t("models.referencedBy", "Referenced by")}
+          relations={incoming}
+          onFocusModel={onFocusModel}
+        />
+      </div>
+
+      <div className="mt-3">
+        <div className="mb-1.5 text-xs font-medium text-muted-foreground">
+          {t("models.schemaPreview", "Schema")}
+        </div>
+        <div className="max-w-full overflow-x-auto">
+          <div className="min-w-[520px]">
+            <SchemaTree schema={schema} maxDepth={4} />
+          </div>
+        </div>
+      </div>
+    </aside>
+  )
+}
+
 function getCurrentResult(
   cachedResult: ModelGraphComputedResult | undefined,
   state: GraphState,
   schemas: Record<string, SchemaObject>,
-  filter: string,
+  cacheKey: string,
 ): ModelGraphComputedResult | null {
   if (cachedResult) return cachedResult
   if (state.status !== "result") return null
-  return state.schemas === schemas && state.filter === filter ? state.result : null
+  return state.schemas === schemas && state.cacheKey === cacheKey ? state.result : null
 }
 
 function getCurrentError(
   state: GraphState,
   schemas: Record<string, SchemaObject>,
-  filter: string,
+  cacheKey: string,
 ): string | null {
   if (state.status !== "error") return null
-  return state.schemas === schemas && state.filter === filter ? state.message : null
+  return state.schemas === schemas && state.cacheKey === cacheKey ? state.message : null
 }
 
 function getCurrentLoading(
   state: GraphState,
   schemas: Record<string, SchemaObject>,
-  filter: string,
+  cacheKey: string,
   schemaCount: number,
 ): Extract<GraphState, { status: "loading" }> {
-  if (state.status === "loading" && state.schemas === schemas && state.filter === filter) {
+  if (state.status === "loading" && state.schemas === schemas && state.cacheKey === cacheKey) {
     return state
   }
 
   return {
     status: "loading",
     schemas,
-    filter,
+    cacheKey,
     phase: "queued",
     metrics: { schemaCount },
   }
@@ -320,17 +483,19 @@ function useWorkerGraphResult(
   schemas: Record<string, SchemaObject>,
   filter: string,
   schemaCount: number,
+  focusedModel: string | null,
 ) {
+  const cacheKey = getGraphCacheKey(filter, focusedModel)
   const [graphState, setGraphState] = useState<GraphState>({
     status: "loading",
     schemas,
-    filter,
+    cacheKey,
     phase: "queued",
     metrics: { schemaCount },
   })
 
   useEffect(() => {
-    if (getCachedResult(schemas, filter)) return
+    if (getCachedResult(schemas, cacheKey)) return
 
     let active = true
     const worker = getModelGraphWorker()
@@ -351,7 +516,7 @@ function useWorkerGraphResult(
           setGraphState({
             status: "loading",
             schemas,
-            filter,
+            cacheKey,
             phase: message.phase,
             metrics: message.metrics,
           })
@@ -361,13 +526,13 @@ function useWorkerGraphResult(
 
       if (message.type === "result") {
         initializedSchemaIds.add(schemaId)
-        setCachedResult(schemas, filter, message.result)
+        setCachedResult(schemas, cacheKey, message.result)
 
         startTransition(() => {
           setGraphState({
             status: "result",
             schemas,
-            filter,
+            cacheKey,
             result: message.result,
           })
         })
@@ -378,7 +543,7 @@ function useWorkerGraphResult(
         setGraphState({
           status: "error",
           schemas,
-          filter,
+          cacheKey,
           message: message.message,
         })
       })
@@ -390,7 +555,7 @@ function useWorkerGraphResult(
         setGraphState({
           status: "error",
           schemas,
-          filter,
+          cacheKey,
           message: event.message || "Graph worker failed",
         })
       })
@@ -405,6 +570,11 @@ function useWorkerGraphResult(
       schemaId,
       schemaCount,
       filter,
+      focusDepth: MODEL_GRAPH_FOCUS_DEPTH,
+    }
+
+    if (focusedModel) {
+      request.focusModel = focusedModel
     }
 
     if (!initializedSchemaIds.has(schemaId)) {
@@ -418,14 +588,14 @@ function useWorkerGraphResult(
       worker.removeEventListener("message", handleMessage)
       worker.removeEventListener("error", handleError)
     }
-  }, [schemas, filter, schemaCount])
+  }, [schemas, filter, schemaCount, focusedModel, cacheKey])
 
-  const cachedResult = getCachedResult(schemas, filter)
-  const currentResult = getCurrentResult(cachedResult, graphState, schemas, filter)
-  const currentError = currentResult ? null : getCurrentError(graphState, schemas, filter)
+  const cachedResult = getCachedResult(schemas, cacheKey)
+  const currentResult = getCurrentResult(cachedResult, graphState, schemas, cacheKey)
+  const currentError = currentResult ? null : getCurrentError(graphState, schemas, cacheKey)
   const currentLoading = currentResult || currentError
     ? null
-    : getCurrentLoading(graphState, schemas, filter, schemaCount)
+    : getCurrentLoading(graphState, schemas, cacheKey, schemaCount)
 
   return {
     result: currentResult,
@@ -436,12 +606,25 @@ function useWorkerGraphResult(
 
 export function ModelGraphView({ schemas, filter, selectedModels, modelRouteMap }: ModelGraphViewProps) {
   const { t } = useTranslation()
+  const [focusedModel, setFocusedModel] = useState<string | null>(null)
   const normalizedFilter = filter.trim().toLowerCase()
   const schemaCount = useMemo(() => Object.keys(schemas).length, [schemas])
-  const { result, error, loading } = useWorkerGraphResult(schemas, normalizedFilter, schemaCount)
+  const activeFocusedModel = focusedModel && schemas[focusedModel] ? focusedModel : null
+  const { result, error, loading } = useWorkerGraphResult(schemas, normalizedFilter, schemaCount, activeFocusedModel)
 
   const layout = result?.status === "ready" ? result.layout : null
   const tooLargeResult = result?.status === "too-large" ? result : null
+  const focusedSchema = activeFocusedModel ? schemas[activeFocusedModel] : undefined
+  const focusedRelations = useMemo(
+    () => activeFocusedModel && layout ? getModelRelations(layout.edges, activeFocusedModel) : { outgoing: [], incoming: [] },
+    [activeFocusedModel, layout],
+  )
+  const handleClearFocus = useCallback(() => {
+    setFocusedModel(null)
+  }, [])
+  const handleFocusModel = useCallback((name: string) => {
+    setFocusedModel(name)
+  }, [])
 
   const nodes = useMemo<ModelFlowNode[]>(
     () => (layout?.nodes ?? []).map(node => {
@@ -454,10 +637,11 @@ export function ModelGraphView({ schemas, filter, selectedModels, modelRouteMap 
           ...data,
           routeCount: modelRouteMap.modelToRoutes[data.name]?.length ?? 0,
           selected: selectedModels.has(data.name),
+          focused: activeFocusedModel === data.name,
         },
       }
     }),
-    [layout, modelRouteMap, selectedModels],
+    [activeFocusedModel, layout, modelRouteMap, selectedModels],
   )
   const edges = useMemo<ModelFlowEdge[]>(
     () => (layout?.edges ?? []).map(toFlowEdge),
@@ -486,28 +670,43 @@ export function ModelGraphView({ schemas, filter, selectedModels, modelRouteMap 
   }
 
   return (
-    <div className="mb-4 min-h-[420px] flex-1 overflow-hidden rounded-lg border bg-card">
-      <ReactFlow
-        key={flowKey}
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        colorMode="dark"
-        style={{ background: "var(--color-card)" }}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.2}
-        maxZoom={1.5}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        edgesReconnectable={false}
-        elementsSelectable={false}
-        onlyRenderVisibleElements
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background color="var(--color-border)" gap={18} />
-        <Controls showInteractive={false} />
-      </ReactFlow>
+    <div className="mb-4 flex min-h-[420px] flex-1 flex-col gap-3 xl:flex-row">
+      <div className="min-h-[420px] min-w-0 flex-1 overflow-hidden rounded-lg border bg-card">
+        <ReactFlow
+          key={flowKey}
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          colorMode="dark"
+          style={{ background: "var(--color-card)" }}
+          fitView
+          fitViewOptions={{ padding: 0.2 }}
+          minZoom={0.2}
+          maxZoom={1.5}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          edgesReconnectable={false}
+          elementsSelectable={false}
+          onlyRenderVisibleElements
+          proOptions={{ hideAttribution: true }}
+          onNodeClick={(_, node) => setFocusedModel(node.data.name)}
+        >
+          <Background color="var(--color-border)" gap={18} />
+          <Controls showInteractive={false} />
+        </ReactFlow>
+      </div>
+
+      {activeFocusedModel && focusedSchema && (
+        <ModelDetailsPanel
+          modelName={activeFocusedModel}
+          schema={focusedSchema}
+          routeCount={modelRouteMap.modelToRoutes[activeFocusedModel]?.length ?? 0}
+          outgoing={focusedRelations.outgoing}
+          incoming={focusedRelations.incoming}
+          onClearFocus={handleClearFocus}
+          onFocusModel={handleFocusModel}
+        />
+      )}
     </div>
   )
 }

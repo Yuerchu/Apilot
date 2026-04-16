@@ -63,6 +63,30 @@ function getVisibleNames(graph: SchemaGraph, filter: string): Set<string> {
   return visible
 }
 
+function getFocusedNames(graph: SchemaGraph, focusModel: string, focusDepth: number): Set<string> {
+  const visible = new Set<string>([focusModel])
+  let frontier = new Set<string>([focusModel])
+  const maxDepth = Math.max(1, focusDepth)
+
+  for (let depth = 0; depth < maxDepth; depth += 1) {
+    const nextFrontier = new Set<string>()
+    for (const edge of graph.edges) {
+      if (frontier.has(edge.source) && !visible.has(edge.target)) {
+        visible.add(edge.target)
+        nextFrontier.add(edge.target)
+      }
+      if (frontier.has(edge.target) && !visible.has(edge.source)) {
+        visible.add(edge.source)
+        nextFrontier.add(edge.source)
+      }
+    }
+    frontier = nextFrontier
+    if (!frontier.size) break
+  }
+
+  return visible
+}
+
 function getConnectedNames(edges: ModelGraphLayoutEdge[]): Set<string> {
   const connected = new Set<string>()
   for (const edge of edges) {
@@ -72,7 +96,13 @@ function getConnectedNames(edges: ModelGraphLayoutEdge[]): Set<string> {
   return connected
 }
 
-function hashLayoutKey(filter: string, nodes: SchemaGraphNode[], edges: SchemaGraphEdge[]): string {
+function getRequestCacheKey(request: ModelGraphWorkerRequest): string {
+  return request.focusModel
+    ? `focus:${request.focusModel}:${request.focusDepth}`
+    : `filter:${request.filter}`
+}
+
+function hashLayoutKey(cacheKey: string, nodes: SchemaGraphNode[], edges: SchemaGraphEdge[]): string {
   let hash = 2166136261
   const update = (value: string) => {
     for (let i = 0; i < value.length; i += 1) {
@@ -81,7 +111,7 @@ function hashLayoutKey(filter: string, nodes: SchemaGraphNode[], edges: SchemaGr
     }
   }
 
-  update(filter)
+  update(cacheKey)
   for (const node of nodes) update(node.id)
   for (const edge of edges) update(edge.id)
 
@@ -110,10 +140,11 @@ function getGraphCache(request: ModelGraphWorkerRequest): SchemaGraphCache {
 
 function getTooLargeResult(
   filter: string,
+  focusModel: string | undefined,
   metrics: Required<ModelGraphMetrics>,
 ): ModelGraphTooLargeResult | null {
-  const hasFilter = filter.length > 0
-  const limit = hasFilter
+  const isFocused = !!focusModel || filter.length > 0
+  const limit = isFocused
     ? { nodes: MODEL_GRAPH_MAX_FOCUSED_LAYOUT_NODES, edges: MODEL_GRAPH_MAX_FOCUSED_LAYOUT_EDGES }
     : { nodes: MODEL_GRAPH_MAX_AUTO_LAYOUT_NODES, edges: MODEL_GRAPH_MAX_AUTO_LAYOUT_EDGES }
 
@@ -124,6 +155,7 @@ function getTooLargeResult(
   return {
     status: "too-large",
     filter,
+    ...(focusModel ? { focusModel } : {}),
     metrics,
     limit,
   }
@@ -131,7 +163,7 @@ function getTooLargeResult(
 
 function layoutGraph(
   graph: SchemaGraph,
-  filter: string,
+  cacheKey: string,
   schemaCount: number,
   visibleGraphNodes: SchemaGraphNode[],
   visibleGraphEdges: SchemaGraphEdge[],
@@ -187,7 +219,7 @@ function layoutGraph(
   })
 
   return {
-    key: hashLayoutKey(filter, visibleGraphNodes, visibleGraphEdges),
+    key: hashLayoutKey(cacheKey, visibleGraphNodes, visibleGraphEdges),
     schemaCount,
     nodeCount: graph.nodes.length,
     edgeCount: graph.edges.length,
@@ -200,7 +232,8 @@ function layoutGraph(
 
 function handleLayoutRequest(request: ModelGraphWorkerRequest) {
   const cache = getGraphCache(request)
-  const cachedResult = cache.results.get(request.filter)
+  const cacheKey = getRequestCacheKey(request)
+  const cachedResult = cache.results.get(cacheKey)
   if (cachedResult) {
     postMessageToMain({
       type: "result",
@@ -210,7 +243,9 @@ function handleLayoutRequest(request: ModelGraphWorkerRequest) {
     return
   }
 
-  const visibleNames = getVisibleNames(cache.graph, request.filter)
+  const visibleNames = request.focusModel
+    ? getFocusedNames(cache.graph, request.focusModel, request.focusDepth)
+    : getVisibleNames(cache.graph, request.filter)
   const visibleGraphNodes = cache.graph.nodes.filter(node => visibleNames.has(node.id))
   const visibleGraphEdges = cache.graph.edges.filter(edge => visibleNames.has(edge.source) && visibleNames.has(edge.target))
   const metrics: Required<ModelGraphMetrics> = {
@@ -223,13 +258,13 @@ function handleLayoutRequest(request: ModelGraphWorkerRequest) {
 
   postProgress(request.requestId, "layout", metrics)
 
-  const tooLargeResult = getTooLargeResult(request.filter, metrics)
+  const tooLargeResult = getTooLargeResult(request.filter, request.focusModel, metrics)
   const result: ModelGraphComputedResult = tooLargeResult ?? {
     status: "ready",
-    layout: layoutGraph(cache.graph, request.filter, request.schemaCount, visibleGraphNodes, visibleGraphEdges),
+    layout: layoutGraph(cache.graph, cacheKey, request.schemaCount, visibleGraphNodes, visibleGraphEdges),
   }
 
-  cache.results.set(request.filter, result)
+  cache.results.set(cacheKey, result)
   postMessageToMain({
     type: "result",
     requestId: request.requestId,
