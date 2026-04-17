@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Loader2 } from "lucide-react"
+import { Loader2, Stethoscope, GitCompare, Upload } from "lucide-react"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import type {
   OpenAPIDiagnosticCode,
   OpenAPIDiagnosticIssue,
@@ -273,9 +274,14 @@ export function OpenAPIDiagnosticsView({ spec, sourceSpec }: OpenAPIToolViewProp
           </div>
 
           {diagnostics.issues.length === 0 ? (
-            <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
-              {t("tools.noDiagnostics")}
-            </div>
+            <Empty className="rounded-lg border bg-card">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Stethoscope />
+                </EmptyMedia>
+                <EmptyTitle>{t("tools.noDiagnostics")}</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <div className="flex flex-col gap-2">
               {diagnostics.issues.map(issue => (
@@ -523,9 +529,14 @@ export function OpenAPIDiffView({ spec }: OpenAPIDiffViewProps) {
           </div>
 
           {diff.changes.length === 0 ? (
-            <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
-              {t("tools.noDiffChanges")}
-            </div>
+            <Empty className="rounded-lg border bg-card">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <GitCompare />
+                </EmptyMedia>
+                <EmptyTitle>{t("tools.noDiffChanges")}</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <div className="flex flex-col gap-2">
               {diff.changes.map(change => (
@@ -535,15 +546,25 @@ export function OpenAPIDiffView({ spec }: OpenAPIDiffViewProps) {
           )}
         </>
       ) : (
-        <div className={cn(
-          "rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground",
-          (loadingSlot || diffComputing) && "opacity-70",
-        )}>
-          {diffComputing
-            ? <LoadingMessage>{t("tools.computingDiff")}</LoadingMessage>
-            : loadingSlot
-              ? <LoadingMessage>{t("tools.loadingDiffFile")}</LoadingMessage>
-              : t("tools.diffNeedsFiles")}
+        <div className={cn((loadingSlot || diffComputing) && "opacity-70")}>
+          {diffComputing ? (
+            <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+              <LoadingMessage>{t("tools.computingDiff")}</LoadingMessage>
+            </div>
+          ) : loadingSlot ? (
+            <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+              <LoadingMessage>{t("tools.loadingDiffFile")}</LoadingMessage>
+            </div>
+          ) : (
+            <Empty className="rounded-lg border bg-card">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Upload />
+                </EmptyMedia>
+                <EmptyTitle>{t("tools.diffNeedsFiles")}</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          )}
         </div>
       )}
     </div>

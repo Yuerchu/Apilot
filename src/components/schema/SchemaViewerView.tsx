@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import type { TFunction } from "i18next"
 import { useTranslation } from "react-i18next"
-import { ArrowLeft, ChevronDown, ChevronUp, Database, FileJson, Loader2, Upload } from "lucide-react"
+import { ArrowLeft, ChevronDown, ChevronUp, Database, FileJson, Loader2, Search, Upload } from "lucide-react"
+import { Empty as ShadcnEmpty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import type { OpenAPISpec, SchemaViewerSource } from "@/lib/openapi/types"
 import {
   buildSchemaFieldExtensions,
@@ -182,11 +183,14 @@ function SchemaListItem({
   )
 }
 
-function EmptyState({ children }: { children: ReactNode }) {
+function EmptyState({ children, icon }: { children: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="flex min-h-[240px] items-center justify-center p-6 text-center text-sm text-muted-foreground">
-      {children}
-    </div>
+    <ShadcnEmpty className="min-h-[240px]">
+      <EmptyHeader>
+        {icon && <EmptyMedia variant="icon">{icon}</EmptyMedia>}
+        <EmptyTitle>{children}</EmptyTitle>
+      </EmptyHeader>
+    </ShadcnEmpty>
   )
 }
 
@@ -881,15 +885,15 @@ export function SchemaViewerView({ spec }: SchemaViewerViewProps) {
 
       <div className="min-h-0 flex-1 overflow-auto">
         {activeItems.length === 0 ? (
-          <div className="p-4 text-sm text-muted-foreground">
+          <EmptyState icon={state.schemaSource === "external" ? <Upload /> : <FileJson />}>
             {state.schemaSource === "external"
               ? t("schemaViewer.uploadHint")
               : t("schemaViewer.noSchemas")}
-          </div>
+          </EmptyState>
         ) : filteredItems.length === 0 ? (
-          <div className="p-4 text-sm text-muted-foreground">
+          <EmptyState icon={<Search />}>
             {t("schemaViewer.noMatch")}
-          </div>
+          </EmptyState>
         ) : (
           filteredItems.map(item => (
             <SchemaListItem
@@ -1046,7 +1050,7 @@ export function SchemaViewerView({ spec }: SchemaViewerViewProps) {
         </>
       ) : (
         <CardContent className="px-3 py-3">
-          <EmptyState>
+          <EmptyState icon={state.schemaSource === "external" ? <Upload /> : <FileJson />}>
             {state.schemaSource === "external"
               ? t("schemaViewer.uploadHint")
               : t("schemaViewer.noSchemas")}

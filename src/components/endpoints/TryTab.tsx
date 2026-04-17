@@ -8,6 +8,10 @@ import { generateExample } from "@/lib/openapi/generate-example"
 import { formatSchema } from "@/lib/openapi/format-schema"
 import { useAuthContext } from "@/contexts/AuthContext"
 import { useRequest } from "@/hooks/use-request"
+import { useHistory } from "@/hooks/use-history"
+import { useEnvVars } from "@/hooks/use-env-vars"
+import { interpolateEnvVars } from "@/lib/db"
+import { getParsedRouteKey } from "@/lib/openapi/route-key"
 import { SchemaForm } from "@/components/schema/SchemaForm"
 import { JsonEditor } from "@/components/editor/JsonEditor"
 import { cn } from "@/lib/utils"
@@ -286,6 +290,9 @@ export function TryTab({ route, index: _index }: TryTabProps) {
   const { t } = useTranslation()
   const { getAuthHeaders, applyToken } = useAuthContext()
   const { loading, response, error: requestError, sendRequest } = useRequest(getAuthHeaders)
+  const routeKey = getParsedRouteKey(route)
+  const { addEntry } = useHistory(routeKey)
+  const { varsMap } = useEnvVars()
   const [showErrors, setShowErrors] = useState(false)
 
   // Parameter values
@@ -362,19 +369,38 @@ export function TryTab({ route, index: _index }: TryTabProps) {
 
   const handleSend = useCallback(async () => {
     setShowErrors(true)
+    // Interpolate env vars into params and body
+    const resolvedParams: Record<string, string> = {}
+    for (const [k, v] of Object.entries(params)) {
+      resolvedParams[k] = interpolateEnvVars(v, varsMap)
+    }
+    const resolvedBody = interpolateEnvVars(bodyJson, varsMap)
+
+    let result
     if (isFormType) {
       const formData: Record<string, string | File> = {}
       for (const [k, v] of Object.entries(fdValues)) {
-        if (v) formData[k] = v
+        if (v) formData[k] = typeof v === "string" ? interpolateEnvVars(v, varsMap) : v
       }
       for (const [k, v] of Object.entries(fdFiles)) {
         if (v) formData[k] = v
       }
-      await sendRequest(route, params, "", selectedCt, formData)
+      result = await sendRequest(route, resolvedParams, "", selectedCt, formData)
     } else {
-      await sendRequest(route, params, bodyJson, selectedCt)
+      result = await sendRequest(route, resolvedParams, resolvedBody, selectedCt)
     }
-  }, [route, params, bodyJson, selectedCt, isFormType, fdValues, fdFiles, sendRequest])
+    if (result) {
+      addEntry({
+        routeKey,
+        method: route.method,
+        path: route.path,
+        requestParams: params,
+        requestBody: isFormType ? null : bodyJson,
+        contentType: selectedCt,
+        response: result,
+      })
+    }
+  }, [route, routeKey, params, bodyJson, selectedCt, isFormType, fdValues, fdFiles, sendRequest, addEntry, varsMap])
 
   const handleApplyToken = useCallback((token: string, fieldName: string) => {
     applyToken(token, fieldName)
@@ -524,7 +550,7 @@ export function TryTab({ route, index: _index }: TryTabProps) {
 
       {/* Response */}
       {response && (
-        <ResponsePanel response={response} onApplyToken={handleApplyToken} />
+        <ResponsePanel response={response} route={route} onApplyToken={handleApplyToken} />
       )}
     </div>
   )

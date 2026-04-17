@@ -11,6 +11,7 @@ import {
 } from "@/components/animate-ui/primitives/radix/tabs"
 import { DocTab } from "./DocTab"
 import { TryTab } from "./TryTab"
+import { HistoryTab } from "./HistoryTab"
 
 interface RouteDetailProps {
   route: ParsedRoute
@@ -35,6 +36,9 @@ export const RouteDetail = memo(function RouteDetail({ route, index }: RouteDeta
         <TabsTrigger value="try" className={tabTriggerClass}>
           {t("doc.tabs.test")}
         </TabsTrigger>
+        <TabsTrigger value="history" className={tabTriggerClass}>
+          {t("doc.tabs.history")}
+        </TabsTrigger>
       </TabsList>
 
       <TabsContents className="mt-3">
@@ -44,6 +48,10 @@ export const RouteDetail = memo(function RouteDetail({ route, index }: RouteDeta
 
         <TabsContent value="try">
           <TryTab route={route} index={index} />
+        </TabsContent>
+
+        <TabsContent value="history">
+          <HistoryTab route={route} />
         </TabsContent>
       </TabsContents>
     </Tabs>

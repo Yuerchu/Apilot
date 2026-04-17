@@ -38,6 +38,8 @@ export const ViewToolbar = memo(function ViewToolbar({
         <Checkbox
           checked={selectAllChecked}
           onCheckedChange={onSelectAllChange}
+          size="sm"
+          className="size-4"
         />
         <span className="text-xs text-muted-foreground">{t("toolbar.selectAll")}</span>
       </div>

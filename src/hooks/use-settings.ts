@@ -58,7 +58,7 @@ function loadFromStorage(): {
   }
 }
 
-export function useSettings(auth: AuthState & { setAuthType: (t: AuthType) => void; setAuthToken: (t: string) => void; setAuthUser: (u: string) => void; setAuthKeyName: (n: string) => void; setOAuth2Token: (t: string | null) => void }, autoLoad?: (url: string) => void) {
+export function useSettings(auth: AuthState & { setAuthType: (t: AuthType) => void; setAuthToken: (t: string) => void; setAuthUser: (u: string) => void; setAuthKeyName: (n: string) => void; setOAuth2Token: (t: string | null) => void }, autoLoad?: (url: string, options?: { baseUrlOverride?: string }) => void) {
   const { state, dispatch } = useOpenAPIContext()
   const initialized = useRef(false)
 
@@ -90,7 +90,7 @@ export function useSettings(auth: AuthState & { setAuthType: (t: AuthType) => vo
 
     // Auto-load spec
     if (specUrl && autoLoad) {
-      setTimeout(() => autoLoad(specUrl), 0)
+      setTimeout(() => autoLoad(specUrl, baseUrl ? { baseUrlOverride: baseUrl } : undefined), 0)
     }
 
     return undefined

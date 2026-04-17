@@ -4,7 +4,10 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import type { ParsedRoute } from "@/lib/openapi/types"
 import { getParsedRouteKey } from "@/lib/openapi/route-key"
+import { useFavorites } from "@/hooks/use-favorites"
+import { Search } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { ViewToolbar } from "@/components/layout/ViewToolbar"
 import { TagFilter } from "./TagFilter"
 import { RouteCard } from "./RouteCard"
@@ -22,6 +25,7 @@ export function EndpointsView() {
     setFilter,
   } = useOpenAPIContext()
   const { routes, selectedRoutes, activeTags, filter } = state
+  const { favorites, isFavorite, toggleFavorite } = useFavorites()
 
   // Filter routes
   const filteredRoutes = useMemo(() => {
@@ -47,13 +51,18 @@ export function EndpointsView() {
     }
     const rows: VirtualRow[] = []
     for (const [tag, items] of Object.entries(grouped)) {
-      rows.push({ type: "group", tag, indices: items.map(it => it.index) })
-      for (const item of items) {
+      const sorted = [...items].sort((a, b) => {
+        const af = isFavorite(getParsedRouteKey(a.route)) ? 0 : 1
+        const bf = isFavorite(getParsedRouteKey(b.route)) ? 0 : 1
+        return af - bf
+      })
+      rows.push({ type: "group", tag, indices: sorted.map(it => it.index) })
+      for (const item of sorted) {
         rows.push({ type: "route", route: item.route, index: item.index })
       }
     }
     return rows
-  }, [filteredRoutes, t])
+  }, [filteredRoutes, t, favorites, isFavorite])
 
   const activeRouteRowIndex = useMemo(() => {
     if (!state.activeEndpointKey) return -1
@@ -152,13 +161,20 @@ export function EndpointsView() {
                         onCheckedChange={checked => {
                           handleGroupCheck(row.indices, checked === true)
                         }}
+                        size="sm"
+                        className="size-4"
                       />
                     </div>
                     <h2 className="text-sm font-semibold text-foreground">{row.tag}</h2>
                   </div>
                 ) : (
                   <div className="pb-2">
-                    <RouteCard route={row.route} index={row.index} />
+                    <RouteCard
+                      route={row.route}
+                      index={row.index}
+                      isFavorite={isFavorite(getParsedRouteKey(row.route))}
+                      onToggleFavorite={toggleFavorite}
+                    />
                   </div>
                 )}
               </div>
@@ -167,9 +183,14 @@ export function EndpointsView() {
         </div>
 
         {filteredRoutes.length === 0 && routes.length > 0 && (
-          <div className="text-center py-12 text-muted-foreground">
-            <p className="text-sm">{t("endpoints.noMatch")}</p>
-          </div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Search />
+              </EmptyMedia>
+              <EmptyTitle>{t("endpoints.noMatch")}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         )}
       </div>
     </div>

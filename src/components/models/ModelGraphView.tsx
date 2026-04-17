@@ -1,5 +1,7 @@
 import { startTransition, useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
+import { useTheme } from "next-themes"
+import { Database } from "lucide-react"
 import {
   Background,
   Controls,
@@ -19,6 +21,7 @@ import { getTypeStr } from "@/lib/openapi/type-str"
 import { resolveEffectiveSchema } from "@/lib/openapi/resolve-schema"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { Badge } from "@/components/ui/badge"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { SchemaTree } from "@/components/schema/SchemaTree"
@@ -969,6 +972,7 @@ function useWorkerGraphResult(
 
 export function ModelGraphView({ schemas, filter, selectedModels, modelRouteMap }: ModelGraphViewProps) {
   const { t } = useTranslation()
+  const { resolvedTheme } = useTheme()
   const { state, setActiveModelName } = useOpenAPIContext()
   const [focusDepth, setFocusDepth] = useState<ModelGraphFocusDepth>(MODEL_GRAPH_FOCUS_DEPTH)
   const [enabledEdgeKinds, setEnabledEdgeKinds] = useState<EnabledEdgeKinds>(defaultEnabledEdgeKinds)
@@ -1079,9 +1083,14 @@ export function ModelGraphView({ schemas, filter, selectedModels, modelRouteMap 
 
   if (!nodes.length) {
     return (
-      <div className="mb-4 flex min-h-[420px] flex-1 items-center justify-center rounded-lg border bg-card text-sm text-muted-foreground">
-        {filter ? t("models.noMatch") : t("models.noModels")}
-      </div>
+      <Empty className="mb-4 min-h-[420px] rounded-lg border bg-card">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Database className="size-6" />
+          </EmptyMedia>
+          <EmptyTitle>{filter ? t("models.noMatch") : t("models.noModels")}</EmptyTitle>
+        </EmptyHeader>
+      </Empty>
     )
   }
 
@@ -1106,7 +1115,7 @@ export function ModelGraphView({ schemas, filter, selectedModels, modelRouteMap 
             nodes={nodes}
             edges={edges}
             nodeTypes={nodeTypes}
-            colorMode="dark"
+            colorMode={resolvedTheme === "light" ? "light" : "dark"}
             style={{ background: "var(--color-card)" }}
             fitView
             fitViewOptions={{ padding: 0.2 }}

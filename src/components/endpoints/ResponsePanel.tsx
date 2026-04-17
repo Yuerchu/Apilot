@@ -12,12 +12,16 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { buildSnippet, SNIPPET_TARGETS } from "@/lib/build-snippet"
+import { CopyButton } from "@/components/animate-ui/components/buttons/copy"
 import { CodeViewer } from "@/components/editor/CodeViewer"
-import type { RequestResponse } from "@/lib/openapi/types"
+import type { RequestResponse, ParsedRoute } from "@/lib/openapi/types"
+import { validateWithSchema } from "@/lib/validate-schema"
+import type { SchemaObject } from "@/lib/openapi/types"
 import { toast } from "sonner"
 
 interface ResponsePanelProps {
   response: RequestResponse
+  route?: ParsedRoute
   onApplyToken?: (token: string, fieldName: string) => void
 }
 
@@ -49,7 +53,7 @@ function statusColorClass(status: number): string {
   return "bg-method-delete/20 text-method-delete border-method-delete/30"
 }
 
-export const ResponsePanel = memo(function ResponsePanel({ response, onApplyToken }: ResponsePanelProps) {
+export const ResponsePanel = memo(function ResponsePanel({ response, route, onApplyToken }: ResponsePanelProps) {
   const { t } = useTranslation()
   const [headersOpen, setHeadersOpen] = useState(false)
   const [snippetLang, setSnippetLang] = useState("shell-curl")
@@ -80,7 +84,7 @@ export const ResponsePanel = memo(function ResponsePanel({ response, onApplyToke
     return () => { cancelled = true }
   }, [snippetLang, response, snippetKey])
 
-  const { isJson, tokenButtons } = useMemo(() => {
+  const { isJson, jsonObj, tokenButtons } = useMemo(() => {
     let isJson = false
     let jsonObj: Record<string, unknown> | null = null
     try {
@@ -98,12 +102,20 @@ export const ResponsePanel = memo(function ResponsePanel({ response, onApplyToke
       }
     }
 
-    return { isJson, tokenButtons }
+    return { isJson, jsonObj, tokenButtons }
   }, [response.body, response.status])
 
-  const copySnippet = useCallback(() => {
-    navigator.clipboard.writeText(snippetCode).then(() => toast.success(t("toast.curlCopied")))
-  }, [snippetCode, t])
+  const schemaErrors = useMemo(() => {
+    if (!route || !isJson || !jsonObj || response.status === 0) return []
+    const statusKey = String(response.status)
+    const respDef = route.responses[statusKey] || route.responses["default"]
+    if (!respDef?.content) return []
+    const mediaType = Object.values(respDef.content)[0]
+    const schema = mediaType?.schema as SchemaObject | undefined
+    if (!schema) return []
+    return validateWithSchema(schema, jsonObj)
+  }, [route, isJson, jsonObj, response.status, response.body]) // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const copyBody = useCallback(() => {
     navigator.clipboard.writeText(response.body).then(() => toast.success(t("toast.bodyCopied")))
@@ -138,13 +150,12 @@ export const ResponsePanel = memo(function ResponsePanel({ response, onApplyToke
               </SelectContent>
             </Select>
             <div className="flex-1" />
-            <Button
+            <CopyButton
               variant="ghost"
-              size="icon-xs"
-              onClick={copySnippet}
-            >
-              <Copy className="size-3" />
-            </Button>
+              size="xs"
+              content={snippetCode}
+              onCopiedChange={(copied) => { if (copied) toast.success(t("toast.curlCopied")) }}
+            />
           </div>
           <CodeViewer
             code={snippetCode}
@@ -193,6 +204,31 @@ export const ResponsePanel = memo(function ResponsePanel({ response, onApplyToke
             maxHeight="400px"
           />
         </div>
+
+        {schemaErrors.length > 0 && (
+          <div className="border-t px-3 py-2 space-y-1">
+            <div className="text-[11px] font-medium text-destructive">
+              {t("response.schemaErrors", { count: schemaErrors.length })}
+            </div>
+            {schemaErrors.slice(0, 10).map((err, i) => (
+              <div key={i} className="text-[11px] text-destructive/80 font-mono">
+                <span className="text-destructive font-semibold">{err.field || "/"}</span>
+                {" "}{err.message}
+              </div>
+            ))}
+            {schemaErrors.length > 10 && (
+              <div className="text-[10px] text-muted-foreground">
+                +{schemaErrors.length - 10} more
+              </div>
+            )}
+          </div>
+        )}
+
+        {isJson && schemaErrors.length === 0 && route && response.status >= 200 && response.status < 300 && (
+          <div className="border-t px-3 py-1.5">
+            <span className="text-[11px] text-success">{t("response.schemaValid")}</span>
+          </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-t bg-muted/20">
           {tokenButtons.map(tokenItem => (

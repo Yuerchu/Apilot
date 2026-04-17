@@ -1,4 +1,3 @@
-// @ts-nocheck — animate-ui third-party component
 'use client';
 
 import * as React from 'react';

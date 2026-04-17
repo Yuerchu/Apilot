@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
+import { useTheme } from "next-themes"
 import i18n from "@/lib/i18n"
 import {
   Settings, ChevronDown, Loader2, Upload,
   Route, Database, ExternalLink, Scale, Mail, Languages, FileJson, GitCompare, Stethoscope,
+  Sun, Moon, Monitor, Variable,
 } from "lucide-react"
 import {
   Sidebar,
@@ -38,7 +40,60 @@ import { useOpenAPI } from "@/hooks/use-openapi"
 import { toast } from "sonner"
 import type { useAuth } from "@/hooks/use-auth"
 import type { AuthType, MainView } from "@/lib/openapi/types"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { APP_VERSION, GITHUB_URL, getBuildLabel } from "@/lib/app-info"
+import { EnvVarsPanel } from "@/components/endpoints/EnvVarsPanel"
+
+const LANG_CYCLE = ["zh_CN", "zh_HK", "zh_TW", "en", "ja", "ko"] as const
+const LANG_LABELS: Record<string, string> = {
+  zh_CN: "简体中文",
+  zh_HK: "繁體中文（港）",
+  zh_TW: "繁體中文（臺）",
+  en: "English",
+  ja: "日本語",
+  ko: "한국어",
+}
+
+const THEME_CYCLE = ["system", "light", "dark"] as const
+const THEME_ICONS = { system: Monitor, light: Sun, dark: Moon } as const
+const THEME_LABELS: Record<string, Record<string, string>> = {
+  zh_CN: { system: "跟随系统", light: "浅色", dark: "深色" },
+  zh_HK: { system: "跟隨系統", light: "淺色", dark: "深色" },
+  zh_TW: { system: "跟隨系統", light: "淺色", dark: "深色" },
+  en: { system: "System", light: "Light", dark: "Dark" },
+  ja: { system: "システム", light: "ライト", dark: "ダーク" },
+  ko: { system: "시스템", light: "라이트", dark: "다크" },
+}
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme()
+  const current = theme ?? "system"
+  const labels = THEME_LABELS[i18n.language] ?? THEME_LABELS.en
+
+  return (
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      value={current}
+      onValueChange={v => { if (v) setTheme(v) }}
+      className="h-7"
+    >
+      {THEME_CYCLE.map(t => {
+        const Icon = THEME_ICONS[t]
+        return (
+          <ToggleGroupItem
+            key={t}
+            value={t}
+            className="h-7 w-7 p-0"
+            title={labels?.[t] ?? t}
+          >
+            <Icon className="size-3.5" />
+          </ToggleGroupItem>
+        )
+      })}
+    </ToggleGroup>
+  )
+}
 
 interface AppSidebarProps {
   auth: ReturnType<typeof useAuth>
@@ -271,6 +326,28 @@ export function AppSidebar({ auth }: AppSidebarProps) {
           </SidebarGroup>
         </Collapsible>
 
+        {specLoaded && (
+          <>
+            <Separator />
+            <Collapsible>
+              <SidebarGroup>
+                <CollapsibleTrigger asChild>
+                  <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-accent rounded-md">
+                    <Variable className="size-3.5 mr-1.5" />
+                    {t("envVars.title")}
+                    <ChevronDown className="size-3 ml-auto transition-transform group-data-[state=open]:rotate-180" />
+                  </SidebarGroupLabel>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <SidebarGroupContent className="px-2">
+                    <EnvVarsPanel />
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
+          </>
+        )}
+
         <Separator />
 
         {/* Navigation */}
@@ -340,17 +417,23 @@ export function AppSidebar({ auth }: AppSidebarProps) {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border px-3 py-2 flex flex-col gap-1">
-        <button
-          type="button"
-          className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full py-1"
-          onClick={() => {
-            const next = i18n.language === "zh" ? "en" : "zh"
-            i18n.changeLanguage(next)
-          }}
-        >
-          <Languages className="size-3.5" />
-          {i18n.language === "zh" ? "English" : "中文"}
-        </button>
+        <div className="flex items-center gap-2">
+          <Languages className="size-3.5 shrink-0 text-muted-foreground" />
+          <Select value={i18n.language} onValueChange={v => i18n.changeLanguage(v)}>
+            <SelectTrigger className="h-7 text-xs border-none bg-transparent shadow-none px-1 gap-1 min-w-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LANG_CYCLE.map(lang => (
+                <SelectItem key={lang} value={lang} className="text-xs">
+                  {LANG_LABELS[lang]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="ml-auto" />
+          <ThemeToggle />
+        </div>
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
           <span><strong>Apilot</strong> v{APP_VERSION} ({getBuildLabel()})</span>
           <a href={GITHUB_URL} target="_blank" rel="noopener" className="hover:text-foreground transition-colors" title="GitHub">

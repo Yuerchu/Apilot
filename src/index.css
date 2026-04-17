@@ -3,7 +3,53 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ── Light theme (default) ── */
 @theme {
+  --color-background: oklch(0.985 0 0);
+  --color-foreground: oklch(0.145 0 0);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.145 0 0);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.145 0 0);
+  --color-primary: oklch(0.205 0 0);
+  --color-primary-foreground: oklch(0.985 0 0);
+  --color-secondary: oklch(0.95 0 0);
+  --color-secondary-foreground: oklch(0.205 0 0);
+  --color-muted: oklch(0.95 0 0);
+  --color-muted-foreground: oklch(0.45 0 0);
+  --color-accent: oklch(0.95 0 0);
+  --color-accent-foreground: oklch(0.205 0 0);
+  --color-destructive: oklch(0.553 0.2 27.33);
+  --color-border: oklch(0.885 0 0);
+  --color-input: oklch(0.885 0 0);
+  --color-ring: oklch(0.556 0 0);
+  --radius: 0.625rem;
+  --font-mono: ui-monospace, monospace;
+
+  /* HTTP method colors */
+  --color-method-get: oklch(0.45 0.18 162.48);
+  --color-method-post: oklch(0.50 0.14 62.28);
+  --color-method-put: oklch(0.45 0.18 296.02);
+  --color-method-patch: oklch(0.52 0.14 82.15);
+  --color-method-delete: oklch(0.50 0.22 27.33);
+  --color-method-head: oklch(0.45 0 0);
+  --color-method-options: oklch(0.45 0 0);
+  --color-method-redirect: oklch(0.45 0.15 230);
+  --color-success: oklch(0.45 0.18 162.48);
+
+  /* Sidebar (light) */
+  --color-sidebar: oklch(0.97 0 0);
+  --color-sidebar-foreground: oklch(0.145 0 0);
+  --color-sidebar-primary: oklch(0.205 0 0);
+  --color-sidebar-primary-foreground: oklch(0.985 0 0);
+  --color-sidebar-accent: oklch(0.95 0 0);
+  --color-sidebar-accent-foreground: oklch(0.205 0 0);
+  --color-sidebar-border: oklch(0.885 0 0);
+  --color-sidebar-ring: oklch(0.556 0 0);
+}
+
+/* ── Dark theme ── */
+.dark {
   --color-background: oklch(0.145 0 0);
   --color-foreground: oklch(0.922 0 0);
   --color-card: oklch(0.17 0 0);
@@ -22,8 +68,6 @@
   --color-border: oklch(0.269 0 0);
   --color-input: oklch(0.269 0 0);
   --color-ring: oklch(0.556 0 0);
-  --radius: 0.625rem;
-  --font-mono: ui-monospace, monospace;
 
   /* HTTP method colors */
   --color-method-get: oklch(0.696 0.17 162.48);
@@ -35,12 +79,25 @@
   --color-method-options: oklch(0.556 0 0);
   --color-method-redirect: oklch(0.65 0.15 230);
   --color-success: oklch(0.696 0.17 162.48);
+
+  /* Sidebar (dark) */
+  --color-sidebar: oklch(0.17 0 0);
+  --color-sidebar-foreground: oklch(0.922 0 0);
+  --color-sidebar-primary: oklch(0.922 0 0);
+  --color-sidebar-primary-foreground: oklch(0.205 0 0);
+  --color-sidebar-accent: oklch(0.269 0 0);
+  --color-sidebar-accent-foreground: oklch(0.922 0 0);
+  --color-sidebar-border: oklch(0.269 0 0);
+  --color-sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {
   * {
     @apply border-border;
     scrollbar-width: thin;
+    scrollbar-color: oklch(0.82 0 0) transparent;
+  }
+  .dark * {
     scrollbar-color: oklch(0.35 0 0) transparent;
   }
   *::-webkit-scrollbar {
@@ -51,25 +108,20 @@
     background: transparent;
   }
   *::-webkit-scrollbar-thumb {
-    background: oklch(0.35 0 0);
+    background: oklch(0.82 0 0);
     border-radius: 3px;
   }
   *::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.72 0 0);
+  }
+  .dark *::-webkit-scrollbar-thumb {
+    background: oklch(0.35 0 0);
+  }
+  .dark *::-webkit-scrollbar-thumb:hover {
     background: oklch(0.45 0 0);
   }
   body {
     @apply bg-background text-foreground;
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
   }
-}
-
-@theme inline {
-  --color-sidebar: oklch(0.17 0 0);
-  --color-sidebar-foreground: oklch(0.922 0 0);
-  --color-sidebar-primary: oklch(0.922 0 0);
-  --color-sidebar-primary-foreground: oklch(0.205 0 0);
-  --color-sidebar-accent: oklch(0.269 0 0);
-  --color-sidebar-accent-foreground: oklch(0.922 0 0);
-  --color-sidebar-border: oklch(0.269 0 0);
-  --color-sidebar-ring: oklch(0.556 0 0);
 }

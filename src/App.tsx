@@ -6,6 +6,9 @@ import { useOpenAPI } from "@/hooks/use-openapi"
 import { useSettings } from "@/hooks/use-settings"
 import { useUrlState } from "@/hooks/use-url-state"
 import { motion } from "motion/react"
+import { Upload } from "lucide-react"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { Fade } from "@/components/animate-ui/primitives/effects/fade"
 import { formatMarkdown } from "@/lib/format-route"
 import { Header } from "@/components/layout/Header"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -17,6 +20,7 @@ import { SchemaViewerView } from "@/components/schema/SchemaViewerView"
 import { OpenAPIDiagnosticsView, OpenAPIDiffView } from "@/components/tools/ProjectToolsView"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { toast } from "sonner"
+import { ShareProvider } from "@/components/share/ShareDialog"
 
 export default function App() {
   return (
@@ -87,10 +91,11 @@ function AppContent() {
   }
 
   return (
-    <SidebarProvider defaultOpen={!isEmbedded}>
-      <AppSidebar auth={auth} />
-      <SidebarInset className="flex flex-col h-screen overflow-hidden">
-        <Header />
+    <ShareProvider>
+      <SidebarProvider defaultOpen={!isEmbedded}>
+        <AppSidebar auth={auth} />
+        <SidebarInset className="flex flex-col h-screen overflow-hidden">
+          <Header />
 
         <div className="max-w-[1280px] mx-auto w-full px-4 pt-4 flex-1 flex flex-col min-h-0 overflow-hidden">
           {state.error && (
@@ -100,34 +105,47 @@ function AppContent() {
           )}
 
           {!specLoaded && !state.loading && (
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <h2 className="text-xl font-semibold mb-2">{t("app.title")}</h2>
-              <p className="text-muted-foreground">
-                {t("app.emptyDesc")}
-              </p>
-            </div>
+            <Empty className="flex-1">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Upload />
+                </EmptyMedia>
+                <EmptyTitle>{t("app.title")}</EmptyTitle>
+                <EmptyDescription>{t("app.emptyDesc")}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           )}
 
           {state.loading && <LoadingSkeleton />}
 
           {specLoaded && !state.loading && state.mainView === "endpoints" && (
-            <EndpointsView />
+            <Fade key="endpoints" className="flex-1 flex flex-col min-h-0">
+              <EndpointsView />
+            </Fade>
           )}
 
           {specLoaded && !state.loading && state.mainView === "models" && (
-            <ModelsView spec={state.spec!} sourceSpec={state.sourceSpec} />
+            <Fade key="models" className="flex-1 flex flex-col min-h-0">
+              <ModelsView spec={state.spec!} sourceSpec={state.sourceSpec} />
+            </Fade>
           )}
 
           {specLoaded && !state.loading && state.mainView === "schemas" && (
-            <SchemaViewerView spec={state.spec!} />
+            <Fade key="schemas" className="flex-1 flex flex-col min-h-0">
+              <SchemaViewerView spec={state.spec!} />
+            </Fade>
           )}
 
           {specLoaded && !state.loading && state.mainView === "diagnostics" && (
-            <OpenAPIDiagnosticsView spec={state.spec!} sourceSpec={state.sourceSpec} />
+            <Fade key="diagnostics" className="flex-1 flex flex-col min-h-0">
+              <OpenAPIDiagnosticsView spec={state.spec!} sourceSpec={state.sourceSpec} />
+            </Fade>
           )}
 
           {specLoaded && !state.loading && state.mainView === "diff" && (
-            <OpenAPIDiffView spec={state.spec!} />
+            <Fade key="diff" className="flex-1 flex flex-col min-h-0">
+              <OpenAPIDiffView spec={state.spec!} />
+            </Fade>
           )}
         </div>
 
@@ -146,8 +164,9 @@ function AppContent() {
             onClear={clearModelSelection}
           />
         )}
-      </SidebarInset>
-    </SidebarProvider>
+        </SidebarInset>
+      </SidebarProvider>
+    </ShareProvider>
   )
 }
 

@@ -1,4 +1,5 @@
 import { memo } from "react"
+import { useTheme } from "next-themes"
 import CodeMirror from "@uiw/react-codemirror"
 import { oneDark } from "@codemirror/theme-one-dark"
 import { EditorView } from "@codemirror/view"
@@ -51,13 +52,16 @@ export const CodeViewer = memo(function CodeViewer({
   language = "shell",
   maxHeight = "200px",
 }: CodeViewerProps) {
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme !== "light"
+
   return (
     <CodeMirror
       value={code}
       readOnly
       editable={false}
       extensions={[getLangExtension(language), theme]}
-      theme={oneDark}
+      theme={isDark ? oneDark : "light"}
       maxHeight={maxHeight}
       basicSetup={{
         lineNumbers: false,

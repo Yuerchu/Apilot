@@ -92,25 +92,25 @@ export function useOpenAPI() {
 
   const yieldToUI = () => new Promise<void>(r => requestAnimationFrame(() => setTimeout(r, 0)))
 
-  const processSpec = useCallback(async (input: string | OpenAPISpec, url: string) => {
+  const processSpec = useCallback(async (input: string | OpenAPISpec, url: string, baseUrlOverride?: string) => {
     const { spec: parsedSpec, sourceSpec } = await parseValidatedSpec(input)
     const spec = normalizeParsedSpec(parsedSpec)
     dispatch({ type: "SET_SPEC", spec, sourceSpec })
     dispatch({ type: "SET_SPEC_URL", url })
     await yieldToUI()
     const { routes, allTags, modelRouteMap } = extractRoutes(spec, sourceSpec)
-    const baseUrl = detectBaseUrl(spec, url)
+    const baseUrl = baseUrlOverride?.trim() || detectBaseUrl(spec, url)
     dispatch({ type: "SET_ROUTES", routes, allTags, modelRouteMap })
     dispatch({ type: "SET_BASE_URL", url: baseUrl })
     dispatch({ type: "SET_LOADING", loading: false })
   }, [dispatch])
 
-  const loadFromUrl = useCallback(async (url: string) => {
+  const loadFromUrl = useCallback(async (url: string, options?: { baseUrlOverride?: string }) => {
     if (!url.trim()) return
     dispatch({ type: "SET_LOADING", loading: true })
     dispatch({ type: "SET_ERROR", error: null })
     try {
-      await processSpec(url, url)
+      await processSpec(url, url, options?.baseUrlOverride)
     } catch (e) {
       dispatch({ type: "SET_ERROR", error: getErrorMessage(e) })
       dispatch({ type: "SET_LOADING", loading: false })

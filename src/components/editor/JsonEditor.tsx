@@ -1,3 +1,4 @@
+import { useTheme } from "next-themes"
 import CodeMirror from "@uiw/react-codemirror"
 import { json } from "@codemirror/lang-json"
 import { oneDark } from "@codemirror/theme-one-dark"
@@ -21,12 +22,15 @@ const theme = EditorView.theme({
 })
 
 export function JsonEditor({ value, onChange, minHeight = "120px" }: JsonEditorProps) {
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme !== "light"
+
   return (
     <CodeMirror
       value={value}
       onChange={onChange}
       extensions={[json(), theme]}
-      theme={oneDark}
+      theme={isDark ? oneDark : "light"}
       minHeight={minHeight}
       basicSetup={{
         lineNumbers: true,

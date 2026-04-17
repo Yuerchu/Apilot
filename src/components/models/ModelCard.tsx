@@ -1,12 +1,12 @@
-import { useCallback, memo } from "react"
+import { useCallback, useMemo, memo } from "react"
 import { useTranslation } from "react-i18next"
-import { ChevronRight, Copy, Route } from "lucide-react"
+import { ChevronRight, Route, Share2 } from "lucide-react"
 import type { SchemaObject, MainView } from "@/lib/openapi/types"
 import { getTypeStr } from "@/lib/openapi/type-str"
 import { formatSchema } from "@/lib/openapi/format-schema"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { SchemaTree } from "@/components/schema/SchemaTree"
-import { Button } from "@/components/ui/button"
+import { CopyButton } from "@/components/animate-ui/components/buttons/copy"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { PathTemplate } from "@/components/endpoints/PathTemplate"
@@ -15,8 +15,15 @@ import {
   CollapsibleTrigger,
   AnimatedCollapsibleContent,
 } from "@/components/ui/collapsible"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { useShareDialog } from "@/components/share/ShareDialog"
 
 interface ModelCardProps {
   name: string
@@ -46,6 +53,7 @@ export const ModelCard = memo(function ModelCard({
   onOpenChange,
 }: ModelCardProps) {
   const { t } = useTranslation()
+  const { openShareDialog } = useShareDialog()
 
   const typeStr = getTypeStr(schema)
   const desc = schema.description || schema.title || ""
@@ -54,62 +62,75 @@ export const ModelCard = memo(function ModelCard({
     onOpenChange(isOpen)
   }, [onOpenChange])
 
-  const handleCopy = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    const text = formatModel(name, schema)
-    navigator.clipboard.writeText(text).then(() => {
-      toast.success(t("toast.copied"))
+  const copyText = useMemo(() => formatModel(name, schema), [name, schema])
+
+  const handleShare = useCallback(() => {
+    openShareDialog({
+      type: "model",
+      modelName: name,
+      label: name,
     })
-  }, [name, schema, t])
+  }, [name, openShareDialog])
 
   return (
-    <Collapsible open={open} onOpenChange={handleToggle}>
-      <div
-        className={cn(
-          "rounded-lg border bg-card transition-colors",
-          selected && "border-primary/50 bg-primary/5",
-        )}
-      >
-        <CollapsibleTrigger asChild>
-          <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors">
-            <Checkbox
-              checked={selected}
-              onCheckedChange={(v) => onSelectChange(!!v)}
-              onClick={(e) => e.stopPropagation()}
-              className="shrink-0"
-            />
-            <ChevronRight
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div>
+          <Collapsible open={open} onOpenChange={handleToggle}>
+            <div
               className={cn(
-                "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
-                open && "rotate-90",
+                "rounded-lg border bg-card transition-colors",
+                selected && "border-primary/50 bg-primary/5",
               )}
-            />
-            <span className="font-mono text-sm font-medium truncate">{name}</span>
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0 max-w-[200px] truncate" title={typeStr}>
-              {typeStr}
-            </Badge>
-            {desc && (
-              <span className="text-xs text-muted-foreground truncate ml-1">{desc}</span>
-            )}
-            <Button
-              variant="ghost"
-              size="xs"
-              className="ml-auto shrink-0"
-              onClick={handleCopy}
             >
-              <Copy className="size-3" />
-              {t("endpoints.copy")}
-            </Button>
-          </div>
-        </CollapsibleTrigger>
-        <AnimatedCollapsibleContent>
-          <div className="px-3 pt-3 pb-3 space-y-3">
-            {open && <SchemaTree schema={schema} />}
-            <UsedByEndpoints modelName={name} />
-          </div>
-        </AnimatedCollapsibleContent>
-      </div>
-    </Collapsible>
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors">
+                  <Checkbox
+                    checked={selected}
+                    onCheckedChange={(v) => onSelectChange(!!v)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="shrink-0"
+                  />
+                  <ChevronRight
+                    className={cn(
+                      "size-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+                      open && "rotate-90",
+                    )}
+                  />
+                  <span className="font-mono text-sm font-medium truncate">{name}</span>
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal shrink-0 max-w-[200px] truncate" title={typeStr}>
+                    {typeStr}
+                  </Badge>
+                  {desc && (
+                    <span className="text-xs text-muted-foreground truncate ml-1">{desc}</span>
+                  )}
+                  <CopyButton
+                    variant="ghost"
+                    size="xs"
+                    content={copyText}
+                    onClick={e => e.stopPropagation()}
+                    onCopiedChange={(copied) => { if (copied) toast.success(t("toast.copied")) }}
+                    className="ml-auto shrink-0"
+                  />
+                </div>
+              </CollapsibleTrigger>
+              <AnimatedCollapsibleContent>
+                <div className="px-3 pt-3 pb-3 space-y-3">
+                  {open && <SchemaTree schema={schema} />}
+                  <UsedByEndpoints modelName={name} />
+                </div>
+              </AnimatedCollapsibleContent>
+            </div>
+          </Collapsible>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onSelect={handleShare}>
+          <Share2 data-icon="inline-start" />
+          {t("share.menuItem")}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 })
 

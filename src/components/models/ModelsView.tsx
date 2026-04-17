@@ -6,7 +6,9 @@ import type { SchemaObject, OpenAPISpec } from "@/lib/openapi/types"
 import { ModelCard } from "@/components/models/ModelCard"
 import { ModelGraphView } from "@/components/models/ModelGraphView"
 import { ViewToolbar } from "@/components/layout/ViewToolbar"
+import { Database, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 
 interface ModelsViewProps {
   spec: OpenAPISpec
@@ -164,9 +166,14 @@ export function ModelsView({ spec, sourceSpec }: ModelsViewProps) {
           })}
         </div>
         {filteredNames.length === 0 && (
-          <div className="py-8 text-center text-sm text-muted-foreground">
-            {filter ? t("models.noMatch") : t("models.noModels")}
-          </div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                {filter ? <Search /> : <Database />}
+              </EmptyMedia>
+              <EmptyTitle>{filter ? t("models.noMatch") : t("models.noModels")}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         )}
       </div>
 
