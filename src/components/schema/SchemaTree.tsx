@@ -220,9 +220,9 @@ export const SchemaTree = memo(function SchemaTree({ schema, maxDepth = 12 }: Sc
                   {ve.properties && (
                     <>
                       <div className="grid grid-cols-[minmax(120px,1fr)_minmax(100px,1fr)_minmax(120px,2fr)] gap-x-3 py-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/60 bg-muted/30">
-                        <div>Field</div>
-                        <div>Type</div>
-                        <div>Description</div>
+                        <div>{t("schema.field")}</div>
+                        <div>{t("schema.type")}</div>
+                        <div>{t("schema.description")}</div>
                       </div>
                       <SchemaRows schema={ve} maxDepth={maxDepth - 1} />
                     </>

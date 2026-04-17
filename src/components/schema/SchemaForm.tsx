@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react"
+import { X } from "lucide-react"
 import { useForm, Controller, useFieldArray, type Control, type UseFormReturn } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import type { SchemaObject } from "@/lib/openapi"
@@ -6,6 +7,7 @@ import { resolveEffectiveSchema, getTypeStr, getConstraints, generateExample } f
 import { validateWithSchema } from "@/lib/validate-schema"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { DateTimePicker } from "@/components/ui/date-time-picker"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
@@ -178,8 +180,8 @@ function ArrayField({
             ? (typeof field.value === "string" ? field.value : JSON.stringify(field.value, null, 2))
             : JSON.stringify(example, null, 2)
           return (
-            <textarea
-              className="w-full min-h-[60px] rounded-md border border-input bg-transparent px-3 py-2 text-xs font-mono shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+            <Textarea
+              className="min-h-[60px] text-xs font-mono"
               rows={3}
               value={currentVal}
               onChange={(e) => {
@@ -269,13 +271,14 @@ function FormField({
             )}
           />
           {isNullable && (
-            <button
+            <Button
               type="button"
-              className="shrink-0 text-xs text-muted-foreground hover:text-foreground"
+              variant="ghost"
+              size="icon-xs"
               onClick={() => form.setValue(fieldName, null, { shouldTouch: true })}
             >
-              ✕
-            </button>
+              <X className="size-3" />
+            </Button>
           )}
         </div>
         {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
@@ -465,13 +468,15 @@ function FormField({
             pattern={effectiveProp.pattern}
             {...form.register(fieldName)}
           />
-          <button
+          <Button
             type="button"
-            className="shrink-0 h-8 px-2.5 rounded-md border border-input bg-muted/50 text-xs hover:bg-muted transition-colors"
+            variant="outline"
+            size="sm"
+            className="h-8 shrink-0"
             onClick={() => form.setValue(fieldName, crypto.randomUUID(), { shouldTouch: true })}
           >
             {t("tryIt.random")}
-          </button>
+          </Button>
         </div>
         {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
       </div>

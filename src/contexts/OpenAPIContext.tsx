@@ -6,9 +6,9 @@ import type {
   EndpointDetailTab,
   MainView,
   ModelViewMode,
+  SchemaViewerSource,
   TagInfo,
   ModelRouteMap,
-  ToolsViewTab,
 } from "@/lib/openapi/types"
 import { getParsedRouteKey } from "@/lib/openapi/route-key"
 
@@ -27,7 +27,11 @@ interface OpenAPIState {
   modelFilter: string
   modelViewMode: ModelViewMode
   activeModelName: string
-  toolsTab: ToolsViewTab
+  schemaFilter: string
+  schemaCategoryFilter: string
+  schemaTypeFilter: string
+  activeSchemaName: string
+  schemaSource: SchemaViewerSource
   mainView: MainView
   baseUrl: string
   specUrl: string
@@ -56,7 +60,11 @@ type Action =
   | { type: "SET_MODEL_FILTER"; filter: string }
   | { type: "SET_MODEL_VIEW_MODE"; mode: ModelViewMode }
   | { type: "SET_ACTIVE_MODEL_NAME"; name: string }
-  | { type: "SET_TOOLS_TAB"; tab: ToolsViewTab }
+  | { type: "SET_SCHEMA_FILTER"; filter: string }
+  | { type: "SET_SCHEMA_CATEGORY_FILTER"; filter: string }
+  | { type: "SET_SCHEMA_TYPE_FILTER"; filter: string }
+  | { type: "SET_ACTIVE_SCHEMA_NAME"; name: string }
+  | { type: "SET_SCHEMA_SOURCE"; source: SchemaViewerSource }
   | { type: "SET_MAIN_VIEW"; view: MainView }
   | { type: "SET_BASE_URL"; url: string }
   | { type: "SET_SPEC_URL"; url: string }
@@ -74,15 +82,19 @@ export interface UrlState {
   modelFilter: string
   modelViewMode: ModelViewMode
   activeModelName: string
-  toolsTab: ToolsViewTab
+  schemaFilter: string
+  schemaCategoryFilter: string
+  schemaTypeFilter: string
+  activeSchemaName: string
+  schemaSource: SchemaViewerSource
 }
 
-function hasModel(spec: OpenAPISpec, name: string): boolean {
+export function hasModel(spec: OpenAPISpec, name: string): boolean {
   if (!name) return false
   return !!(spec.components?.schemas?.[name] || spec.definitions?.[name])
 }
 
-function reducer(state: OpenAPIState, action: Action): OpenAPIState {
+export function reducer(state: OpenAPIState, action: Action): OpenAPIState {
   switch (action.type) {
     case "SET_SPEC":
       return {
@@ -90,6 +102,9 @@ function reducer(state: OpenAPIState, action: Action): OpenAPIState {
         spec: action.spec,
         sourceSpec: action.sourceSpec ?? action.spec,
         activeModelName: hasModel(action.spec, state.activeModelName) ? state.activeModelName : "",
+        activeSchemaName: state.schemaSource === "openapi" && hasModel(action.spec, state.activeSchemaName)
+          ? state.activeSchemaName
+          : "",
         error: null,
       }
 
@@ -190,8 +205,26 @@ function reducer(state: OpenAPIState, action: Action): OpenAPIState {
     case "SET_ACTIVE_MODEL_NAME":
       return { ...state, activeModelName: action.name }
 
-    case "SET_TOOLS_TAB":
-      return { ...state, toolsTab: action.tab }
+    case "SET_SCHEMA_FILTER":
+      return { ...state, schemaFilter: action.filter }
+
+    case "SET_SCHEMA_CATEGORY_FILTER":
+      return { ...state, schemaCategoryFilter: action.filter }
+
+    case "SET_SCHEMA_TYPE_FILTER":
+      return { ...state, schemaTypeFilter: action.filter }
+
+    case "SET_ACTIVE_SCHEMA_NAME":
+      return { ...state, activeSchemaName: action.name }
+
+    case "SET_SCHEMA_SOURCE":
+      return {
+        ...state,
+        schemaSource: action.source,
+        schemaCategoryFilter: "",
+        schemaTypeFilter: "",
+        activeSchemaName: "",
+      }
 
     case "SET_MAIN_VIEW":
       return { ...state, mainView: action.view }
@@ -219,7 +252,11 @@ function reducer(state: OpenAPIState, action: Action): OpenAPIState {
         modelFilter: action.urlState.modelFilter,
         modelViewMode: action.urlState.modelViewMode,
         activeModelName: action.urlState.activeModelName,
-        toolsTab: action.urlState.toolsTab,
+        schemaFilter: action.urlState.schemaFilter,
+        schemaCategoryFilter: action.urlState.schemaCategoryFilter,
+        schemaTypeFilter: action.urlState.schemaTypeFilter,
+        activeSchemaName: action.urlState.activeSchemaName,
+        schemaSource: action.urlState.schemaSource,
       }
 
     case "RESET":
@@ -230,7 +267,7 @@ function reducer(state: OpenAPIState, action: Action): OpenAPIState {
   }
 }
 
-const initialState: OpenAPIState = {
+export const initialState: OpenAPIState = {
   spec: null,
   sourceSpec: null,
   routes: [],
@@ -245,7 +282,11 @@ const initialState: OpenAPIState = {
   modelFilter: "",
   modelViewMode: "list",
   activeModelName: "",
-  toolsTab: "diagnostics",
+  schemaFilter: "",
+  schemaCategoryFilter: "",
+  schemaTypeFilter: "",
+  activeSchemaName: "",
+  schemaSource: "openapi",
   mainView: "endpoints",
   baseUrl: "",
   specUrl: "",
@@ -273,7 +314,11 @@ interface OpenAPIContextValue {
   setModelFilter: (filter: string) => void
   setModelViewMode: (mode: ModelViewMode) => void
   setActiveModelName: (name: string) => void
-  setToolsTab: (tab: ToolsViewTab) => void
+  setSchemaFilter: (filter: string) => void
+  setSchemaCategoryFilter: (filter: string) => void
+  setSchemaTypeFilter: (filter: string) => void
+  setActiveSchemaName: (name: string) => void
+  setSchemaSource: (source: SchemaViewerSource) => void
   setMainView: (view: MainView) => void
   setBaseUrl: (url: string) => void
   setSpecUrl: (url: string) => void
@@ -352,8 +397,24 @@ export function OpenAPIProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "SET_ACTIVE_MODEL_NAME", name })
   }, [])
 
-  const setToolsTab = useCallback((tab: ToolsViewTab) => {
-    dispatch({ type: "SET_TOOLS_TAB", tab })
+  const setSchemaFilter = useCallback((filter: string) => {
+    dispatch({ type: "SET_SCHEMA_FILTER", filter })
+  }, [])
+
+  const setSchemaCategoryFilter = useCallback((filter: string) => {
+    dispatch({ type: "SET_SCHEMA_CATEGORY_FILTER", filter })
+  }, [])
+
+  const setSchemaTypeFilter = useCallback((filter: string) => {
+    dispatch({ type: "SET_SCHEMA_TYPE_FILTER", filter })
+  }, [])
+
+  const setActiveSchemaName = useCallback((name: string) => {
+    dispatch({ type: "SET_ACTIVE_SCHEMA_NAME", name })
+  }, [])
+
+  const setSchemaSource = useCallback((source: SchemaViewerSource) => {
+    dispatch({ type: "SET_SCHEMA_SOURCE", source })
   }, [])
 
   const setMainView = useCallback((view: MainView) => {
@@ -388,7 +449,11 @@ export function OpenAPIProvider({ children }: { children: ReactNode }) {
     setModelFilter,
     setModelViewMode,
     setActiveModelName,
-    setToolsTab,
+    setSchemaFilter,
+    setSchemaCategoryFilter,
+    setSchemaTypeFilter,
+    setActiveSchemaName,
+    setSchemaSource,
     setMainView,
     setBaseUrl,
     setSpecUrl,

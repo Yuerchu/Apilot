@@ -14,19 +14,20 @@ import type {
   OpenAPIDiffSeverity,
 } from "@/lib/openapi/diff"
 import type { OpenAPISpec } from "@/lib/openapi/types"
-import type { ToolsViewTab } from "@/lib/openapi/types"
 import { getErrorMessage } from "@/lib/openapi/parser"
-import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import OpenAPIDiagnosticsWorker from "./openapi-diagnostics.worker.ts?worker&inline"
 import OpenAPIDiffWorker from "./openapi-diff.worker.ts?worker&inline"
 
-interface ProjectToolsViewProps {
+interface OpenAPIToolViewProps {
   spec: OpenAPISpec
   sourceSpec: OpenAPISpec | null
+}
+
+interface OpenAPIDiffViewProps {
+  spec: OpenAPISpec
 }
 
 interface DiffSpecSlot {
@@ -118,7 +119,6 @@ function CountTile({ label, value }: { label: string; value: number }) {
     </div>
   )
 }
-
 function TruncatedCode({ value, className }: { value: string; className?: string }) {
   return (
     <span
@@ -140,11 +140,7 @@ function LoadingMessage({ children }: { children: string }) {
   )
 }
 
-function DiagnosticIssueRow({
-  issue,
-}: {
-  issue: OpenAPIDiagnosticIssue
-}) {
+function DiagnosticIssueRow({ issue }: { issue: OpenAPIDiagnosticIssue }) {
   const { t } = useTranslation()
   return (
     <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-3">
@@ -191,24 +187,11 @@ function DiffChangeRow({ change }: { change: OpenAPIDiffChange }) {
   )
 }
 
-export function ProjectToolsView({ spec, sourceSpec }: ProjectToolsViewProps) {
+export function OpenAPIDiagnosticsView({ spec, sourceSpec }: OpenAPIToolViewProps) {
   const { t } = useTranslation()
-  const { state, setToolsTab } = useOpenAPIContext()
-  const beforeInputRef = useRef<HTMLInputElement>(null)
-  const afterInputRef = useRef<HTMLInputElement>(null)
   const diagnosticsWorkerRef = useRef<Worker | null>(null)
-  const diffWorkerRef = useRef<Worker | null>(null)
   const requestIdRef = useRef(0)
   const pendingDiagnosticsRequestRef = useRef<number | null>(null)
-  const pendingSlotRequestsRef = useRef<Record<DiffSlotName, number | null>>({ before: null, after: null })
-  const pendingDiffRequestRef = useRef<number | null>(null)
-  const readySlotsRef = useRef<Record<DiffSlotName, boolean>>({ before: false, after: false })
-  const [before, setBefore] = useState<DiffSpecSlot | null>(null)
-  const [after, setAfter] = useState<DiffSpecSlot | null>(null)
-  const [loadingSlot, setLoadingSlot] = useState<DiffSlotName | null>(null)
-  const [diffError, setDiffError] = useState<string | null>(null)
-  const [diff, setDiff] = useState<OpenAPIDiffResult | null>(null)
-  const [diffComputing, setDiffComputing] = useState(false)
   const [diagnostics, setDiagnostics] = useState<OpenAPIDiagnosticsResult | null>(null)
   const [diagnosticsError, setDiagnosticsError] = useState<string | null>(null)
 
@@ -253,6 +236,74 @@ export function ProjectToolsView({ spec, sourceSpec }: ProjectToolsViewProps) {
       sourceSpec: sourceSpec || spec,
     })
   }, [spec, sourceSpec])
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto pb-4">
+      <div className="rounded-lg border bg-card p-3">
+        <div className="text-sm font-semibold">{t("tools.diagnostics")}</div>
+      </div>
+
+      {diagnosticsError && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          {diagnosticsError}
+        </div>
+      )}
+
+      {!diagnostics ? (
+        <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+          <LoadingMessage>{t("tools.loadingDiagnostics")}</LoadingMessage>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+            <CountTile label={t("tools.diagnosticTotal")} value={diagnostics.issues.length} />
+            <CountTile label={t("tools.diagnosticSeverity.error")} value={diagnostics.counts.error} />
+            <CountTile label={t("tools.diagnosticSeverity.warning")} value={diagnostics.counts.warning} />
+            <CountTile label={t("tools.diagnosticSeverity.info")} value={diagnostics.counts.info} />
+            <CountTile label={t("tools.endpointCount")} value={diagnostics.metrics.endpointCount} />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {DIAGNOSTIC_ORDER.map(code => (
+              <Badge key={code} variant="outline">
+                {getDiagnosticLabel(t, code)}
+                <span className="tabular-nums">{diagnostics.byCode[code]}</span>
+              </Badge>
+            ))}
+          </div>
+
+          {diagnostics.issues.length === 0 ? (
+            <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+              {t("tools.noDiagnostics")}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {diagnostics.issues.map(issue => (
+                <DiagnosticIssueRow key={issue.id} issue={issue} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+export function OpenAPIDiffView({ spec }: OpenAPIDiffViewProps) {
+  const { t } = useTranslation()
+  const beforeInputRef = useRef<HTMLInputElement>(null)
+  const afterInputRef = useRef<HTMLInputElement>(null)
+  const diffWorkerRef = useRef<Worker | null>(null)
+  const requestIdRef = useRef(0)
+  const pendingSlotRequestsRef = useRef<Record<DiffSlotName, number | null>>({ before: null, after: null })
+  const pendingDiffRequestRef = useRef<number | null>(null)
+  const readySlotsRef = useRef<Record<DiffSlotName, boolean>>({ before: false, after: false })
+  const [before, setBefore] = useState<DiffSpecSlot | null>(null)
+  const [after, setAfter] = useState<DiffSpecSlot | null>(null)
+  const [loadingSlot, setLoadingSlot] = useState<DiffSlotName | null>(null)
+  const [diffError, setDiffError] = useState<string | null>(null)
+  const [diff, setDiff] = useState<OpenAPIDiffResult | null>(null)
+  const [diffComputing, setDiffComputing] = useState(false)
 
   const startDiffCompute = useCallback(() => {
     const worker = diffWorkerRef.current
@@ -365,194 +416,136 @@ export function ProjectToolsView({ spec, sourceSpec }: ProjectToolsViewProps) {
   }
 
   return (
-    <Tabs
-      value={state.toolsTab}
-      onValueChange={value => setToolsTab(value as ToolsViewTab)}
-      className="min-h-0 flex-1"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card p-3">
-        <TabsList>
-          <TabsTrigger value="diagnostics">{t("tools.diagnostics")}</TabsTrigger>
-          <TabsTrigger value="diff">{t("tools.diff")}</TabsTrigger>
-        </TabsList>
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto pb-4">
+      <div className="rounded-lg border bg-card p-3">
+        <div className="text-sm font-semibold">{t("tools.diff")}</div>
       </div>
 
-      <TabsContent value="diagnostics" className="min-h-0 overflow-auto">
-        <div className="flex flex-col gap-3 pb-4">
-          {diagnosticsError && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-              {diagnosticsError}
-            </div>
-          )}
-
-          {!diagnostics ? (
-            <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
-              <LoadingMessage>{t("tools.loadingDiagnostics")}</LoadingMessage>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
-                <CountTile label={t("tools.diagnosticTotal")} value={diagnostics.issues.length} />
-                <CountTile label={t("tools.diagnosticSeverity.error")} value={diagnostics.counts.error} />
-                <CountTile label={t("tools.diagnosticSeverity.warning")} value={diagnostics.counts.warning} />
-                <CountTile label={t("tools.diagnosticSeverity.info")} value={diagnostics.counts.info} />
-                <CountTile label={t("tools.endpointCount")} value={diagnostics.metrics.endpointCount} />
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {DIAGNOSTIC_ORDER.map(code => (
-                  <Badge key={code} variant="outline">
-                    {getDiagnosticLabel(t, code)}
-                    <span className="tabular-nums">{diagnostics.byCode[code]}</span>
-                  </Badge>
-                ))}
-              </div>
-
-              {diagnostics.issues.length === 0 ? (
-                <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
-                  {t("tools.noDiagnostics")}
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {diagnostics.issues.map(issue => (
-                    <DiagnosticIssueRow key={issue.id} issue={issue} />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
+      <div className="grid gap-2 md:grid-cols-2">
+        <div className="rounded-lg border bg-card p-3">
+          <div className="text-sm font-medium">{t("tools.diffBefore")}</div>
+          <div className="mt-1 truncate text-xs text-muted-foreground">{before?.name || t("tools.noDiffFile")}</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <input
+              ref={beforeInputRef}
+              type="file"
+              accept=".json,.yaml,.yml"
+              className="hidden"
+              onChange={event => {
+                void loadSlotFile("before", event.target.files?.[0])
+                event.target.value = ""
+              }}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={loadingSlot === "before"}
+              onClick={() => beforeInputRef.current?.click()}
+            >
+              {loadingSlot === "before" && <Loader2 data-icon="inline-start" className="animate-spin" />}
+              {t("tools.chooseFile")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={loadingSlot === "before"}
+              onClick={() => setCurrentSpecForSlot("before")}
+            >
+              {t("tools.useCurrentSpec")}
+            </Button>
+          </div>
         </div>
-      </TabsContent>
 
-      <TabsContent value="diff" className="min-h-0 overflow-auto">
-        <div className="flex flex-col gap-3 pb-4">
-          <div className="grid gap-2 md:grid-cols-2">
-            <div className="rounded-lg border bg-card p-3">
-              <div className="text-sm font-medium">{t("tools.diffBefore")}</div>
-              <div className="mt-1 truncate text-xs text-muted-foreground">{before?.name || t("tools.noDiffFile")}</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <input
-                  ref={beforeInputRef}
-                  type="file"
-                  accept=".json,.yaml,.yml"
-                  className="hidden"
-                  onChange={event => {
-                    void loadSlotFile("before", event.target.files?.[0])
-                    event.target.value = ""
-                  }}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={loadingSlot === "before"}
-                  onClick={() => beforeInputRef.current?.click()}
-                >
-                  {loadingSlot === "before" && <Loader2 data-icon="inline-start" className="animate-spin" />}
-                  {t("tools.chooseFile")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  disabled={loadingSlot === "before"}
-                  onClick={() => setCurrentSpecForSlot("before")}
-                >
-                  {t("tools.useCurrentSpec")}
-                </Button>
-              </div>
-            </div>
+        <div className="rounded-lg border bg-card p-3">
+          <div className="text-sm font-medium">{t("tools.diffAfter")}</div>
+          <div className="mt-1 truncate text-xs text-muted-foreground">{after?.name || t("tools.noDiffFile")}</div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <input
+              ref={afterInputRef}
+              type="file"
+              accept=".json,.yaml,.yml"
+              className="hidden"
+              onChange={event => {
+                void loadSlotFile("after", event.target.files?.[0])
+                event.target.value = ""
+              }}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={loadingSlot === "after"}
+              onClick={() => afterInputRef.current?.click()}
+            >
+              {loadingSlot === "after" && <Loader2 data-icon="inline-start" className="animate-spin" />}
+              {t("tools.chooseFile")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={loadingSlot === "after"}
+              onClick={() => setCurrentSpecForSlot("after")}
+            >
+              {t("tools.useCurrentSpec")}
+            </Button>
+          </div>
+        </div>
+      </div>
 
-            <div className="rounded-lg border bg-card p-3">
-              <div className="text-sm font-medium">{t("tools.diffAfter")}</div>
-              <div className="mt-1 truncate text-xs text-muted-foreground">{after?.name || t("tools.noDiffFile")}</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <input
-                  ref={afterInputRef}
-                  type="file"
-                  accept=".json,.yaml,.yml"
-                  className="hidden"
-                  onChange={event => {
-                    void loadSlotFile("after", event.target.files?.[0])
-                    event.target.value = ""
-                  }}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={loadingSlot === "after"}
-                  onClick={() => afterInputRef.current?.click()}
-                >
-                  {loadingSlot === "after" && <Loader2 data-icon="inline-start" className="animate-spin" />}
-                  {t("tools.chooseFile")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  disabled={loadingSlot === "after"}
-                  onClick={() => setCurrentSpecForSlot("after")}
-                >
-                  {t("tools.useCurrentSpec")}
-                </Button>
-              </div>
-            </div>
+      {diffError && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          {diffError}
+        </div>
+      )}
+
+      {diff ? (
+        <>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <CountTile label={t("tools.diffSeverity.breaking")} value={diff.counts.breaking} />
+            <CountTile label={t("tools.diffKinds.endpoint-added")} value={diff.byKind["endpoint-added"]} />
+            <CountTile label={t("tools.diffKinds.endpoint-removed")} value={diff.byKind["endpoint-removed"]} />
+            <CountTile
+              label={t("tools.schemaChanges")}
+              value={diff.byKind["request-schema-changed"] + diff.byKind["response-schema-changed"]}
+            />
           </div>
 
-          {diffError && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-              {diffError}
+          <div className="flex flex-wrap gap-2">
+            {DIFF_KIND_ORDER.map(kind => (
+              <Badge key={kind} variant="outline">
+                {getDiffKindLabel(t, kind)}
+                <span className="tabular-nums">{diff.byKind[kind]}</span>
+              </Badge>
+            ))}
+          </div>
+
+          {diff.changes.length === 0 ? (
+            <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+              {t("tools.noDiffChanges")}
             </div>
-          )}
-
-          {diff ? (
-            <>
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-                <CountTile label={t("tools.diffSeverity.breaking")} value={diff.counts.breaking} />
-                <CountTile label={t("tools.diffKinds.endpoint-added")} value={diff.byKind["endpoint-added"]} />
-                <CountTile label={t("tools.diffKinds.endpoint-removed")} value={diff.byKind["endpoint-removed"]} />
-                <CountTile
-                  label={t("tools.schemaChanges")}
-                  value={diff.byKind["request-schema-changed"] + diff.byKind["response-schema-changed"]}
-                />
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {DIFF_KIND_ORDER.map(kind => (
-                  <Badge key={kind} variant="outline">
-                    {getDiffKindLabel(t, kind)}
-                    <span className="tabular-nums">{diff.byKind[kind]}</span>
-                  </Badge>
-                ))}
-              </div>
-
-              {diff.changes.length === 0 ? (
-                <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
-                  {t("tools.noDiffChanges")}
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {diff.changes.map(change => (
-                    <DiffChangeRow key={change.id} change={change} />
-                  ))}
-                </div>
-              )}
-            </>
           ) : (
-            <div className={cn(
-              "rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground",
-              (loadingSlot || diffComputing) && "opacity-70",
-            )}>
-              {diffComputing
-                ? <LoadingMessage>{t("tools.computingDiff")}</LoadingMessage>
-                : loadingSlot
-                  ? <LoadingMessage>{t("tools.loadingDiffFile")}</LoadingMessage>
-                  : t("tools.diffNeedsFiles")}
+            <div className="flex flex-col gap-2">
+              {diff.changes.map(change => (
+                <DiffChangeRow key={change.id} change={change} />
+              ))}
             </div>
           )}
+        </>
+      ) : (
+        <div className={cn(
+          "rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground",
+          (loadingSlot || diffComputing) && "opacity-70",
+        )}>
+          {diffComputing
+            ? <LoadingMessage>{t("tools.computingDiff")}</LoadingMessage>
+            : loadingSlot
+              ? <LoadingMessage>{t("tools.loadingDiffFile")}</LoadingMessage>
+              : t("tools.diffNeedsFiles")}
         </div>
-      </TabsContent>
-    </Tabs>
+      )}
+    </div>
   )
 }

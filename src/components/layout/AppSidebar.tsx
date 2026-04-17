@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import i18n from "@/lib/i18n"
 import {
   Settings, ChevronDown, Loader2, Upload,
-  Route, Database, ExternalLink, Scale, Mail, Languages, Wrench,
+  Route, Database, ExternalLink, Scale, Mail, Languages, FileJson, GitCompare, Stethoscope,
 } from "lucide-react"
 import {
   Sidebar,
@@ -261,7 +261,7 @@ export function AppSidebar({ auth }: AppSidebarProps) {
                           {auth.oauth2Loading ? <Loader2 className="size-3 animate-spin mr-1" /> : null}
                           {t("sidebar.login")}
                         </Button>
-                        {auth.oauth2Token && <span className="text-xs text-green-500">{t("sidebar.authenticated")}</span>}
+                        {auth.oauth2Token && <span className="text-xs text-success">{t("sidebar.authenticated")}</span>}
                       </>
                     )}
                   </div>
@@ -306,11 +306,32 @@ export function AppSidebar({ auth }: AppSidebarProps) {
               )}
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  isActive={state.mainView === "tools"}
-                  onClick={() => setMainView("tools" as MainView)}
+                  isActive={state.mainView === "schemas"}
+                  onClick={() => setMainView("schemas" as MainView)}
                 >
-                  <Wrench className="size-4" />
-                  <span>{t("sidebar.tools")}</span>
+                  <FileJson className="size-4" />
+                  <span>{t("sidebar.schemaViewer")}</span>
+                  <Badge variant="secondary" className="ml-auto text-[10px]">
+                    {Object.keys(schemas).length}
+                  </Badge>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={state.mainView === "diagnostics"}
+                  onClick={() => setMainView("diagnostics" as MainView)}
+                >
+                  <Stethoscope className="size-4" />
+                  <span>{t("sidebar.diagnostics")}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={state.mainView === "diff"}
+                  onClick={() => setMainView("diff" as MainView)}
+                >
+                  <GitCompare className="size-4" />
+                  <span>{t("sidebar.diff")}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

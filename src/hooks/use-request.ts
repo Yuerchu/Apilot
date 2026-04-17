@@ -3,11 +3,14 @@ import i18n from "@/lib/i18n"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { buildSnippet } from "@/lib/build-snippet"
 import { validateWithSchema } from "@/lib/validate-schema"
+import { findTokenFields } from "@/lib/request-utils"
 import type {
   ParsedRoute,
   ValidationError,
   RequestResponse,
 } from "@/lib/openapi/types"
+
+export { findTokenFields, buildAuthHeaders } from "@/lib/request-utils"
 
 interface ParamValues {
   [paramName: string]: string
@@ -212,36 +215,6 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
       return result
     }
   }, [state.baseUrl, getAuthHeaders, validateRequest])
-
-  const findTokenFields = useCallback((jsonBody: string): Array<{ key: string; value: string; priority: number }> => {
-    const TOKEN_KEYS_PRIO: Record<string, number> = {
-      access_token: 1, accessToken: 1, token: 2, jwt: 2, bearer: 2,
-      id_token: 3, auth_token: 3, authToken: 3, session_token: 4,
-      api_key: 5, apiKey: 5, refresh_token: 9,
-    }
-
-    try {
-      const obj = JSON.parse(jsonBody)
-      if (typeof obj !== "object" || obj === null) return []
-
-      const found: Array<{ key: string; value: string; priority: number }> = []
-      const search = (o: Record<string, unknown>, path: string) => {
-        for (const [k, v] of Object.entries(o)) {
-          const p = path ? `${path}.${k}` : k
-          const priority = TOKEN_KEYS_PRIO[k]
-          if (typeof v === "string" && v.length >= 8 && priority !== undefined) {
-            found.push({ key: p, value: v, priority })
-          } else if (typeof v === "object" && v && !Array.isArray(v)) {
-            search(v as Record<string, unknown>, p)
-          }
-        }
-      }
-      search(obj, "")
-      return found.sort((a, b) => a.priority - b.priority)
-    } catch {
-      return []
-    }
-  }, [])
 
   return {
     loading,

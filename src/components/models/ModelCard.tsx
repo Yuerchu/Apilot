@@ -6,6 +6,7 @@ import { getTypeStr } from "@/lib/openapi/type-str"
 import { formatSchema } from "@/lib/openapi/format-schema"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { SchemaTree } from "@/components/schema/SchemaTree"
+import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
 import { PathTemplate } from "@/components/endpoints/PathTemplate"
@@ -90,16 +91,15 @@ export const ModelCard = memo(function ModelCard({
             {desc && (
               <span className="text-xs text-muted-foreground truncate ml-1">{desc}</span>
             )}
-            <div className="ml-auto shrink-0">
-              <button
-                type="button"
-                className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                onClick={handleCopy}
-              >
-                <Copy className="size-3" />
-                {t("endpoints.copy")}
-              </button>
-            </div>
+            <Button
+              variant="ghost"
+              size="xs"
+              className="ml-auto shrink-0"
+              onClick={handleCopy}
+            >
+              <Copy className="size-3" />
+              {t("endpoints.copy")}
+            </Button>
           </div>
         </CollapsibleTrigger>
         <AnimatedCollapsibleContent>

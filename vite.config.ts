@@ -2,8 +2,8 @@ import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { viteSingleFile } from "vite-plugin-singlefile"
-import path from "node:path"
 import { execSync } from "node:child_process"
+import { fileURLToPath } from "node:url"
 
 function git(cmd: string): string {
   try {
@@ -25,8 +25,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
-      colorette: path.resolve(__dirname, "./src/lib/shims/colorette.ts"),
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      colorette: fileURLToPath(new URL("./src/lib/shims/colorette.ts", import.meta.url)),
       path: "path-browserify",
     },
   },

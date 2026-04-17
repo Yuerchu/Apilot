@@ -1,14 +1,15 @@
 {
   "name": "apilot",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config vitest.config.mjs --configLoader native --pool threads"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.1",
@@ -29,6 +30,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@readme/openapi-parser": "^6.0.1",
     "@redocly/openapi-core": "^2.28.0",
+    "@stoplight/json-schema-tree": "^4.0.0",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-virtual": "^3.13.23",
     "@uiw/react-codemirror": "^4.25.9",
@@ -71,6 +73,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^4.1.4",
     "eslint": "^10.2.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^17.5.0",
@@ -79,6 +82,7 @@
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.1",
     "vite": "^8.0.8",
-    "vite-plugin-singlefile": "^2.3.2"
+    "vite-plugin-singlefile": "^2.3.2",
+    "vitest": "^4.1.4"
   }
 }

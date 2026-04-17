@@ -16,9 +16,6 @@ interface PathTemplateProps {
   className?: string
 }
 
-const monospaceStyle = {
-  fontFamily: "var(--font-mono, ui-monospace, monospace)",
-} satisfies React.CSSProperties
 
 function splitPathTemplate(path: string): PathTemplatePart[] {
   const parts: PathTemplatePart[] = []
@@ -53,8 +50,7 @@ export const PathTemplate = memo(function PathTemplate({ path, className }: Path
 
   return (
     <span
-      className={cn("block min-w-0 truncate text-sm font-medium", className)}
-      style={monospaceStyle}
+      className={cn("block min-w-0 truncate text-sm font-medium font-mono", className)}
       title={path}
     >
       {parts.map((part, index) => {

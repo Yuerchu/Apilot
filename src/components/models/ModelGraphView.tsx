@@ -228,10 +228,19 @@ function toFlowEdge(edge: ModelGraphLayoutEdge): ModelFlowEdge {
   }
 }
 
+function resolveColor(cssVar: string, fallback: string): string {
+  if (typeof document === "undefined") return fallback
+  const value = getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
+  if (!value) return fallback
+  // OKLCH values need conversion for SVG — wrap in CSS color()
+  if (value.startsWith("oklch")) return fallback
+  return value
+}
+
 function getStaticEdgeColor(kind: SchemaGraphEdgeKind): string {
-  if (kind === "extends") return "#e8e8e8"
-  if (kind === "variant") return "#bba7ff"
-  return "#9ca3af"
+  if (kind === "extends") return resolveColor("--color-primary", "#e8e8e8")
+  if (kind === "variant") return resolveColor("--color-method-put", "#bba7ff")
+  return resolveColor("--color-muted-foreground", "#9ca3af")
 }
 
 function escapeXml(value: string): string {
@@ -317,14 +326,24 @@ function makeGraphSvg(layout: ModelGraphLayout, options: GraphExportOptions): st
     const name = truncate(node.data.name, 26)
     const type = truncate(node.data.type, 32)
 
+    const fillCard = resolveColor("--color-card", "#171717")
+    const strokeBorder = resolveColor("--color-border", "#3f3f46")
+    const fillFg = resolveColor("--color-foreground", "#f4f4f5")
+    const fillMuted = resolveColor("--color-muted-foreground", "#a1a1aa")
+    const fillSecondary = resolveColor("--color-secondary-foreground", "#d4d4d8")
+
     return `
       <g>
-        <rect x="${x}" y="${y}" width="${MODEL_GRAPH_NODE_WIDTH}" height="${MODEL_GRAPH_NODE_HEIGHT}" rx="6" fill="#171717" stroke="#3f3f46" stroke-width="1" />
-        <text x="${x + 14}" y="${y + 25}" fill="#f4f4f5" font-size="14" font-weight="600" font-family="ui-monospace, monospace">${escapeXml(name)}</text>
-        <text x="${x + 14}" y="${y + 45}" fill="#a1a1aa" font-size="11" font-family="system-ui, sans-serif">${escapeXml(type)}</text>
-        <text x="${x + 14}" y="${y + 65}" fill="#d4d4d8" font-size="10" font-family="system-ui, sans-serif">${node.data.fieldCount} fields</text>
+        <rect x="${x}" y="${y}" width="${MODEL_GRAPH_NODE_WIDTH}" height="${MODEL_GRAPH_NODE_HEIGHT}" rx="6" fill="${fillCard}" stroke="${strokeBorder}" stroke-width="1" />
+        <text x="${x + 14}" y="${y + 25}" fill="${fillFg}" font-size="14" font-weight="600" font-family="ui-monospace, monospace">${escapeXml(name)}</text>
+        <text x="${x + 14}" y="${y + 45}" fill="${fillMuted}" font-size="11" font-family="system-ui, sans-serif">${escapeXml(type)}</text>
+        <text x="${x + 14}" y="${y + 65}" fill="${fillSecondary}" font-size="10" font-family="system-ui, sans-serif">${node.data.fieldCount} fields</text>
       </g>`
   }).join("")
+
+  const bgColor = resolveColor("--color-background", "#0f0f10")
+  const fgColor = resolveColor("--color-foreground", "#f4f4f5")
+  const mutedColor = resolveColor("--color-muted-foreground", "#a1a1aa")
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeXml(options.title)}">
@@ -334,9 +353,9 @@ function makeGraphSvg(layout: ModelGraphLayout, options: GraphExportOptions): st
       return `<marker id="arrow-${kind}" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 8 3 L 0 6 z" fill="${color}" /></marker>`
     }).join("")}
   </defs>
-  <rect width="100%" height="100%" fill="#0f0f10" />
-  <text x="24" y="30" fill="#f4f4f5" font-size="14" font-weight="600" font-family="system-ui, sans-serif">${escapeXml(options.title)}</text>
-  <text x="24" y="50" fill="#a1a1aa" font-size="11" font-family="system-ui, sans-serif">${layout.visibleNodeCount} models / ${layout.visibleEdgeCount} relations</text>
+  <rect width="100%" height="100%" fill="${bgColor}" />
+  <text x="24" y="30" fill="${fgColor}" font-size="14" font-weight="600" font-family="system-ui, sans-serif">${escapeXml(options.title)}</text>
+  <text x="24" y="50" fill="${mutedColor}" font-size="11" font-family="system-ui, sans-serif">${layout.visibleNodeCount} models / ${layout.visibleEdgeCount} relations</text>
   <g transform="translate(0, 24)">
     ${edges}
     ${nodes}

@@ -33,6 +33,8 @@
   --color-method-delete: oklch(0.577 0.2 27.33);
   --color-method-head: oklch(0.556 0 0);
   --color-method-options: oklch(0.556 0 0);
+  --color-method-redirect: oklch(0.65 0.15 230);
+  --color-success: oklch(0.696 0.17 162.48);
 }
 
 @layer base {

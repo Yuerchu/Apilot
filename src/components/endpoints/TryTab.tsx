@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { ResponsePanel } from "./ResponsePanel"
 
 interface TryTabProps {
@@ -404,10 +405,10 @@ export function TryTab({ route, index: _index }: TryTabProps) {
           <div className="space-y-2 px-0.5">
             {route.parameters.map((p, i) => (
               <div key={`${p.name}-${i}`} className="grid grid-cols-[120px_50px_1fr_auto] gap-2 items-center mb-1">
-                <div className="text-sm font-medium truncate">
+                <label htmlFor={`param-${p.name}-${i}`} className="text-sm font-medium truncate">
                   {p.name}
-                  {p.required && <span className="text-destructive ml-0.5">*</span>}
-                </div>
+                  {p.required && <span className="text-destructive ml-0.5" aria-label="required">*</span>}
+                </label>
                 <div className="text-xs text-muted-foreground">{p.in}</div>
                 <ParameterField
                   param={p}
@@ -429,28 +430,21 @@ export function TryTab({ route, index: _index }: TryTabProps) {
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <h4 className="text-sm font-semibold">{t("tryIt.requestBody")}</h4>
-            <div className="flex rounded-md border overflow-hidden">
-              <button
-                type="button"
-                className={cn(
-                  "px-2 py-0.5 text-[11px] transition-colors",
-                  bodyView === "example" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => setBodyView("example")}
-              >
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              size="sm"
+              value={bodyView}
+              onValueChange={(v) => { if (v) setBodyView(v as "example" | "schema") }}
+              className="h-7"
+            >
+              <ToggleGroupItem value="example" className="text-[11px] px-2 h-7">
                 {t("tryIt.example")}
-              </button>
-              <button
-                type="button"
-                className={cn(
-                  "px-2 py-0.5 text-[11px] transition-colors",
-                  bodyView === "schema" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => setBodyView("schema")}
-              >
+              </ToggleGroupItem>
+              <ToggleGroupItem value="schema" className="text-[11px] px-2 h-7">
                 {t("tryIt.schema")}
-              </button>
-            </div>
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
 
           {/* Content type selector */}

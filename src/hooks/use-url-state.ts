@@ -1,18 +1,21 @@
 import { useEffect, useRef } from "react"
 import { useOpenAPIContext, type UrlState } from "@/contexts/OpenAPIContext"
-import type { EndpointDetailTab, MainView, ModelViewMode, ToolsViewTab } from "@/lib/openapi/types"
+import type { EndpointDetailTab, MainView, ModelViewMode, SchemaViewerSource } from "@/lib/openapi/types"
 
-const MAIN_VIEWS = new Set<MainView>(["endpoints", "models", "tools"])
+const MAIN_VIEWS = new Set<MainView>(["endpoints", "models", "schemas", "diagnostics", "diff"])
 const ENDPOINT_DETAIL_TABS = new Set<EndpointDetailTab>(["doc", "try"])
 const MODEL_VIEW_MODES = new Set<ModelViewMode>(["list", "graph"])
-const TOOLS_TABS = new Set<ToolsViewTab>(["diagnostics", "diff"])
+const SCHEMA_SOURCES = new Set<SchemaViewerSource>(["openapi", "external"])
 
 function getFirstParam(params: URLSearchParams, name: string): string {
   return params.get(name)?.trim() || ""
 }
 
-function getViewFromHashPath(path: string): MainView {
+function getViewFromHashPath(path: string, params: URLSearchParams): MainView {
   const value = path.replace(/^\/+/, "")
+  if (value === "tools") {
+    return getFirstParam(params, "tab") === "diff" ? "diff" : "diagnostics"
+  }
   return MAIN_VIEWS.has(value as MainView) ? value as MainView : "endpoints"
 }
 
@@ -24,17 +27,17 @@ function getModelViewMode(value: string): ModelViewMode {
   return MODEL_VIEW_MODES.has(value as ModelViewMode) ? value as ModelViewMode : "list"
 }
 
-function getToolsTab(value: string): ToolsViewTab {
-  return TOOLS_TABS.has(value as ToolsViewTab) ? value as ToolsViewTab : "diagnostics"
+function getSchemaSource(value: string): SchemaViewerSource {
+  return SCHEMA_SOURCES.has(value as SchemaViewerSource) ? value as SchemaViewerSource : "openapi"
 }
 
-function parseHashState(hash: string): UrlState {
+export function parseHashState(hash: string): UrlState {
   const cleanHash = hash.startsWith("#") ? hash.slice(1) : hash
   const queryStart = cleanHash.indexOf("?")
   const path = queryStart === -1 ? cleanHash : cleanHash.slice(0, queryStart)
   const query = queryStart === -1 ? "" : cleanHash.slice(queryStart + 1)
   const params = new URLSearchParams(query)
-  const mainView = getViewFromHashPath(path)
+  const mainView = getViewFromHashPath(path, params)
   const q = getFirstParam(params, "q")
 
   return {
@@ -48,11 +51,15 @@ function parseHashState(hash: string): UrlState {
     modelFilter: mainView === "models" ? q : "",
     modelViewMode: mainView === "models" ? getModelViewMode(getFirstParam(params, "mode")) : "list",
     activeModelName: mainView === "models" ? getFirstParam(params, "model") : "",
-    toolsTab: mainView === "tools" ? getToolsTab(getFirstParam(params, "tab")) : "diagnostics",
+    schemaFilter: mainView === "schemas" ? q : "",
+    schemaCategoryFilter: mainView === "schemas" ? getFirstParam(params, "category") : "",
+    schemaTypeFilter: mainView === "schemas" ? getFirstParam(params, "type") : "",
+    activeSchemaName: mainView === "schemas" ? getFirstParam(params, "schema") : "",
+    schemaSource: mainView === "schemas" ? getSchemaSource(getFirstParam(params, "source")) : "openapi",
   }
 }
 
-function buildHashState(state: UrlState): string {
+export function buildHashState(state: UrlState): string {
   const params = new URLSearchParams()
 
   if (state.mainView === "endpoints") {
@@ -68,8 +75,12 @@ function buildHashState(state: UrlState): string {
     if (state.activeModelName) params.set("model", state.activeModelName)
   }
 
-  if (state.mainView === "tools" && state.toolsTab !== "diagnostics") {
-    params.set("tab", state.toolsTab)
+  if (state.mainView === "schemas") {
+    if (state.schemaFilter) params.set("q", state.schemaFilter)
+    if (state.schemaCategoryFilter) params.set("category", state.schemaCategoryFilter)
+    if (state.schemaTypeFilter) params.set("type", state.schemaTypeFilter)
+    if (state.activeSchemaName) params.set("schema", state.activeSchemaName)
+    if (state.schemaSource !== "openapi") params.set("source", state.schemaSource)
   }
 
   const query = params.toString()
@@ -87,9 +98,13 @@ export function useUrlState() {
     endpointDetailTab,
     filter,
     mainView,
+    activeSchemaName,
     modelFilter,
     modelViewMode,
-    toolsTab,
+    schemaCategoryFilter,
+    schemaFilter,
+    schemaSource,
+    schemaTypeFilter,
   } = state
 
   useEffect(() => {
@@ -119,7 +134,11 @@ export function useUrlState() {
       modelFilter,
       modelViewMode,
       activeModelName,
-      toolsTab,
+      schemaFilter,
+      schemaCategoryFilter,
+      schemaTypeFilter,
+      activeSchemaName,
+      schemaSource,
     })
     if (lastHashRef.current === nextHash) return
     lastHashRef.current = nextHash
@@ -131,8 +150,12 @@ export function useUrlState() {
     endpointDetailTab,
     filter,
     mainView,
+    activeSchemaName,
     modelFilter,
     modelViewMode,
-    toolsTab,
+    schemaCategoryFilter,
+    schemaFilter,
+    schemaSource,
+    schemaTypeFilter,
   ])
 }

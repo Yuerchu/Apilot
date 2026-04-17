@@ -44,7 +44,7 @@ function findTokens(obj: Record<string, unknown>, path: string): Array<{ key: st
 
 function statusColorClass(status: number): string {
   if (status >= 200 && status < 300) return "bg-method-get/20 text-method-get border-method-get/30"
-  if (status >= 300 && status < 400) return "bg-sky-500/20 text-sky-400 border-sky-500/30"
+  if (status >= 300 && status < 400) return "bg-method-redirect/20 text-method-redirect border-method-redirect/30"
   if (status >= 400 && status < 500) return "bg-method-patch/20 text-method-patch border-method-patch/30"
   return "bg-method-delete/20 text-method-delete border-method-delete/30"
 }
@@ -169,14 +169,15 @@ export const ResponsePanel = memo(function ResponsePanel({ response, onApplyToke
 
         {headersText && (
           <div className="border-t">
-            <button
-              type="button"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground w-full"
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground"
               onClick={() => setHeadersOpen(!headersOpen)}
             >
               {headersOpen ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
               {t("response.headers")}
-            </button>
+            </Button>
             {headersOpen && (
               <pre className="px-3 pb-2 text-[11px] font-mono text-muted-foreground whitespace-pre-wrap">
                 {headersText}

@@ -20,8 +20,8 @@ export type {
   EndpointDetailTab,
   MainView,
   ModelViewMode,
+  SchemaViewerSource,
   RequestResponse,
-  ToolsViewTab,
   ValidationError,
   TagInfo,
 } from './types'

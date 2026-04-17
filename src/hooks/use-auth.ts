@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react"
 import i18n from "@/lib/i18n"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
+import { buildAuthHeaders } from "@/lib/request-utils"
 import type { AuthType } from "@/lib/openapi/types"
 
 export function useAuth() {
@@ -13,22 +14,10 @@ export function useAuth() {
   const [oauth2Token, setOAuth2Token] = useState<string | null>(null)
   const [oauth2Loading, setOAuth2Loading] = useState(false)
 
-  const getAuthHeaders = useCallback((): Record<string, string> => {
-    if (authType === "bearer" && authToken) {
-      return { Authorization: `Bearer ${authToken}` }
-    }
-    if (authType === "oauth2" && oauth2Token) {
-      return { Authorization: `Bearer ${oauth2Token}` }
-    }
-    if (authType === "basic") {
-      return { Authorization: `Basic ${btoa(authUser + ":" + authToken)}` }
-    }
-    if (authType === "apikey" && authToken) {
-      const name = authKeyName || "X-API-Key"
-      return { [name]: authToken }
-    }
-    return {}
-  }, [authType, authToken, authUser, authKeyName, oauth2Token])
+  const getAuthHeaders = useCallback(
+    () => buildAuthHeaders(authType, authToken, authUser, authKeyName, oauth2Token),
+    [authType, authToken, authUser, authKeyName, oauth2Token],
+  )
 
   const oauth2Login = useCallback(async (
     user: string,

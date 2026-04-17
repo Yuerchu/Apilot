@@ -13,7 +13,8 @@ import { AppSidebar } from "@/components/layout/AppSidebar"
 import { SelectionFab } from "@/components/layout/SelectionFab"
 import { EndpointsView } from "@/components/endpoints/EndpointsView"
 import { ModelsView } from "@/components/models/ModelsView"
-import { ProjectToolsView } from "@/components/tools/ProjectToolsView"
+import { SchemaViewerView } from "@/components/schema/SchemaViewerView"
+import { OpenAPIDiagnosticsView, OpenAPIDiffView } from "@/components/tools/ProjectToolsView"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { toast } from "sonner"
 
@@ -117,8 +118,16 @@ function AppContent() {
             <ModelsView spec={state.spec!} sourceSpec={state.sourceSpec} />
           )}
 
-          {specLoaded && !state.loading && state.mainView === "tools" && (
-            <ProjectToolsView spec={state.spec!} sourceSpec={state.sourceSpec} />
+          {specLoaded && !state.loading && state.mainView === "schemas" && (
+            <SchemaViewerView spec={state.spec!} />
+          )}
+
+          {specLoaded && !state.loading && state.mainView === "diagnostics" && (
+            <OpenAPIDiagnosticsView spec={state.spec!} sourceSpec={state.sourceSpec} />
+          )}
+
+          {specLoaded && !state.loading && state.mainView === "diff" && (
+            <OpenAPIDiffView spec={state.spec!} />
           )}
         </div>
 

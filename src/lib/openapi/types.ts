@@ -182,10 +182,10 @@ export interface ModelRouteMap {
 
 export type AuthType = "none" | "bearer" | "basic" | "apikey" | "oauth2"
 
-export type MainView = "endpoints" | "models" | "tools"
+export type MainView = "endpoints" | "models" | "schemas" | "diagnostics" | "diff"
 export type EndpointDetailTab = "doc" | "try"
 export type ModelViewMode = "list" | "graph"
-export type ToolsViewTab = "diagnostics" | "diff"
+export type SchemaViewerSource = "openapi" | "external"
 
 export interface RequestResponse {
   status: number
