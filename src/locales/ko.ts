@@ -351,6 +351,15 @@ export default {
     request: "요청",
     response: "응답",
   },
+  settings: {
+    title: "설정",
+    general: "일반",
+    connection: "연결",
+    auth: "인증",
+    envVars: "환경 변수",
+    language: "언어",
+    theme: "테마",
+  },
   envVars: {
     title: "환경 변수",
     value: "값",

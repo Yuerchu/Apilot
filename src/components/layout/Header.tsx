@@ -1,19 +1,22 @@
 import { useState, useEffect, useCallback } from "react"
 import { useTranslation } from "react-i18next"
-import { SearchIcon } from "lucide-react"
+import { SearchIcon, Settings } from "lucide-react"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
+import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Kbd } from "@/components/ui/kbd"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { CommandPalette } from "@/components/search/CommandPalette"
 import { HeaderShareButton } from "@/components/share/ShareDialog"
+import { SettingsDialog } from "@/components/settings/SettingsDialog"
 
 export function Header() {
   const { t } = useTranslation()
   const { state } = useOpenAPIContext()
   const info = state.spec?.info
   const [searchOpen, setSearchOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -59,9 +62,19 @@ export function Header() {
             </InputGroupAddon>
           </InputGroup>
         )}
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setSettingsOpen(true)}
+          title={t("settings.title")}
+        >
+          <Settings className="size-4" />
+        </Button>
       </div>
 
       <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </>
   )
 }

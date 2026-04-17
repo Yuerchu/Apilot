@@ -351,6 +351,15 @@ export default {
     request: "Request",
     response: "Response",
   },
+  settings: {
+    title: "Settings",
+    general: "General",
+    connection: "Connection",
+    auth: "Authentication",
+    envVars: "Variables",
+    language: "Language",
+    theme: "Theme",
+  },
   envVars: {
     title: "Environment Variables",
     value: "Value",

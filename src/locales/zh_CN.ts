@@ -352,6 +352,15 @@ export default {
     request: "请求",
     response: "响应",
   },
+  settings: {
+    title: "设置",
+    general: "通用",
+    connection: "连接",
+    auth: "认证",
+    envVars: "环境变量",
+    language: "语言",
+    theme: "主题",
+  },
   envVars: {
     title: "环境变量",
     value: "值",

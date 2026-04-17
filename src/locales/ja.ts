@@ -351,6 +351,15 @@ export default {
     request: "リクエスト",
     response: "レスポンス",
   },
+  settings: {
+    title: "設定",
+    general: "一般",
+    connection: "接続",
+    auth: "認証",
+    envVars: "環境変数",
+    language: "言語",
+    theme: "テーマ",
+  },
   envVars: {
     title: "環境変数",
     value: "値",

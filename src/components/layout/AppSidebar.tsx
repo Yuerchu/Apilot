@@ -1,11 +1,6 @@
-import { useState, useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
-import { useTheme } from "next-themes"
-import i18n from "@/lib/i18n"
 import {
-  Settings, ChevronDown, Loader2, Upload,
-  Route, Database, ExternalLink, Scale, Mail, Languages, FileJson, GitCompare, Stethoscope,
-  Sun, Moon, Monitor, Variable,
+  Route, Database, ExternalLink, Scale, Mail, FileJson, GitCompare, Stethoscope,
 } from "lucide-react"
 import {
   Sidebar,
@@ -14,141 +9,25 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
-  SidebarGroupContent,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { useOpenAPI } from "@/hooks/use-openapi"
-import { toast } from "sonner"
-import type { useAuth } from "@/hooks/use-auth"
-import type { AuthType, MainView } from "@/lib/openapi/types"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import type { MainView } from "@/lib/openapi/types"
 import { APP_VERSION, GITHUB_URL, getBuildLabel } from "@/lib/app-info"
-import { EnvVarsPanel } from "@/components/endpoints/EnvVarsPanel"
 
-const LANG_CYCLE = ["zh_CN", "zh_HK", "zh_TW", "en", "ja", "ko"] as const
-const LANG_LABELS: Record<string, string> = {
-  zh_CN: "简体中文",
-  zh_HK: "繁體中文（港）",
-  zh_TW: "繁體中文（臺）",
-  en: "English",
-  ja: "日本語",
-  ko: "한국어",
-}
-
-const THEME_CYCLE = ["system", "light", "dark"] as const
-const THEME_ICONS = { system: Monitor, light: Sun, dark: Moon } as const
-const THEME_LABELS: Record<string, Record<string, string>> = {
-  zh_CN: { system: "跟随系统", light: "浅色", dark: "深色" },
-  zh_HK: { system: "跟隨系統", light: "淺色", dark: "深色" },
-  zh_TW: { system: "跟隨系統", light: "淺色", dark: "深色" },
-  en: { system: "System", light: "Light", dark: "Dark" },
-  ja: { system: "システム", light: "ライト", dark: "ダーク" },
-  ko: { system: "시스템", light: "라이트", dark: "다크" },
-}
-
-function ThemeToggle() {
-  const { theme, setTheme } = useTheme()
-  const current = theme ?? "system"
-  const labels = THEME_LABELS[i18n.language] ?? THEME_LABELS.en
-
-  return (
-    <ToggleGroup
-      type="single"
-      variant="outline"
-      value={current}
-      onValueChange={v => { if (v) setTheme(v) }}
-      className="h-7"
-    >
-      {THEME_CYCLE.map(t => {
-        const Icon = THEME_ICONS[t]
-        return (
-          <ToggleGroupItem
-            key={t}
-            value={t}
-            className="h-7 w-7 p-0"
-            title={labels?.[t] ?? t}
-          >
-            <Icon className="size-3.5" />
-          </ToggleGroupItem>
-        )
-      })}
-    </ToggleGroup>
-  )
-}
-
-interface AppSidebarProps {
-  auth: ReturnType<typeof useAuth>
-}
-
-export function AppSidebar({ auth }: AppSidebarProps) {
+export function AppSidebar() {
   const { t } = useTranslation()
-  const { state, setBaseUrl, setMainView } = useOpenAPIContext()
-  const { loadFromUrl, loadFromFile, loading, getServers, getOAuth2TokenUrl, getSpecInfo, getSchemas } = useOpenAPI()
+  const { state, setMainView } = useOpenAPIContext()
+  const { getSpecInfo, getSchemas } = useOpenAPI()
 
-  const servers = getServers()
   const info = getSpecInfo()
   const schemas = getSchemas()
   const specLoaded = !!state.spec
   const hasSchemas = Object.keys(schemas).length > 0
-
-  const [url, setUrl] = useState(state.specUrl || "")
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  const [oauth2User, setOAuth2User] = useState("")
-  const [oauth2Pass, setOAuth2Pass] = useState("")
-  const [oauth2TokenUrl, setOAuth2TokenUrl] = useState("")
-
-  const detectedTokenUrl = getOAuth2TokenUrl()
-
-  /* eslint-disable react-hooks/set-state-in-effect -- sync initial values from context/spec */
-  useEffect(() => {
-    const firstServer = servers[0]
-    if (firstServer && !state.baseUrl) setBaseUrl(firstServer.url)
-  }, [servers, state.baseUrl, setBaseUrl])
-
-  useEffect(() => {
-    if (detectedTokenUrl && !oauth2TokenUrl) setOAuth2TokenUrl(detectedTokenUrl)
-  }, [detectedTokenUrl, oauth2TokenUrl])
-
-  useEffect(() => {
-    if (state.specUrl && !url) setUrl(state.specUrl)
-  }, [state.specUrl]) // eslint-disable-line react-hooks/exhaustive-deps
-  /* eslint-enable react-hooks/set-state-in-effect */
-
-  const handleLoad = () => {
-    if (url.trim()) loadFromUrl(url.trim())
-  }
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) loadFromFile(file)
-    e.target.value = ""
-  }
-
-  const handleOAuth2Login = async () => {
-    const result = await auth.oauth2Login(oauth2User, oauth2Pass, oauth2TokenUrl)
-    if (result.success) toast.success(t("toast.oauth2Success"))
-    else toast.error(result.error || t("toast.loginFailed"))
-  }
 
   return (
     <Sidebar>
@@ -209,148 +88,6 @@ export function AppSidebar({ auth }: AppSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent>
-        {/* Config: spec loader + server + auth */}
-        <Collapsible defaultOpen>
-          <SidebarGroup>
-            <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-accent rounded-md">
-                <Settings className="size-3.5 mr-1.5" />
-                {t("sidebar.config")}
-                <ChevronDown className="size-3 ml-auto transition-transform group-data-[state=open]:rotate-180" />
-              </SidebarGroupLabel>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <SidebarGroupContent className="flex flex-col gap-3 px-2">
-                {/* OpenAPI URL */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-[11px] text-muted-foreground font-medium">{t("sidebar.openapiUrl")}</label>
-                  <Input
-                    value={url}
-                    onChange={e => setUrl(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && handleLoad()}
-                    placeholder={t("sidebar.openapiUrlPlaceholder")}
-                    className="w-full text-xs"
-                  />
-                  <div className="flex gap-1.5">
-                    <Button size="sm" onClick={handleLoad} disabled={loading} className="flex-1">
-                      {loading ? <Loader2 className="size-3 animate-spin mr-1" /> : null}
-                      {t("sidebar.load")}
-                    </Button>
-                    <input ref={fileRef} type="file" accept=".json,.yaml,.yml" className="hidden" onChange={handleFile} />
-                    <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} className="shrink-0">
-                      <Upload className="size-3 mr-1" />
-                      {t("sidebar.file")}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Server base URL (shown after spec loaded) */}
-                {specLoaded && (
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[11px] text-muted-foreground font-medium">{t("sidebar.server")}</label>
-                    {servers.length > 1 ? (
-                      <Select value={state.baseUrl} onValueChange={v => setBaseUrl(v)}>
-                        <SelectTrigger className="w-full text-xs">
-                          <SelectValue placeholder={t("sidebar.selectServer")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {servers.map((s, i) => (
-                            <SelectItem key={i} value={s.url}>
-                              {s.description || s.url}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input
-                        value={state.baseUrl}
-                        onChange={e => setBaseUrl(e.target.value)}
-                        placeholder={t("sidebar.serverPlaceholder")}
-                        className="w-full text-xs"
-                      />
-                    )}
-                  </div>
-                )}
-
-                {/* Auth */}
-                {specLoaded && (
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[11px] text-muted-foreground font-medium">{t("sidebar.auth")}</label>
-                    <Select value={auth.authType} onValueChange={v => auth.setAuthType(v as AuthType)}>
-                      <SelectTrigger className="w-full text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">{t("sidebar.authNone")}</SelectItem>
-                        <SelectItem value="bearer">{t("sidebar.authBearer")}</SelectItem>
-                        <SelectItem value="basic">{t("sidebar.authBasic")}</SelectItem>
-                        <SelectItem value="apikey">{t("sidebar.authApiKey")}</SelectItem>
-                        <SelectItem value="oauth2">{t("sidebar.authOAuth2")}</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    {auth.authType === "bearer" && (
-                      <Input type="password" value={auth.authToken} onChange={e => auth.setAuthToken(e.target.value)} placeholder="Token" className="text-xs" />
-                    )}
-
-                    {auth.authType === "basic" && (
-                      <>
-                        <Input value={auth.authUser} onChange={e => auth.setAuthUser(e.target.value)} placeholder="Username" className="text-xs" />
-                        <Input type="password" value={auth.authToken} onChange={e => auth.setAuthToken(e.target.value)} placeholder="Password" className="text-xs" />
-                      </>
-                    )}
-
-                    {auth.authType === "apikey" && (
-                      <>
-                        <Input value={auth.authKeyName} onChange={e => auth.setAuthKeyName(e.target.value)} placeholder="Header Name" className="text-xs" />
-                        <Input type="password" value={auth.authToken} onChange={e => auth.setAuthToken(e.target.value)} placeholder="API Key" className="text-xs" />
-                      </>
-                    )}
-
-                    {auth.authType === "oauth2" && (
-                      <>
-                        <Input value={oauth2User} onChange={e => setOAuth2User(e.target.value)} placeholder="Username" className="text-xs" />
-                        <Input type="password" value={oauth2Pass} onChange={e => setOAuth2Pass(e.target.value)} placeholder="Password" className="text-xs" />
-                        <Input value={oauth2TokenUrl} onChange={e => setOAuth2TokenUrl(e.target.value)} placeholder="Token URL" className="text-xs" />
-                        <Button size="sm" onClick={handleOAuth2Login} disabled={auth.oauth2Loading} className="w-full">
-                          {auth.oauth2Loading ? <Loader2 className="size-3 animate-spin mr-1" /> : null}
-                          {t("sidebar.login")}
-                        </Button>
-                        {auth.oauth2Token && <span className="text-xs text-success">{t("sidebar.authenticated")}</span>}
-                      </>
-                    )}
-                  </div>
-                )}
-              </SidebarGroupContent>
-            </CollapsibleContent>
-          </SidebarGroup>
-        </Collapsible>
-
-        {specLoaded && (
-          <>
-            <Separator />
-            <Collapsible>
-              <SidebarGroup>
-                <CollapsibleTrigger asChild>
-                  <SidebarGroupLabel className="cursor-pointer hover:bg-sidebar-accent rounded-md">
-                    <Variable className="size-3.5 mr-1.5" />
-                    {t("envVars.title")}
-                    <ChevronDown className="size-3 ml-auto transition-transform group-data-[state=open]:rotate-180" />
-                  </SidebarGroupLabel>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarGroupContent className="px-2">
-                    <EnvVarsPanel />
-                  </SidebarGroupContent>
-                </CollapsibleContent>
-              </SidebarGroup>
-            </Collapsible>
-          </>
-        )}
-
-        <Separator />
-
-        {/* Navigation */}
         {specLoaded && (
           <SidebarGroup>
             <SidebarGroupLabel>{t("sidebar.nav")}</SidebarGroupLabel>
@@ -416,24 +153,7 @@ export function AppSidebar({ auth }: AppSidebarProps) {
         )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border px-3 py-2 flex flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <Languages className="size-3.5 shrink-0 text-muted-foreground" />
-          <Select value={i18n.language} onValueChange={v => i18n.changeLanguage(v)}>
-            <SelectTrigger className="h-7 text-xs border-none bg-transparent shadow-none px-1 gap-1 min-w-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {LANG_CYCLE.map(lang => (
-                <SelectItem key={lang} value={lang} className="text-xs">
-                  {LANG_LABELS[lang]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="ml-auto" />
-          <ThemeToggle />
-        </div>
+      <SidebarFooter className="border-t border-sidebar-border px-3 py-2">
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
           <span><strong>Apilot</strong> v{APP_VERSION} ({getBuildLabel()})</span>
           <a href={GITHUB_URL} target="_blank" rel="noopener" className="hover:text-foreground transition-colors" title="GitHub">

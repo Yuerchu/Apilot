@@ -93,7 +93,7 @@ function AppContent() {
   return (
     <ShareProvider>
       <SidebarProvider defaultOpen={!isEmbedded}>
-        <AppSidebar auth={auth} />
+        <AppSidebar />
         <SidebarInset className="flex flex-col h-screen overflow-hidden">
           <Header />
 
