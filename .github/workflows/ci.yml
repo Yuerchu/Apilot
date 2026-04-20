@@ -10,6 +10,10 @@ jobs:
   check:
     name: Lint & Typecheck & Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +39,12 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Attest build provenance
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/index.html
 
       - name: Upload dist
         uses: actions/upload-artifact@v4
