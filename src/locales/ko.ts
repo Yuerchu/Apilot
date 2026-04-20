@@ -359,6 +359,11 @@ export default {
     envVars: "환경 변수",
     language: "언어",
     theme: "테마",
+    about: "정보",
+    aboutDesc: "모던 OpenAPI 문서 뷰어 및 API 테스트 도구.",
+    buildTime: "빌드 시간",
+    license: "라이선스",
+    localBuild: "로컬 빌드",
   },
   envVars: {
     title: "환경 변수",

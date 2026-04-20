@@ -359,6 +359,11 @@ export default {
     envVars: "Variables",
     language: "Language",
     theme: "Theme",
+    about: "About",
+    aboutDesc: "A modern OpenAPI documentation viewer and API testing tool.",
+    buildTime: "Built at",
+    license: "License",
+    localBuild: "Local build",
   },
   envVars: {
     title: "Environment Variables",

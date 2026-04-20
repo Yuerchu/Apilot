@@ -360,6 +360,11 @@ export default {
     envVars: "环境变量",
     language: "语言",
     theme: "主题",
+    about: "关于",
+    aboutDesc: "现代化的 OpenAPI 文档查看与 API 测试工具。",
+    buildTime: "构建时间",
+    license: "许可证",
+    localBuild: "本地构建",
   },
   envVars: {
     title: "环境变量",

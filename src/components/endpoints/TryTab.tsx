@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef, useMemo } from "react"
+import { useState, useCallback, useRef, useMemo, useEffect } from "react"
 import { useTranslation } from "react-i18next"
-import { Send, Loader2, X } from "lucide-react"
+import { Send, Loader2 } from "lucide-react"
 import type { ParsedRoute, SchemaObject } from "@/lib/openapi/types"
 import { resolveEffectiveSchema } from "@/lib/openapi/resolve-schema"
 import { getTypeStr, getConstraints } from "@/lib/openapi/type-str"
@@ -12,12 +12,13 @@ import { useHistory } from "@/hooks/use-history"
 import { useEnvVars } from "@/hooks/use-env-vars"
 import { interpolateEnvVars } from "@/lib/db"
 import { getParsedRouteKey } from "@/lib/openapi/route-key"
+import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
+import { buildSnippet, SNIPPET_TARGETS } from "@/lib/build-snippet"
 import { SchemaForm } from "@/components/schema/SchemaForm"
+import { SchemaInput } from "@/components/schema/SchemaInput"
 import { JsonEditor } from "@/components/editor/JsonEditor"
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { DateTimePicker } from "@/components/ui/date-time-picker"
 import {
   Select,
   SelectContent,
@@ -26,7 +27,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { CopyButton } from "@/components/animate-ui/components/buttons/copy"
+import { CodeViewer } from "@/components/editor/CodeViewer"
 import { ResponsePanel } from "./ResponsePanel"
+import { toast } from "sonner"
 
 interface TryTabProps {
   route: ParsedRoute
@@ -46,129 +50,19 @@ function ParameterField({
 }) {
   const { t } = useTranslation()
   const [touched, setTouched] = useState(false)
-  const ps = resolveEffectiveSchema(param.schema || ({} as SchemaObject))
-  const psNullable = ps._nullable || false
-  const ph = getTypeStr(param.schema || ({} as SchemaObject)) || "string"
   const hasError = (touched || !!showErrors) && param.required && !value.trim()
   const errorClass = hasError ? "border-destructive focus-visible:ring-destructive/30" : ""
-  const handleBlur = () => setTouched(true)
-  const wrapOnChange = (v: string) => { if (!touched) setTouched(true); onChange(v) }
-
-  const renderInput = () => {
-  if (ps.enum) {
-    return (
-      <div className="flex items-center gap-1">
-        <Select value={value} onValueChange={wrapOnChange}>
-          <SelectTrigger className="h-8 text-xs flex-1">
-            <SelectValue placeholder={psNullable ? "null" : t("tryIt.empty")} />
-          </SelectTrigger>
-          <SelectContent>
-            {psNullable && <SelectItem value="__null__">null</SelectItem>}
-            {!param.required && !psNullable && <SelectItem value="__empty__">{t("tryIt.empty")}</SelectItem>}
-            {ps.enum.map(v => (
-              <SelectItem key={String(v)} value={String(v)}>{String(v)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {psNullable && value && (
-          <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => onChange("")}>
-            <X className="size-3.5" />
-          </Button>
-        )}
-      </div>
-    )
-  }
-
-  if (ps.type === "boolean") {
-    return (
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="h-8 text-xs">
-          <SelectValue placeholder={psNullable ? "null" : t("tryIt.empty")} />
-        </SelectTrigger>
-        <SelectContent>
-          {(!param.required || psNullable) && (
-            <SelectItem value="__empty__">{psNullable ? "null" : t("tryIt.empty")}</SelectItem>
-          )}
-          <SelectItem value="true">true</SelectItem>
-          <SelectItem value="false">false</SelectItem>
-        </SelectContent>
-      </Select>
-    )
-  }
-
-  if (ps.type === "integer" || ps.type === "number") {
-    return (
-      <Input
-        type="number"
-        className={cn("h-8 text-sm", errorClass)}
-        step={ps.type === "integer" ? "1" : "any"}
-        min={ps.minimum}
-        max={ps.maximum}
-        value={value}
-        onChange={e => wrapOnChange(e.target.value)}
-        onBlur={handleBlur}
-        placeholder={ph}
-      />
-    )
-  }
-
-  if (ps.format === "date-time") {
-    return <DateTimePicker value={value} onChange={wrapOnChange} mode="datetime" />
-  }
-
-  if (ps.format === "date") {
-    return <DateTimePicker value={value} onChange={wrapOnChange} mode="date" />
-  }
-
-  if (ps.format === "uuid") {
-    return (
-      <div className="flex items-center gap-1">
-        <Input
-          type="text"
-          className={cn("h-8 text-sm flex-1", errorClass)}
-          value={value}
-          onChange={e => wrapOnChange(e.target.value)}
-          onBlur={handleBlur}
-          placeholder="UUID"
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 shrink-0"
-          type="button"
-          onClick={() => wrapOnChange(crypto.randomUUID())}
-        >
-          {t("tryIt.random")}
-        </Button>
-      </div>
-    )
-  }
-
-  const inputType = ps.format === "email" ? "email"
-    : (ps.format === "uri" || ps.format === "url") ? "url"
-      : "text"
-  const placeholder = ps.format === "email" ? "user@example.com"
-    : (ps.format === "uri" || ps.format === "url") ? "https://example.com"
-      : ph
-
-  return (
-    <Input
-      type={inputType}
-      className={cn("h-8 text-sm", errorClass)}
-      value={value}
-      onChange={e => wrapOnChange(e.target.value)}
-      onBlur={handleBlur}
-      placeholder={placeholder}
-      minLength={ps.minLength}
-      maxLength={ps.maxLength}
-      pattern={ps.pattern}
-    />
-  )
-  }
 
   return (
     <div className="relative">
-      {renderInput()}
+      <SchemaInput
+        schema={param.schema || ({ type: "string" } as SchemaObject)}
+        value={value}
+        onChange={v => { if (!touched) setTouched(true); onChange(v) }}
+        onBlur={() => setTouched(true)}
+        required={!!param.required}
+        errorClass={errorClass}
+      />
       {hasError && (
         <span className="absolute -bottom-4 left-0 text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>
       )}
@@ -292,6 +186,7 @@ export function TryTab({ route, index: _index }: TryTabProps) {
   const { loading, response, error: requestError, sendRequest } = useRequest(getAuthHeaders)
   const routeKey = getParsedRouteKey(route)
   const { addEntry } = useHistory(routeKey)
+  const { state: ctxState } = useOpenAPIContext()
   const { varsMap } = useEnvVars()
   const [showErrors, setShowErrors] = useState(false)
 
@@ -420,7 +315,59 @@ export function TryTab({ route, index: _index }: TryTabProps) {
   }, [route.requestBody])
 
   const currentSchema = route.requestBody?.content?.[selectedCt]?.schema as SchemaObject | undefined
+  const resolvedBodySchema = currentSchema ? resolveEffectiveSchema(currentSchema) : undefined
   const hasObjectSchema = currentSchema && (currentSchema.type === "object" || currentSchema.properties)
+  const hasArrayEnumSchema = resolvedBodySchema?.type === "array" && resolvedBodySchema.items
+    && !!(resolveEffectiveSchema(resolvedBodySchema.items as SchemaObject).enum)
+  const hasFormableSchema = hasObjectSchema || hasArrayEnumSchema
+
+  // Live snippet preview
+  const [snippetLang, setSnippetLang] = useState("shell-curl")
+  const [liveSnippet, setLiveSnippet] = useState("")
+
+  const liveSnippetInputs = useMemo(() => {
+    const baseUrl = (ctxState.baseUrl || "").replace(/\/$/, "")
+    let path = route.path
+    const queryParams: string[] = []
+    const headers: Record<string, string> = { ...getAuthHeaders() }
+
+    for (const p of route.parameters || []) {
+      const val = interpolateEnvVars(params[p.name] ?? "", varsMap)
+      if (!val && !p.required) continue
+      if (p.in === "path") {
+        path = path.replace(`{${p.name}}`, encodeURIComponent(val))
+      } else if (p.in === "query") {
+        if (val) queryParams.push(`${encodeURIComponent(p.name)}=${encodeURIComponent(val)}`)
+      } else if (p.in === "header") {
+        if (val) headers[p.name] = val
+      }
+    }
+
+    let url = baseUrl + path
+    if (queryParams.length) url += "?" + queryParams.join("&")
+
+    let bodyStr: string | null = null
+    if (route.requestBody && !isFormType && bodyJson.trim()) {
+      headers["Content-Type"] = "application/json"
+      bodyStr = interpolateEnvVars(bodyJson, varsMap)
+    }
+
+    return { method: route.method.toUpperCase(), url, headers, bodyStr }
+  }, [ctxState.baseUrl, route, params, bodyJson, isFormType, getAuthHeaders, varsMap])
+
+  useEffect(() => {
+    let cancelled = false
+    buildSnippet(
+      liveSnippetInputs.method,
+      liveSnippetInputs.url,
+      liveSnippetInputs.headers,
+      liveSnippetInputs.bodyStr,
+      snippetLang,
+    ).then(code => {
+      if (!cancelled) setLiveSnippet(code)
+    })
+    return () => { cancelled = true }
+  }, [liveSnippetInputs, snippetLang])
 
   return (
     <div className="space-y-4">
@@ -497,7 +444,7 @@ export function TryTab({ route, index: _index }: TryTabProps) {
                 onChange={handleFdChange}
                 onFileChange={handleFdFileChange}
               />
-            ) : hasObjectSchema ? (
+            ) : hasFormableSchema ? (
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2 max-h-[400px] overflow-auto px-1">
                   <SchemaForm
@@ -523,6 +470,38 @@ export function TryTab({ route, index: _index }: TryTabProps) {
               {currentSchema ? formatSchema(currentSchema, 0, 15) : t("tryIt.noSchema")}
             </pre>
           )}
+        </div>
+      )}
+
+      {/* Live snippet preview */}
+      {liveSnippet && (
+        <div className="rounded-md bg-muted/50 border overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30">
+            <Select value={snippetLang} onValueChange={setSnippetLang}>
+              <SelectTrigger className="h-6 w-auto text-[11px] gap-1 border-none bg-transparent shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SNIPPET_TARGETS.map(target => (
+                  <SelectItem key={target.id} value={target.id} className="text-xs">
+                    {target.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex-1" />
+            <CopyButton
+              variant="ghost"
+              size="xs"
+              content={liveSnippet}
+              onCopiedChange={(copied) => { if (copied) toast.success(t("toast.curlCopied")) }}
+            />
+          </div>
+          <CodeViewer
+            code={liveSnippet}
+            language={SNIPPET_TARGETS.find(s => s.id === snippetLang)?.target || "shell"}
+            maxHeight="160px"
+          />
         </div>
       )}
 

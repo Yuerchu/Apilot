@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react"
-import { X } from "lucide-react"
+import { useState, useEffect, useRef, useMemo, useCallback, createContext, useContext } from "react"
+import { X, Check, ChevronsUpDown } from "lucide-react"
 import { useForm, Controller, useFieldArray, type Control, type UseFormReturn } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import type { SchemaObject } from "@/lib/openapi"
@@ -8,17 +8,38 @@ import { validateWithSchema } from "@/lib/validate-schema"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { DateTimePicker } from "@/components/ui/date-time-picker"
-import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { SchemaInput } from "@/components/schema/SchemaInput"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+
+import { Checkbox } from "@/components/ui/checkbox"
+
+interface ExcludedFieldsContextValue {
+  excluded: Set<string>
+  toggle: (fieldName: string) => void
+}
+
+const ExcludedFieldsContext = createContext<ExcludedFieldsContextValue>({
+  excluded: new Set(),
+  toggle: () => {},
+})
+
+function useExcludedFields() {
+  return useContext(ExcludedFieldsContext)
+}
 
 type SchemaFormValues = Record<string, unknown>
 type ArrayFieldValues = Record<string, unknown[]>
@@ -76,6 +97,107 @@ function FieldLabel({
           {description}
         </span>
       )}
+    </div>
+  )
+}
+
+export function EnumMultiSelect({
+  enumValues,
+  selected,
+  onChange,
+}: {
+  enumValues: string[]
+  selected: string[]
+  onChange: (values: string[]) => void
+}) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const selectedSet = useMemo(() => new Set(selected), [selected])
+
+  // Group by prefix (e.g. "characters:*" → "characters")
+  const groups = useMemo(() => {
+    const map = new Map<string, string[]>()
+    for (const v of enumValues) {
+      const prefix = v.includes(":") ? v.split(":")[0]! : ""
+      const group = map.get(prefix) ?? []
+      group.push(v)
+      map.set(prefix, group)
+    }
+    return map
+  }, [enumValues])
+
+  const toggle = (value: string) => {
+    if (selectedSet.has(value)) {
+      onChange(selected.filter(v => v !== value))
+    } else {
+      onChange([...selected, value])
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {selected.map(v => (
+            <Badge key={v} variant="secondary" className="text-[10px] gap-1 pl-1.5 pr-1 py-0 h-5 font-mono">
+              {v}
+              <button
+                type="button"
+                className="hover:text-destructive"
+                onClick={() => toggle(v)}
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between text-xs font-normal h-8"
+          >
+            {selected.length
+              ? t("tryIt.selectedCount", { count: selected.length, defaultValue: "{{count}} selected" })
+              : t("tryIt.selectValues", "Select values...")}
+            <ChevronsUpDown className="size-3 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[320px] p-0" align="start">
+          <Command>
+            <CommandInput placeholder={t("tryIt.searchEnum", "Search...")} className="h-8 text-xs" />
+            <CommandList className="max-h-[240px]">
+              <CommandEmpty>{t("search.noResults")}</CommandEmpty>
+              {groups.size <= 1 ? (
+                <CommandGroup>
+                  {enumValues.map(v => (
+                    <CommandItem key={v} value={v} onSelect={() => toggle(v)} className="text-xs font-mono gap-2">
+                      <Check className={cn("size-3", selectedSet.has(v) ? "opacity-100" : "opacity-0")} />
+                      {v}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ) : (
+                [...groups.entries()].map(([prefix, values]) => (
+                  <CommandGroup key={prefix} heading={prefix || "other"}>
+                    {values.map(v => (
+                      <CommandItem key={v} value={v} onSelect={() => toggle(v)} className="text-xs font-mono gap-2">
+                        <Check className={cn("size-3", selectedSet.has(v) ? "opacity-100" : "opacity-0")} />
+                        {v}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                ))
+              )}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   )
 }
@@ -161,6 +283,36 @@ function ArrayField({
     )
   }
 
+  // Array of enum — multi-select combobox
+  const itemEnum = itemSchema?.enum as string[] | undefined
+  if (itemEnum && itemEnum.length > 0) {
+    return (
+      <div className="space-y-1">
+        <FieldLabel
+          name={name}
+          typeStr={typeStr}
+          isRequired={isRequired}
+          constraints={constraints}
+          description={desc}
+        />
+        <Controller
+          name={fieldName}
+          control={form.control}
+          render={({ field }) => {
+            const current = Array.isArray(field.value) ? field.value as string[] : []
+            return (
+              <EnumMultiSelect
+                enumValues={itemEnum}
+                selected={current}
+                onChange={field.onChange}
+              />
+            )
+          }}
+        />
+      </div>
+    )
+  }
+
   // Primitive array items — use a JSON textarea as fallback
   const example = generateExample(effectiveProp)
   return (
@@ -217,12 +369,14 @@ function FormField({
   showErrors: boolean
 }) {
   const { t } = useTranslation()
+  const { excluded, toggle } = useExcludedFields()
   const effectiveProp = resolveEffectiveSchema(prop)
   const isNullable = effectiveProp._nullable || false
   const typeStr = getTypeStr(prop)
   const constraints = getConstraints(effectiveProp)
   const desc = effectiveProp.description || prop.description || ""
   const fieldName = basePath ? `${basePath}.${name}` : name
+  const isExcluded = excluded.has(fieldName)
 
   const fieldState = form.getFieldState(fieldName, form.formState)
   const isEmpty = (() => {
@@ -232,91 +386,23 @@ function FormField({
   const hasError = isRequired && isEmpty && (fieldState.isTouched || !!showErrors)
   const errorClass = hasError ? "border-destructive focus-visible:ring-destructive/30" : ""
 
-  // Enum
-  if (effectiveProp.enum) {
+  const fieldContent = renderFieldContent()
+  if (!isRequired) {
     return (
-      <div className="space-y-1">
-        <FieldLabel
-          name={name}
-          typeStr={typeStr}
-          isRequired={isRequired}
-          constraints={constraints}
-          description={desc}
+      <div className={cn("flex gap-2", isExcluded && "opacity-40")}>
+        <Checkbox
+          checked={!isExcluded}
+          onCheckedChange={() => toggle(fieldName)}
+          className="mt-1.5 size-3.5 shrink-0"
+          size="sm"
         />
-        <div className="flex items-center gap-2">
-          <Controller
-            name={fieldName}
-            control={form.control}
-            render={({ field }) => (
-              <Select
-                value={field.value !== undefined ? String(field.value) : ""}
-                onValueChange={(v) => {
-                  field.onChange(v === "" || v === " " ? null : v)
-                }}
-              >
-                <SelectTrigger className="w-full h-8 text-xs">
-                  <SelectValue placeholder={isNullable ? "null" : t("tryIt.empty")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {(isNullable || !isRequired) && (
-                    <SelectItem value=" ">{isNullable ? "null" : t("tryIt.empty")}</SelectItem>
-                  )}
-                  {effectiveProp.enum!.map((v) => (
-                    <SelectItem key={String(v)} value={String(v)}>
-                      {String(v)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          />
-          {isNullable && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              onClick={() => form.setValue(fieldName, null, { shouldTouch: true })}
-            >
-              <X className="size-3" />
-            </Button>
-          )}
-        </div>
-        {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
+        <div className={cn("flex-1 min-w-0", isExcluded && "pointer-events-none")}>{fieldContent}</div>
       </div>
     )
   }
+  return fieldContent
 
-  // Boolean
-  if (effectiveProp.type === "boolean") {
-    return (
-      <div className="space-y-1">
-        <FieldLabel
-          name={name}
-          typeStr={typeStr}
-          isRequired={isRequired}
-          constraints={constraints}
-          description={desc}
-        />
-        <Controller
-          name={fieldName}
-          control={form.control}
-          render={({ field }) => {
-            const checked = field.value === true
-            return (
-              <div className="flex items-center gap-2">
-                <Switch
-                  size="sm"
-                  checked={checked}
-                  onCheckedChange={(v) => field.onChange(v)}
-                />
-                <span className="text-xs text-muted-foreground">{String(checked)}</span>
-              </div>
-            )
-          }}
-        />
-      </div>
-    )
-  }
+  function renderFieldContent(): React.ReactNode {
 
   // Nested object
   if (effectiveProp.type === "object" || effectiveProp.properties) {
@@ -355,56 +441,7 @@ function FormField({
     )
   }
 
-  // Integer / Number
-  if (effectiveProp.type === "integer" || effectiveProp.type === "number") {
-    return (
-      <div className="space-y-1">
-        <FieldLabel
-          name={name}
-          typeStr={typeStr}
-          isRequired={isRequired}
-          constraints={constraints}
-          description={desc}
-        />
-        <Controller
-          name={fieldName}
-          control={form.control}
-          render={({ field }) => {
-            const def = field.value !== undefined
-              ? field.value
-              : (effectiveProp.default !== undefined
-                ? effectiveProp.default
-                : (effectiveProp.minimum !== undefined ? effectiveProp.minimum : ""))
-            return (
-              <Input
-                type="number"
-                className={cn("h-8 text-xs font-mono", errorClass)}
-                value={def !== null && def !== undefined ? String(def) : ""}
-                step={effectiveProp.type === "integer" ? "1" : "any"}
-                min={effectiveProp.minimum}
-                max={effectiveProp.maximum}
-                placeholder={typeStr}
-                onBlur={field.onBlur}
-                onChange={(e) => {
-                  const raw = e.target.value
-                  if (raw === "") {
-                    field.onChange(null)
-                  } else {
-                    field.onChange(
-                      effectiveProp.type === "integer" ? parseInt(raw, 10) : parseFloat(raw),
-                    )
-                  }
-                }}
-              />
-            )
-          }}
-        />
-        {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
-      </div>
-    )
-  }
-
-  // File (binary)
+  // File (binary) — special case, not a string value
   if (effectiveProp.format === "binary") {
     return (
       <div className="space-y-1">
@@ -433,84 +470,7 @@ function FormField({
     )
   }
 
-  // String types (default)
-  const fmt = effectiveProp.format
-  let inputType = "text"
-  if (fmt === "email") inputType = "email"
-  else if (fmt === "uri" || fmt === "url") inputType = "url"
-  else if (fmt === "date") inputType = "date"
-  else if (fmt === "date-time") inputType = "datetime-local"
-
-  let placeholder = typeStr
-  if (fmt === "uuid") placeholder = "UUID"
-  else if (fmt === "email") placeholder = "user@example.com"
-  else if (fmt === "uri" || fmt === "url") placeholder = "https://example.com"
-
-  // UUID with random button
-  if (fmt === "uuid") {
-    return (
-      <div className="space-y-1">
-        <FieldLabel
-          name={name}
-          typeStr={typeStr}
-          isRequired={isRequired}
-          constraints={constraints}
-          description={desc}
-        />
-        <div className="flex items-center gap-2">
-          <Input
-            type="text"
-            className={cn("h-8 text-xs font-mono flex-1", errorClass)}
-            value={String(form.getValues(fieldName) ?? (effectiveProp.default !== undefined ? effectiveProp.default : ""))}
-            placeholder={placeholder}
-            minLength={effectiveProp.minLength}
-            maxLength={effectiveProp.maxLength}
-            pattern={effectiveProp.pattern}
-            {...form.register(fieldName)}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 shrink-0"
-            onClick={() => form.setValue(fieldName, crypto.randomUUID(), { shouldTouch: true })}
-          >
-            {t("tryIt.random")}
-          </Button>
-        </div>
-        {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
-      </div>
-    )
-  }
-
-  // Date/datetime picker
-  if (fmt === "date-time" || fmt === "date") {
-    return (
-      <div className="space-y-1">
-        <FieldLabel
-          name={name}
-          typeStr={typeStr}
-          isRequired={isRequired}
-          constraints={constraints}
-          description={desc}
-        />
-        <Controller
-          name={fieldName}
-          control={form.control}
-          render={({ field }) => (
-            <DateTimePicker
-              value={field.value !== undefined ? String(field.value) : (effectiveProp.default !== undefined ? String(effectiveProp.default) : "")}
-              onChange={(v) => field.onChange(v)}
-              mode={fmt === "date" ? "date" : "datetime"}
-            />
-          )}
-        />
-        {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
-      </div>
-    )
-  }
-
-  // Default string input
+  // All other primitive types — delegate to SchemaInput
   return (
     <div className="space-y-1">
       <FieldLabel
@@ -520,19 +480,38 @@ function FormField({
         constraints={constraints}
         description={desc}
       />
-      <Input
-        type={inputType}
-        className={cn("h-8 text-xs font-mono", errorClass)}
-        placeholder={placeholder}
-        minLength={effectiveProp.minLength}
-        maxLength={effectiveProp.maxLength}
-        pattern={effectiveProp.pattern}
-        defaultValue={effectiveProp.default !== undefined ? String(effectiveProp.default) : ""}
-        {...form.register(fieldName)}
+      <Controller
+        name={fieldName}
+        control={form.control}
+        render={({ field }) => {
+          const strVal = field.value !== undefined && field.value !== null
+            ? String(field.value)
+            : (effectiveProp.default !== undefined ? String(effectiveProp.default) : "")
+          return (
+            <SchemaInput
+              schema={prop}
+              value={strVal}
+              onChange={v => {
+                // Convert back to appropriate type
+                if (effectiveProp.type === "integer") field.onChange(v === "" ? null : parseInt(v, 10))
+                else if (effectiveProp.type === "number") field.onChange(v === "" ? null : parseFloat(v))
+                else if (effectiveProp.type === "boolean") field.onChange(v === "true" ? true : v === "false" ? false : null)
+                else if (v === "__null__" || v === " ") field.onChange(null)
+                else if (v === "__empty__") field.onChange(null)
+                else field.onChange(v || null)
+              }}
+              onBlur={field.onBlur}
+              required={isRequired}
+              nullable={isNullable}
+              errorClass={errorClass}
+            />
+          )
+        }}
       />
       {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
     </div>
   )
+  } // end renderFieldContent
 }
 
 function FormFields({
@@ -566,26 +545,62 @@ function FormFields({
   )
 }
 
+function stripExcludedFields(obj: unknown, excluded: Set<string>, prefix = ""): unknown {
+  if (typeof obj !== "object" || obj === null || Array.isArray(obj)) return obj
+  const result: Record<string, unknown> = {}
+  for (const [key, val] of Object.entries(obj)) {
+    const path = prefix ? `${prefix}.${key}` : key
+    if (excluded.has(path)) continue
+    result[key] = typeof val === "object" && val !== null && !Array.isArray(val)
+      ? stripExcludedFields(val, excluded, path)
+      : val
+  }
+  return result
+}
+
 export function SchemaForm({ schema, value, onChange, prefix: _prefix, showErrors = false }: SchemaFormProps) {
   const form = useForm<SchemaFormValues>({
     defaultValues: value,
     resolver: customResolver(schema),
   })
 
+  const [excluded, setExcluded] = useState<Set<string>>(new Set())
+  const toggleExcluded = useCallback((fieldName: string) => {
+    setExcluded(prev => {
+      const next = new Set(prev)
+      if (next.has(fieldName)) next.delete(fieldName)
+      else next.add(fieldName)
+      return next
+    })
+  }, [])
+  const excludedCtx = useMemo(() => ({ excluded, toggle: toggleExcluded }), [excluded, toggleExcluded])
+
   const syncingRef = useRef(false)
   const lastJsonRef = useRef(JSON.stringify(value))
 
-  // Sync form changes to parent
+  // Sync form changes to parent (strip excluded fields)
   useEffect(() => {
     const sub = form.watch((values) => {
       if (syncingRef.current) return
-      const json = JSON.stringify(values)
+      const stripped = stripExcludedFields(values, excluded) as SchemaFormValues
+      const json = JSON.stringify(stripped)
       if (json === lastJsonRef.current) return
       lastJsonRef.current = json
-      onChange(values as SchemaFormValues)
+      onChange(stripped)
     })
     return () => sub.unsubscribe()
-  }, [form, onChange])
+  }, [form, onChange, excluded])
+
+  // Re-emit when excluded fields change
+  useEffect(() => {
+    if (syncingRef.current) return
+    const values = form.getValues()
+    const stripped = stripExcludedFields(values, excluded) as SchemaFormValues
+    const json = JSON.stringify(stripped)
+    if (json === lastJsonRef.current) return
+    lastJsonRef.current = json
+    onChange(stripped)
+  }, [excluded]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset form when external value changes (e.g. from JSON editor)
   useEffect(() => {
@@ -602,18 +617,40 @@ export function SchemaForm({ schema, value, onChange, prefix: _prefix, showError
     if (showErrors) form.trigger()
   }, [showErrors, form])
 
-  if (!schema || (!schema.properties && schema.type !== "object")) {
+  if (!schema) return null
+
+  const resolved = resolveEffectiveSchema(schema)
+
+  // Top-level array with enum items → render EnumMultiSelect directly
+  if (resolved.type === "array" && resolved.items) {
+    const itemSchema = resolveEffectiveSchema(resolved.items as SchemaObject)
+    const itemEnum = itemSchema.enum as string[] | undefined
+    if (itemEnum && itemEnum.length > 0) {
+      const current = Array.isArray(value) ? value as unknown as string[] : []
+      return (
+        <EnumMultiSelect
+          enumValues={itemEnum}
+          selected={current}
+          onChange={v => onChange(v as unknown as SchemaFormValues)}
+        />
+      )
+    }
+  }
+
+  if (!schema.properties && schema.type !== "object") {
     return null
   }
 
   return (
-    <div className="space-y-3">
-      <FormFields
-        schema={schema}
-        basePath=""
-        form={form}
-        showErrors={showErrors}
-      />
-    </div>
+    <ExcludedFieldsContext.Provider value={excludedCtx}>
+      <div className="space-y-3">
+        <FormFields
+          schema={schema}
+          basePath=""
+          form={form}
+          showErrors={showErrors}
+        />
+      </div>
+    </ExcludedFieldsContext.Provider>
   )
 }

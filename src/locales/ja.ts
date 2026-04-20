@@ -359,6 +359,11 @@ export default {
     envVars: "環境変数",
     language: "言語",
     theme: "テーマ",
+    about: "概要",
+    aboutDesc: "モダンな OpenAPI ドキュメントビューア & API テストツール。",
+    buildTime: "ビルド日時",
+    license: "ライセンス",
+    localBuild: "ローカルビルド",
   },
   envVars: {
     title: "環境変数",
