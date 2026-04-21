@@ -55,7 +55,7 @@ import { JsonSchemaTreeView } from "@/components/schema/JsonSchemaTreeView"
 import { cn } from "@/lib/utils"
 
 interface SchemaViewerViewProps {
-  spec: OpenAPISpec
+  spec?: OpenAPISpec | undefined
 }
 
 interface SchemaFacetOption {
@@ -678,7 +678,7 @@ export function SchemaViewerView({ spec }: SchemaViewerViewProps) {
   const [schemaMobilePane, setSchemaMobilePane] = useState<SchemaFieldMobilePane>("schema")
   const [schemaViewerMobilePane, setSchemaViewerMobilePane] = useState<SchemaViewerMobilePane>("list")
 
-  const openAPIItems = useMemo(() => getOpenAPISchemaViewerItems(spec), [spec])
+  const openAPIItems = useMemo(() => spec ? getOpenAPISchemaViewerItems(spec) : [], [spec])
   const activeItems = state.schemaSource === "external" ? externalItems : openAPIItems
   const categoryOptions = useMemo(
     () => buildFacetOptions(activeItems, item => item.category),

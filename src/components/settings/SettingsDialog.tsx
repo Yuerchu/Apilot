@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
-import { Settings, Link, Shield, Variable, Info } from "lucide-react"
+import { Settings, Link, Shield, Variable, Info, HardDrive } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 import { GeneralSettings } from "./GeneralSettings"
@@ -8,14 +8,16 @@ import { ConnectionSettings } from "./ConnectionSettings"
 import { AuthSettings } from "./AuthSettings"
 import { EnvVarsSettings } from "./EnvVarsSettings"
 import { AboutSettings } from "./AboutSettings"
+import { StorageSettings } from "./StorageSettings"
 
-type SettingsTab = "general" | "connection" | "auth" | "envVars" | "about"
+type SettingsTab = "general" | "connection" | "auth" | "envVars" | "storage" | "about"
 
 const TABS: { id: SettingsTab; icon: typeof Settings; labelKey: string }[] = [
   { id: "general", icon: Settings, labelKey: "settings.general" },
   { id: "connection", icon: Link, labelKey: "settings.connection" },
   { id: "auth", icon: Shield, labelKey: "settings.auth" },
   { id: "envVars", icon: Variable, labelKey: "settings.envVars" },
+  { id: "storage", icon: HardDrive, labelKey: "settings.storage" },
   { id: "about", icon: Info, labelKey: "settings.about" },
 ]
 
@@ -24,9 +26,23 @@ interface SettingsDialogProps {
   onOpenChange: (open: boolean) => void
 }
 
+export function openSettings(tab?: SettingsTab) {
+  window.dispatchEvent(new CustomEvent("apilot:open-settings", { detail: tab }))
+}
+
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<SettingsTab>("general")
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const tab = (e as CustomEvent).detail as SettingsTab | undefined
+      if (tab) setActiveTab(tab)
+      onOpenChange(true)
+    }
+    window.addEventListener("apilot:open-settings", handler)
+    return () => window.removeEventListener("apilot:open-settings", handler)
+  }, [onOpenChange])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -65,6 +81,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
           {activeTab === "connection" && <ConnectionSettings />}
           {activeTab === "auth" && <AuthSettings />}
           {activeTab === "envVars" && <EnvVarsSettings />}
+          {activeTab === "storage" && <StorageSettings />}
           {activeTab === "about" && <AboutSettings />}
         </div>
       </DialogContent>

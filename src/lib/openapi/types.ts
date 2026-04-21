@@ -182,7 +182,7 @@ export interface ModelRouteMap {
 
 export type AuthType = "none" | "bearer" | "basic" | "apikey" | "oauth2"
 
-export type MainView = "endpoints" | "models" | "schemas" | "diagnostics" | "diff"
+export type MainView = "endpoints" | "favorites" | "models" | "schemas" | "diagnostics" | "diff"
 export type EndpointDetailTab = "doc" | "try" | "history"
 export type ModelViewMode = "list" | "graph"
 export type SchemaViewerSource = "openapi" | "external"

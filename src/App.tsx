@@ -7,7 +7,10 @@ import { useSettings } from "@/hooks/use-settings"
 import { useUrlState } from "@/hooks/use-url-state"
 import { motion } from "motion/react"
 import { Upload } from "lucide-react"
-import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from "@/components/ui/empty"
+import { Button } from "@/components/ui/button"
+import { Settings } from "lucide-react"
+import { openSettings } from "@/components/settings/SettingsDialog"
 import { Fade } from "@/components/animate-ui/primitives/effects/fade"
 import { formatMarkdown } from "@/lib/format-route"
 import { Header } from "@/components/layout/Header"
@@ -15,20 +18,35 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { SelectionFab } from "@/components/layout/SelectionFab"
 import { EndpointsView } from "@/components/endpoints/EndpointsView"
+import { FavoritesView } from "@/components/endpoints/FavoritesView"
 import { ModelsView } from "@/components/models/ModelsView"
 import { SchemaViewerView } from "@/components/schema/SchemaViewerView"
 import { OpenAPIDiagnosticsView, OpenAPIDiffView } from "@/components/tools/ProjectToolsView"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { toast } from "sonner"
 import { ShareProvider } from "@/components/share/ShareDialog"
+import { FavoritesContext, useFavoritesProvider } from "@/hooks/use-favorites"
+import { EnvironmentsContext, useEnvironmentsProvider } from "@/hooks/use-environments"
 
 export default function App() {
   return (
     <OpenAPIProvider>
       <AuthProvider>
-        <AppContent />
+        <AppInner />
       </AuthProvider>
     </OpenAPIProvider>
+  )
+}
+
+function AppInner() {
+  const environmentsValue = useEnvironmentsProvider()
+  const favoritesValue = useFavoritesProvider()
+  return (
+    <EnvironmentsContext.Provider value={environmentsValue}>
+      <FavoritesContext.Provider value={favoritesValue}>
+        <AppContent />
+      </FavoritesContext.Provider>
+    </EnvironmentsContext.Provider>
   )
 }
 
@@ -104,47 +122,49 @@ function AppContent() {
             </div>
           )}
 
-          {!specLoaded && !state.loading && (
-            <Empty className="flex-1">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <Upload />
-                </EmptyMedia>
-                <EmptyTitle>{t("app.title")}</EmptyTitle>
-                <EmptyDescription>{t("app.emptyDesc")}</EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          )}
-
           {state.loading && <LoadingSkeleton />}
 
-          {specLoaded && !state.loading && state.mainView === "endpoints" && (
-            <Fade key="endpoints" className="flex-1 flex flex-col min-h-0">
-              <EndpointsView />
-            </Fade>
+          {!state.loading && state.mainView === "endpoints" && (
+            specLoaded ? (
+              <Fade key="endpoints" className="flex-1 flex flex-col min-h-0">
+                <EndpointsView />
+              </Fade>
+            ) : <NeedSpecEmpty />
           )}
 
-          {specLoaded && !state.loading && state.mainView === "models" && (
-            <Fade key="models" className="flex-1 flex flex-col min-h-0">
-              <ModelsView spec={state.spec!} sourceSpec={state.sourceSpec} />
-            </Fade>
+          {!state.loading && state.mainView === "favorites" && (
+            specLoaded ? (
+              <Fade key="favorites" className="flex-1 flex flex-col min-h-0">
+                <FavoritesView />
+              </Fade>
+            ) : <NeedSpecEmpty />
           )}
 
-          {specLoaded && !state.loading && state.mainView === "schemas" && (
+          {!state.loading && state.mainView === "models" && (
+            specLoaded ? (
+              <Fade key="models" className="flex-1 flex flex-col min-h-0">
+                <ModelsView spec={state.spec!} sourceSpec={state.sourceSpec} />
+              </Fade>
+            ) : <NeedSpecEmpty />
+          )}
+
+          {!state.loading && state.mainView === "schemas" && (
             <Fade key="schemas" className="flex-1 flex flex-col min-h-0">
-              <SchemaViewerView spec={state.spec!} />
+              <SchemaViewerView spec={state.spec ?? undefined} />
             </Fade>
           )}
 
-          {specLoaded && !state.loading && state.mainView === "diagnostics" && (
-            <Fade key="diagnostics" className="flex-1 flex flex-col min-h-0">
-              <OpenAPIDiagnosticsView spec={state.spec!} sourceSpec={state.sourceSpec} />
-            </Fade>
+          {!state.loading && state.mainView === "diagnostics" && (
+            specLoaded ? (
+              <Fade key="diagnostics" className="flex-1 flex flex-col min-h-0">
+                <OpenAPIDiagnosticsView spec={state.spec!} sourceSpec={state.sourceSpec} />
+              </Fade>
+            ) : <NeedSpecEmpty />
           )}
 
-          {specLoaded && !state.loading && state.mainView === "diff" && (
+          {!state.loading && state.mainView === "diff" && (
             <Fade key="diff" className="flex-1 flex flex-col min-h-0">
-              <OpenAPIDiffView spec={state.spec!} />
+              <OpenAPIDiffView spec={state.spec ?? undefined} />
             </Fade>
           )}
         </div>
@@ -198,5 +218,26 @@ function LoadingSkeleton() {
         </div>
       ))}
     </motion.div>
+  )
+}
+
+function NeedSpecEmpty() {
+  const { t } = useTranslation()
+  return (
+    <Empty className="flex-1">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Upload />
+        </EmptyMedia>
+        <EmptyTitle>{t("app.title")}</EmptyTitle>
+        <EmptyDescription>{t("app.emptyDesc")}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button onClick={() => openSettings("connection")}>
+          <Settings className="size-4" />
+          {t("app.openSettings")}
+        </Button>
+      </EmptyContent>
+    </Empty>
   )
 }

@@ -27,8 +27,23 @@ export interface EnvVarEntry {
   value: string
 }
 
+export interface EnvironmentProfile {
+  id: string
+  specId: string
+  name: string
+  baseUrl: string
+  authType: string
+  authToken: string
+  authUser: string
+  authKeyName: string
+  oauth2Token: string | null
+  source: "spec" | "custom"
+  createdAt: number
+  updatedAt: number
+}
+
 const DB_NAME = "apilot"
-const DB_VERSION = 2
+const DB_VERSION = 3
 const MAX_BODY_SIZE = 100 * 1024
 
 let dbPromise: Promise<IDBPDatabase> | null = null
@@ -50,6 +65,10 @@ export function getDB(): Promise<IDBPDatabase> {
         if (!db.objectStoreNames.contains("envVars")) {
           const envVars = db.createObjectStore("envVars", { keyPath: "id" })
           envVars.createIndex("specId", "specId")
+        }
+        if (!db.objectStoreNames.contains("environments")) {
+          const environments = db.createObjectStore("environments", { keyPath: "id" })
+          environments.createIndex("specId", "specId")
         }
       },
     })
@@ -129,4 +148,21 @@ export async function removeEnvVar(specId: string, key: string): Promise<void> {
 
 export function interpolateEnvVars(text: string, vars: Record<string, string>): string {
   return text.replace(/\{\{(\w+)\}\}/g, (match, key) => vars[key] ?? match)
+}
+
+// --- Environments ---
+
+export async function getEnvironments(specId: string): Promise<EnvironmentProfile[]> {
+  const db = await getDB()
+  return db.getAllFromIndex("environments", "specId", specId)
+}
+
+export async function putEnvironment(profile: EnvironmentProfile): Promise<void> {
+  const db = await getDB()
+  await db.put("environments", profile)
+}
+
+export async function removeEnvironment(id: string): Promise<void> {
+  const db = await getDB()
+  await db.delete("environments", id)
 }

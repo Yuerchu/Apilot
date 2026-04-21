@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 import {
-  Route, Database, ExternalLink, Scale, Mail, FileJson, GitCompare, Stethoscope,
+  Route, Database, ExternalLink, Scale, Mail, FileJson, GitCompare, Stethoscope, Star,
 } from "lucide-react"
 import {
   Sidebar,
@@ -16,13 +16,16 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { useOpenAPI } from "@/hooks/use-openapi"
+import { useFavorites } from "@/hooks/use-favorites"
 import type { MainView } from "@/lib/openapi/types"
 import { APP_VERSION, GITHUB_URL, getBuildLabel } from "@/lib/app-info"
+import { EnvironmentSwitcher } from "@/components/layout/EnvironmentSwitcher"
 
 export function AppSidebar() {
   const { t } = useTranslation()
   const { state, setMainView } = useOpenAPIContext()
   const { getSpecInfo, getSchemas } = useOpenAPI()
+  const { favorites } = useFavorites()
 
   const info = getSpecInfo()
   const schemas = getSchemas()
@@ -31,9 +34,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="px-3 py-3 border-b border-sidebar-border">
+      <SidebarHeader className="border-b border-sidebar-border">
         {info ? (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5 px-3 py-3">
             <span className="text-sm font-semibold truncate">{info.title}</span>
             {info.summary && (
               <span className="text-[11px] text-muted-foreground leading-tight">{info.summary}</span>
@@ -83,74 +86,93 @@ export function AppSidebar() {
             )}
           </div>
         ) : (
-          <span className="text-sm font-semibold">{t("app.title")}</span>
+          <span className="text-sm font-semibold px-3 py-3">{t("app.title")}</span>
         )}
+        {specLoaded && <EnvironmentSwitcher />}
       </SidebarHeader>
 
       <SidebarContent>
-        {specLoaded && (
-          <SidebarGroup>
-            <SidebarGroupLabel>{t("sidebar.nav")}</SidebarGroupLabel>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={state.mainView === "endpoints"}
-                  onClick={() => setMainView("endpoints" as MainView)}
-                >
-                  <Route className="size-4" />
-                  <span>{t("sidebar.endpoints")}</span>
+        <SidebarGroup>
+          <SidebarGroupLabel>{t("sidebar.nav")}</SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={state.mainView === "endpoints"}
+                onClick={() => setMainView("endpoints" as MainView)}
+              >
+                <Route className="size-4" />
+                <span>{t("sidebar.endpoints")}</span>
+                {specLoaded && (
                   <Badge variant="secondary" className="ml-auto text-[10px]">
                     {state.routes.length}
                   </Badge>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              {hasSchemas && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    isActive={state.mainView === "models"}
-                    onClick={() => setMainView("models" as MainView)}
-                  >
-                    <Database className="size-4" />
-                    <span>{t("sidebar.models")}</span>
-                    <Badge variant="secondary" className="ml-auto text-[10px]">
-                      {Object.keys(schemas).length}
-                    </Badge>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
+                )}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            {specLoaded && (
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  isActive={state.mainView === "schemas"}
-                  onClick={() => setMainView("schemas" as MainView)}
+                  isActive={state.mainView === "favorites"}
+                  onClick={() => setMainView("favorites" as MainView)}
                 >
-                  <FileJson className="size-4" />
-                  <span>{t("sidebar.schemaViewer")}</span>
+                  <Star className="size-4" />
+                  <span>{t("sidebar.favorites")}</span>
+                  {favorites.size > 0 && (
+                    <Badge variant="secondary" className="ml-auto text-[10px]">
+                      {favorites.size}
+                    </Badge>
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+            {hasSchemas && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={state.mainView === "models"}
+                  onClick={() => setMainView("models" as MainView)}
+                >
+                  <Database className="size-4" />
+                  <span>{t("sidebar.models")}</span>
                   <Badge variant="secondary" className="ml-auto text-[10px]">
                     {Object.keys(schemas).length}
                   </Badge>
                 </SidebarMenuButton>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={state.mainView === "diagnostics"}
-                  onClick={() => setMainView("diagnostics" as MainView)}
-                >
-                  <Stethoscope className="size-4" />
-                  <span>{t("sidebar.diagnostics")}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={state.mainView === "diff"}
-                  onClick={() => setMainView("diff" as MainView)}
-                >
-                  <GitCompare className="size-4" />
-                  <span>{t("sidebar.diff")}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroup>
-        )}
+            )}
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={state.mainView === "schemas"}
+                onClick={() => setMainView("schemas" as MainView)}
+              >
+                <FileJson className="size-4" />
+                <span>{t("sidebar.schemaViewer")}</span>
+                {specLoaded && (
+                  <Badge variant="secondary" className="ml-auto text-[10px]">
+                    {Object.keys(schemas).length}
+                  </Badge>
+                )}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={state.mainView === "diagnostics"}
+                onClick={() => setMainView("diagnostics" as MainView)}
+              >
+                <Stethoscope className="size-4" />
+                <span>{t("sidebar.diagnostics")}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={state.mainView === "diff"}
+                onClick={() => setMainView("diff" as MainView)}
+              >
+                <GitCompare className="size-4" />
+                <span>{t("sidebar.diff")}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border px-3 py-2">

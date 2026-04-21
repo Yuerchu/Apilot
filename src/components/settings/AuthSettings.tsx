@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next"
 import { Loader2 } from "lucide-react"
 import { useAuthContext } from "@/contexts/AuthContext"
 import { useOpenAPI } from "@/hooks/use-openapi"
+import { useEnvironments } from "@/hooks/use-environments"
+import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -20,6 +22,7 @@ export function AuthSettings() {
   const { t } = useTranslation()
   const auth = useAuthContext()
   const { getOAuth2TokenUrl } = useOpenAPI()
+  const { activeEnv } = useEnvironments()
 
   const [oauth2User, setOAuth2User] = useState("")
   const [oauth2Pass, setOAuth2Pass] = useState("")
@@ -39,6 +42,12 @@ export function AuthSettings() {
 
   return (
     <div className="space-y-6">
+      {activeEnv && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>{t("environments.authNote")}</span>
+          <Badge variant="secondary" className="text-[10px]">{activeEnv.name}</Badge>
+        </div>
+      )}
       <div className="space-y-2">
         <Label>{t("sidebar.auth")}</Label>
         <Select value={auth.authType} onValueChange={v => auth.setAuthType(v as AuthType)}>

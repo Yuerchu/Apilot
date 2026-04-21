@@ -10,7 +10,7 @@ function getOrigin(url: string): string {
   }
 }
 
-export function computeSpecId(spec: OpenAPISpec, baseUrl: string, specUrl: string): string {
+export function computeSpecId(spec: OpenAPISpec, specUrl: string): string {
   const title = spec.info?.title || "untitled"
   const version = spec.info?.version || "0"
 
@@ -20,8 +20,6 @@ export function computeSpecId(spec: OpenAPISpec, baseUrl: string, specUrl: strin
     origin = getOrigin(resolveServerUrl(servers[0]!))
   } else if (spec.host) {
     origin = spec.host
-  } else if (baseUrl) {
-    origin = getOrigin(baseUrl)
   } else if (specUrl) {
     origin = getOrigin(specUrl)
   }

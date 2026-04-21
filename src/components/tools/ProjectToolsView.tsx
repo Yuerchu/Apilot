@@ -28,7 +28,7 @@ interface OpenAPIToolViewProps {
 }
 
 interface OpenAPIDiffViewProps {
-  spec: OpenAPISpec
+  spec?: OpenAPISpec | undefined
 }
 
 interface DiffSpecSlot {
@@ -456,7 +456,7 @@ export function OpenAPIDiffView({ spec }: OpenAPIDiffViewProps) {
               type="button"
               size="sm"
               variant="ghost"
-              disabled={loadingSlot === "before"}
+              disabled={loadingSlot === "before" || !spec}
               onClick={() => setCurrentSpecForSlot("before")}
             >
               {t("tools.useCurrentSpec")}
@@ -492,7 +492,7 @@ export function OpenAPIDiffView({ spec }: OpenAPIDiffViewProps) {
               type="button"
               size="sm"
               variant="ghost"
-              disabled={loadingSlot === "after"}
+              disabled={loadingSlot === "after" || !spec}
               onClick={() => setCurrentSpecForSlot("after")}
             >
               {t("tools.useCurrentSpec")}
