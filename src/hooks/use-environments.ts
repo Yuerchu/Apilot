@@ -36,7 +36,7 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
   // Prevent auto-save during restore
   const restoringRef = useRef(false)
   const specIdRef = useRef(specId)
-  specIdRef.current = specId
+  useEffect(() => { specIdRef.current = specId }, [specId])
 
   // Load environments when specId changes
   useEffect(() => {
