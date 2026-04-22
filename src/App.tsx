@@ -5,7 +5,8 @@ import { AuthProvider, useAuthContext } from "@/contexts/AuthContext"
 import { useOpenAPI } from "@/hooks/use-openapi"
 import { useSettings } from "@/hooks/use-settings"
 import { useUrlState } from "@/hooks/use-url-state"
-import { motion } from "motion/react"
+import { motion, MotionConfig } from "motion/react"
+import { useMotionPreference, toMotionReducedMotion } from "@/hooks/use-reduced-motion"
 import { Upload } from "lucide-react"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription, EmptyContent } from "@/components/ui/empty"
 import { Button } from "@/components/ui/button"
@@ -22,19 +23,24 @@ import { FavoritesView } from "@/components/endpoints/FavoritesView"
 import { ModelsView } from "@/components/models/ModelsView"
 import { SchemaViewerView } from "@/components/schema/SchemaViewerView"
 import { OpenAPIDiagnosticsView, OpenAPIDiffView } from "@/components/tools/ProjectToolsView"
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
+import { SidebarProvider, SidebarInset } from "@/components/animate-ui/components/radix/sidebar"
 import { toast } from "sonner"
 import { ShareProvider } from "@/components/share/ShareDialog"
 import { FavoritesContext, useFavoritesProvider } from "@/hooks/use-favorites"
 import { EnvironmentsContext, useEnvironmentsProvider } from "@/hooks/use-environments"
+import { MultiEnvStatusContext, useMultiEnvStatusProvider } from "@/hooks/use-multi-env-status"
 
 export default function App() {
+  const [motionPref] = useMotionPreference()
+
   return (
-    <OpenAPIProvider>
-      <AuthProvider>
-        <AppInner />
-      </AuthProvider>
-    </OpenAPIProvider>
+    <MotionConfig reducedMotion={toMotionReducedMotion(motionPref)}>
+      <OpenAPIProvider>
+        <AuthProvider>
+          <AppInner />
+        </AuthProvider>
+      </OpenAPIProvider>
+    </MotionConfig>
   )
 }
 
@@ -44,9 +50,18 @@ function AppInner() {
   return (
     <EnvironmentsContext.Provider value={environmentsValue}>
       <FavoritesContext.Provider value={favoritesValue}>
-        <AppContent />
+        <AppEnvStatusLayer />
       </FavoritesContext.Provider>
     </EnvironmentsContext.Provider>
+  )
+}
+
+function AppEnvStatusLayer() {
+  const multiEnvValue = useMultiEnvStatusProvider()
+  return (
+    <MultiEnvStatusContext.Provider value={multiEnvValue}>
+      <AppContent />
+    </MultiEnvStatusContext.Provider>
   )
 }
 
@@ -193,27 +208,69 @@ function AppContent() {
 function LoadingSkeleton() {
   return (
     <motion.div
-      className="space-y-4"
+      className="flex flex-col gap-3 flex-1 min-h-0"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
-      {/* Toolbar skeleton */}
-      <div className="flex items-center gap-3">
-        <Skeleton className="h-8 w-8" />
-        <Skeleton className="h-8 flex-1 max-w-sm" />
-        <Skeleton className="h-8 w-24 ml-auto" />
+      {/* ViewToolbar skeleton */}
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3">
+        <div className="flex items-center gap-2">
+          <Skeleton className="size-4 rounded-sm" />
+          <Skeleton className="h-3.5 w-8" />
+        </div>
+        <div className="relative flex-1 min-w-[200px]">
+          <Skeleton className="h-8 w-full rounded-md" />
+        </div>
       </div>
-      {/* Tag filter skeleton */}
-      <Skeleton className="h-8 w-40" />
-      {/* Route card skeletons */}
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="rounded-lg border bg-card p-3">
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-4 w-4" />
-            <Skeleton className="h-5 w-14 rounded" />
-            <Skeleton className="h-4 w-48" />
-            <Skeleton className="h-4 w-32 ml-auto" />
+
+      {/* TagFilter skeleton (collapsed) */}
+      <div className="rounded-lg border bg-card">
+        <div className="flex items-center gap-2 px-4 py-2.5">
+          <Skeleton className="size-4" />
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-5 w-8 rounded-full" />
+        </div>
+      </div>
+
+      {/* Group header skeleton */}
+      <div className="flex items-center gap-2 px-1 pt-1">
+        <Skeleton className="size-4 rounded-sm" />
+        <Skeleton className="h-4 w-24" />
+      </div>
+
+      {/* RouteCard skeletons */}
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="rounded-lg border bg-card">
+          <div className="flex items-center gap-2 px-3 py-2.5">
+            <Skeleton className="size-4 rounded-sm shrink-0" />
+            <Skeleton className="h-5 w-[52px] rounded shrink-0" />
+            <Skeleton className="h-3.5 w-40" />
+            <Skeleton className="h-3.5 w-32 hidden sm:block" />
+            <div className="flex-1" />
+            <Skeleton className="size-3.5 rounded-full shrink-0" />
+            <Skeleton className="size-6 rounded shrink-0" />
+            <Skeleton className="size-4 shrink-0" />
+          </div>
+        </div>
+      ))}
+
+      {/* Second group */}
+      <div className="flex items-center gap-2 px-1 pt-1">
+        <Skeleton className="size-4 rounded-sm" />
+        <Skeleton className="h-4 w-20" />
+      </div>
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={`g2-${i}`} className="rounded-lg border bg-card">
+          <div className="flex items-center gap-2 px-3 py-2.5">
+            <Skeleton className="size-4 rounded-sm shrink-0" />
+            <Skeleton className="h-5 w-[52px] rounded shrink-0" />
+            <Skeleton className="h-3.5 w-36" />
+            <Skeleton className="h-3.5 w-28 hidden sm:block" />
+            <div className="flex-1" />
+            <Skeleton className="size-3.5 rounded-full shrink-0" />
+            <Skeleton className="size-6 rounded shrink-0" />
+            <Skeleton className="size-4 shrink-0" />
           </div>
         </div>
       ))}

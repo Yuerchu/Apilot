@@ -4,7 +4,7 @@ import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { useAuthContext } from "@/contexts/AuthContext"
 import { useOpenAPI } from "@/hooks/use-openapi"
 import { getEnvironments, putEnvironment, removeEnvironment as removeEnvFromDB } from "@/lib/db"
-import type { EnvironmentProfile } from "@/lib/db"
+import type { EnvironmentProfile, EnvironmentStage } from "@/lib/db"
 
 const LS_ACTIVE_ENV = "oa_activeEnvId"
 
@@ -14,8 +14,8 @@ export interface EnvironmentsContextValue {
   activeEnv: EnvironmentProfile | null
   loading: boolean
   switchEnvironment: (id: string) => void
-  addEnvironment: (name: string, baseUrl: string) => Promise<void>
-  updateEnvironment: (id: string, updates: Partial<Pick<EnvironmentProfile, "name" | "baseUrl">>) => Promise<void>
+  addEnvironment: (name: string, baseUrl: string, stage?: EnvironmentStage, specPath?: string) => Promise<void>
+  updateEnvironment: (id: string, updates: Partial<Pick<EnvironmentProfile, "name" | "baseUrl" | "stage" | "specPath">>) => Promise<void>
   removeEnvironment: (id: string) => Promise<void>
 }
 
@@ -96,6 +96,8 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
             authKeyName: "",
             oauth2Token: null,
             source: "spec",
+            stage: "",
+            specPath: "",
             createdAt: now,
             updatedAt: now,
           })
@@ -114,6 +116,8 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
             authKeyName: auth.authKeyName,
             oauth2Token: auth.oauth2Token,
             source: "custom",
+            stage: "",
+            specPath: "",
             createdAt: now,
             updatedAt: now,
           })
@@ -194,7 +198,7 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
     setTimeout(() => { restoringRef.current = false }, 100)
   }, [environments, setBaseUrl, auth])
 
-  const addEnvironment = useCallback(async (name: string, baseUrl: string) => {
+  const addEnvironment = useCallback(async (name: string, baseUrl: string, stage?: EnvironmentStage, specPath?: string) => {
     if (!specIdRef.current) return
     const now = Date.now()
     const profile: EnvironmentProfile = {
@@ -208,6 +212,8 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
       authKeyName: "",
       oauth2Token: null,
       source: "custom",
+      stage: stage || "",
+      specPath: specPath || "",
       createdAt: now,
       updatedAt: now,
     }
@@ -215,7 +221,7 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
     setEnvironments(prev => [...prev, profile])
   }, [])
 
-  const updateEnvironment = useCallback(async (id: string, updates: Partial<Pick<EnvironmentProfile, "name" | "baseUrl">>) => {
+  const updateEnvironment = useCallback(async (id: string, updates: Partial<Pick<EnvironmentProfile, "name" | "baseUrl" | "stage" | "specPath">>) => {
     const env = environments.find(e => e.id === id)
     if (!env) return
     const updated = { ...env, ...updates, updatedAt: Date.now() }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { Settings, Link, Shield, Variable, Info, HardDrive } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/animate-ui/components/radix/dialog"
 import { cn } from "@/lib/utils"
 import { GeneralSettings } from "./GeneralSettings"
 import { ConnectionSettings } from "./ConnectionSettings"
@@ -46,7 +46,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl h-[70vh] max-h-[600px] p-0 gap-0 flex flex-col sm:flex-row overflow-hidden">
+      <DialogContent className="sm:max-w-3xl h-[70vh] max-h-[600px] p-0 gap-0 flex flex-col sm:flex-row overflow-hidden">
         <DialogHeader className="sr-only">
           <DialogTitle>{t("settings.title")}</DialogTitle>
           <DialogDescription>{t("settings.title")}</DialogDescription>

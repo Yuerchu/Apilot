@@ -14,14 +14,14 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-} from "@/components/ui/sidebar"
+} from "@/components/animate-ui/components/radix/sidebar"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "@/components/ui/dialog"
+} from "@/components/animate-ui/components/radix/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
@@ -35,8 +35,10 @@ export function EnvironmentSwitcher() {
   const [newName, setNewName] = useState("")
   const [newUrl, setNewUrl] = useState("")
 
-  const specEnvs = environments.filter(e => e.source === "spec")
-  const customEnvs = environments.filter(e => e.source === "custom")
+  const stagePriority: Record<string, number> = { production: 0, staging: 1, testing: 2, development: 3, local: 4, "": 5 }
+  const sorted = [...environments].sort((a, b) => (stagePriority[a.stage] ?? 5) - (stagePriority[b.stage] ?? 5))
+  const specEnvs = sorted.filter(e => e.source === "spec")
+  const customEnvs = sorted.filter(e => e.source === "custom")
 
   const handleAdd = async () => {
     if (!newName.trim() || !newUrl.trim()) return

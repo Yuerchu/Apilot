@@ -1,14 +1,14 @@
 import * as React from 'react';
 
 interface CommonControlledStateProps<T> {
-  value?: T | undefined;
-  defaultValue?: T | undefined;
+  value?: T;
+  defaultValue?: T;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useControlledState<T, Rest extends any[] = []>(
   props: CommonControlledStateProps<T> & {
-    onChange?: ((value: T, ...args: Rest) => void) | undefined;
+    onChange?: (value: T, ...args: Rest) => void;
   },
 ): readonly [T, (next: T, ...args: Rest) => void] {
   const { value, defaultValue, onChange } = props;

@@ -12,7 +12,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-} from "@/components/ui/sidebar"
+} from "@/components/animate-ui/components/radix/sidebar"
 import { Badge } from "@/components/ui/badge"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { useOpenAPI } from "@/hooks/use-openapi"

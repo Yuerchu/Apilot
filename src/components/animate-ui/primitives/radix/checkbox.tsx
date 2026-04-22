@@ -1,4 +1,3 @@
-// @ts-nocheck — animate-ui registry code, exactOptionalPropertyTypes incompatible
 'use client';
 
 import * as React from 'react';
@@ -29,22 +28,26 @@ function Checkbox({
   value,
   ...props
 }: CheckboxProps) {
-  const [isChecked, setIsChecked] = useControlledState({
-    value: checked,
-    defaultValue: defaultChecked,
-    onChange: onCheckedChange,
-  });
+  const controlledProps: Parameters<typeof useControlledState<boolean | 'indeterminate'>>[0] = {};
+  if (checked !== undefined) controlledProps.value = checked;
+  if (defaultChecked !== undefined) controlledProps.defaultValue = defaultChecked;
+  if (onCheckedChange !== undefined) controlledProps.onChange = onCheckedChange;
+  const [isChecked, setIsChecked] = useControlledState(controlledProps);
+
+  const rootProps: Omit<React.ComponentProps<typeof CheckboxPrimitive.Root>, 'asChild'> = {
+    onCheckedChange: setIsChecked,
+  };
+  if (checked !== undefined) rootProps.checked = checked;
+  if (defaultChecked !== undefined) rootProps.defaultChecked = defaultChecked;
+  if (disabled !== undefined) rootProps.disabled = disabled;
+  if (required !== undefined) rootProps.required = required;
+  if (name !== undefined) rootProps.name = name;
+  if (value !== undefined) rootProps.value = value;
 
   return (
     <CheckboxProvider value={{ isChecked, setIsChecked }}>
       <CheckboxPrimitive.Root
-        defaultChecked={defaultChecked}
-        checked={checked}
-        onCheckedChange={setIsChecked}
-        disabled={disabled}
-        required={required}
-        name={name}
-        value={value}
+        {...rootProps}
         asChild
       >
         <motion.button

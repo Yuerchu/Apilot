@@ -6,9 +6,12 @@ import { getParsedRouteKey } from "@/lib/openapi/route-key"
 import { cn } from "@/lib/utils"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { formatMarkdown } from "@/lib/format-route"
+import { useMultiEnvStatus, type InferredStatus } from "@/hooks/use-multi-env-status"
 import { Checkbox } from "@/components/ui/checkbox"
 import { CopyButton } from "@/components/animate-ui/components/buttons/copy"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -111,6 +114,8 @@ export const RouteCard = memo(function RouteCard({ route, index, isFavorite, onT
                   <span title={t("endpoints.authRequired")}><Lock className="size-3 text-muted-foreground shrink-0" /></span>
                 )}
 
+                <EnvPresenceDots routeKey={routeKey} />
+
                 {summary && (
                   <span className="text-xs text-muted-foreground truncate hidden sm:inline">
                     {summary}
@@ -165,3 +170,63 @@ export const RouteCard = memo(function RouteCard({ route, index, isFavorite, onT
     </ContextMenu>
   )
 })
+
+const STATUS_COLORS: Record<InferredStatus & string, string> = {
+  online: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
+  testing: "bg-amber-500/15 text-amber-600 border-amber-500/30",
+  inDev: "bg-blue-500/15 text-blue-600 border-blue-500/30",
+  localOnly: "bg-purple-500/15 text-purple-600 border-purple-500/30",
+  teammate: "bg-cyan-500/15 text-cyan-600 border-cyan-500/30",
+}
+
+const STATUS_I18N: Record<InferredStatus & string, string> = {
+  online: "envStatus.online",
+  testing: "envStatus.testing",
+  inDev: "envStatus.inDev",
+  localOnly: "envStatus.localOnly",
+  teammate: "envStatus.teammate",
+}
+
+function EnvPresenceDots({ routeKey }: { routeKey: string }) {
+  const { t } = useTranslation()
+  const multiEnv = useMultiEnvStatus()
+
+  if (!multiEnv.enabled || multiEnv.envStatuses.length === 0) return null
+
+  const presence = multiEnv.getRoutePresence(routeKey)
+  const status = multiEnv.inferStatus(routeKey)
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <div className="flex items-center gap-1 shrink-0">
+        {presence.map(p => (
+          <Tooltip key={p.envId}>
+            <TooltipTrigger asChild>
+              <span
+                className={cn(
+                  "size-1.5 rounded-full shrink-0",
+                  p.status === "error" ? "bg-destructive" :
+                  p.present ? "bg-emerald-500" : "bg-muted-foreground/30",
+                )}
+              />
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">
+              <span className="font-medium">{p.envName}</span>
+              {" — "}
+              {p.status === "error" ? t("envStatus.error") :
+               p.present ? t("envStatus.present") : t("envStatus.absent")}
+            </TooltipContent>
+          </Tooltip>
+        ))}
+        {status && (
+          <Badge
+            variant="outline"
+            className={cn("text-[9px] px-1 py-0 border", STATUS_COLORS[status])}
+          >
+            {t(STATUS_I18N[status])}
+          </Badge>
+        )}
+      </div>
+    </TooltipProvider>
+  )
+}

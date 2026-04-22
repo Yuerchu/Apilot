@@ -27,6 +27,8 @@ export interface EnvVarEntry {
   value: string
 }
 
+export type EnvironmentStage = "local" | "development" | "testing" | "staging" | "production" | ""
+
 export interface EnvironmentProfile {
   id: string
   specId: string
@@ -38,12 +40,14 @@ export interface EnvironmentProfile {
   authKeyName: string
   oauth2Token: string | null
   source: "spec" | "custom"
+  stage: EnvironmentStage
+  specPath: string
   createdAt: number
   updatedAt: number
 }
 
 const DB_NAME = "apilot"
-const DB_VERSION = 3
+const DB_VERSION = 4
 const MAX_BODY_SIZE = 100 * 1024
 
 let dbPromise: Promise<IDBPDatabase> | null = null
@@ -51,7 +55,7 @@ let dbPromise: Promise<IDBPDatabase> | null = null
 export function getDB(): Promise<IDBPDatabase> {
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, DB_VERSION, {
-      upgrade(db) {
+      upgrade(db, oldVersion, _newVersion, transaction) {
         if (!db.objectStoreNames.contains("history")) {
           const history = db.createObjectStore("history", { keyPath: "id", autoIncrement: true })
           history.createIndex("specId", "specId")
@@ -69,6 +73,20 @@ export function getDB(): Promise<IDBPDatabase> {
         if (!db.objectStoreNames.contains("environments")) {
           const environments = db.createObjectStore("environments", { keyPath: "id" })
           environments.createIndex("specId", "specId")
+        }
+        // v3 → v4: add stage and specPath to existing environment records
+        if (oldVersion > 0 && oldVersion < 4 && db.objectStoreNames.contains("environments")) {
+          const store = transaction.objectStore("environments")
+          store.openCursor().then(function migrate(cursor): Promise<void> | undefined {
+            if (!cursor) return
+            const record = cursor.value as Record<string, unknown>
+            if (!("stage" in record)) {
+              record.stage = ""
+              record.specPath = ""
+              cursor.update(record)
+            }
+            return cursor.continue().then(migrate)
+          })
         }
       },
     })

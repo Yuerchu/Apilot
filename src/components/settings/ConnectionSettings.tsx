@@ -9,6 +9,23 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import type { EnvironmentStage } from "@/lib/db"
+
+const STAGE_PRIORITY: Record<string, number> = {
+  production: 0,
+  staging: 1,
+  testing: 2,
+  development: 3,
+  local: 4,
+  "": 5,
+}
 
 export function ConnectionSettings() {
   const { t } = useTranslation()
@@ -25,11 +42,15 @@ export function ConnectionSettings() {
   const [addOpen, setAddOpen] = useState(false)
   const [newName, setNewName] = useState("")
   const [newUrl, setNewUrl] = useState("")
+  const [newStage, setNewStage] = useState<EnvironmentStage>("")
+  const [newSpecPath, setNewSpecPath] = useState("")
 
   // Inline edit
   const [editId, setEditId] = useState<string | null>(null)
   const [editName, setEditName] = useState("")
   const [editUrl, setEditUrl] = useState("")
+  const [editStage, setEditStage] = useState<EnvironmentStage>("")
+  const [editSpecPath, setEditSpecPath] = useState("")
 
   useEffect(() => {
     if (state.specUrl && !url) setUrl(state.specUrl)
@@ -47,9 +68,11 @@ export function ConnectionSettings() {
 
   const handleAdd = async () => {
     if (!newName.trim() || !newUrl.trim()) return
-    await addEnvironment(newName.trim(), newUrl.trim())
+    await addEnvironment(newName.trim(), newUrl.trim(), newStage, newSpecPath.trim())
     setNewName("")
     setNewUrl("")
+    setNewStage("")
+    setNewSpecPath("")
     setAddOpen(false)
   }
 
@@ -57,13 +80,24 @@ export function ConnectionSettings() {
     setEditId(env.id)
     setEditName(env.name)
     setEditUrl(env.baseUrl)
+    setEditStage(env.stage)
+    setEditSpecPath(env.specPath)
   }
 
   const saveEdit = async () => {
     if (!editId || !editName.trim()) return
-    await updateEnvironment(editId, { name: editName.trim(), baseUrl: editUrl.trim() })
+    await updateEnvironment(editId, { name: editName.trim(), baseUrl: editUrl.trim(), stage: editStage, specPath: editSpecPath.trim() })
     setEditId(null)
   }
+
+  const STAGE_OPTIONS: { value: EnvironmentStage; labelKey: string }[] = [
+    { value: "", labelKey: "environments.stagePlaceholder" },
+    { value: "local", labelKey: "environments.stageLocal" },
+    { value: "development", labelKey: "environments.stageDevelopment" },
+    { value: "testing", labelKey: "environments.stageTesting" },
+    { value: "staging", labelKey: "environments.stageStaging" },
+    { value: "production", labelKey: "environments.stageProduction" },
+  ]
 
   return (
     <div className="space-y-6">
@@ -103,7 +137,7 @@ export function ConnectionSettings() {
             </div>
 
             <div className="space-y-1.5">
-              {environments.map(env => (
+              {[...environments].sort((a, b) => (STAGE_PRIORITY[a.stage] ?? 5) - (STAGE_PRIORITY[b.stage] ?? 5)).map(env => (
                 <div key={env.id}>
                   {editId === env.id ? (
                     <div className="rounded-lg border bg-card p-3 space-y-2">
@@ -117,6 +151,23 @@ export function ConnectionSettings() {
                         onChange={e => setEditUrl(e.target.value)}
                         placeholder="https://api.example.com"
                         disabled={env.source === "spec"}
+                      />
+                      <Select value={editStage || "_none"} onValueChange={v => setEditStage((v === "_none" ? "" : v) as EnvironmentStage)}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder={t("environments.stagePlaceholder")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {STAGE_OPTIONS.map(opt => (
+                            <SelectItem key={opt.value || "_none"} value={opt.value || "_none"}>
+                              {t(opt.labelKey)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        value={editSpecPath}
+                        onChange={e => setEditSpecPath(e.target.value)}
+                        placeholder={t("environments.specPathPlaceholder")}
                       />
                       <div className="flex gap-2 justify-end">
                         <Button variant="ghost" size="sm" onClick={() => setEditId(null)}>
@@ -140,6 +191,9 @@ export function ConnectionSettings() {
                           <span className="text-sm font-medium truncate">{env.name}</span>
                           {env.source === "spec" && (
                             <Badge variant="outline" className="text-[9px] shrink-0">{t("environments.fromSpec")}</Badge>
+                          )}
+                          {env.stage && (
+                            <Badge variant="secondary" className="text-[9px] shrink-0">{t(`environments.stage${env.stage.charAt(0).toUpperCase() + env.stage.slice(1)}`)}</Badge>
                           )}
                         </div>
                         <span className="text-xs text-muted-foreground truncate block">{env.baseUrl}</span>
@@ -172,10 +226,26 @@ export function ConnectionSettings() {
                   value={newUrl}
                   onChange={e => setNewUrl(e.target.value)}
                   placeholder="https://api.example.com"
-                  onKeyDown={e => e.key === "Enter" && handleAdd()}
+                />
+                <Select value={newStage || "_none"} onValueChange={v => setNewStage((v === "_none" ? "" : v) as EnvironmentStage)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={t("environments.stagePlaceholder")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STAGE_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value || "_none"} value={opt.value || "_none"}>
+                        {t(opt.labelKey)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  value={newSpecPath}
+                  onChange={e => setNewSpecPath(e.target.value)}
+                  placeholder={t("environments.specPathPlaceholder")}
                 />
                 <div className="flex gap-2 justify-end">
-                  <Button variant="ghost" size="sm" onClick={() => { setAddOpen(false); setNewName(""); setNewUrl("") }}>
+                  <Button variant="ghost" size="sm" onClick={() => { setAddOpen(false); setNewName(""); setNewUrl(""); setNewStage(""); setNewSpecPath("") }}>
                     {t("storage.cancel")}
                   </Button>
                   <Button size="sm" onClick={handleAdd} disabled={!newName.trim() || !newUrl.trim()}>

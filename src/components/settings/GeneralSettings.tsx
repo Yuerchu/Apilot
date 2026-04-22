@@ -1,7 +1,8 @@
 import { useTranslation } from "react-i18next"
 import { useTheme } from "next-themes"
 import i18n from "@/lib/i18n"
-import { Sun, Moon, Monitor } from "lucide-react"
+import { Sun, Moon, Monitor, Sparkles, Leaf } from "lucide-react"
+import { useMotionPreference, type MotionPreference } from "@/hooks/use-reduced-motion"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -23,6 +24,9 @@ const LANGUAGES = [
 
 const THEME_CYCLE = ["system", "light", "dark"] as const
 const THEME_ICONS = { system: Monitor, light: Sun, dark: Moon } as const
+
+const MOTION_CYCLE: MotionPreference[] = ["system", "always", "reduced"]
+const MOTION_ICONS = { system: Monitor, always: Sparkles, reduced: Leaf } as const
 const THEME_LABELS: Record<string, Record<string, string>> = {
   zh_CN: { system: "跟随系统", light: "浅色", dark: "深色" },
   zh_HK: { system: "跟隨系統", light: "淺色", dark: "深色" },
@@ -35,6 +39,7 @@ const THEME_LABELS: Record<string, Record<string, string>> = {
 export function GeneralSettings() {
   const { t } = useTranslation()
   const { theme, setTheme } = useTheme()
+  const [motionPref, setMotionPref] = useMotionPreference()
   const current = theme ?? "system"
   const labels = THEME_LABELS[i18n.language] ?? THEME_LABELS.en
 
@@ -71,6 +76,27 @@ export function GeneralSettings() {
               <ToggleGroupItem key={t} value={t} className="gap-2 px-3">
                 <Icon className="size-4" />
                 {labels?.[t] ?? t}
+              </ToggleGroupItem>
+            )
+          })}
+        </ToggleGroup>
+      </div>
+
+      <div className="space-y-2">
+        <Label>{t("settings.motion")}</Label>
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          value={motionPref}
+          onValueChange={v => { if (v) setMotionPref(v as MotionPreference) }}
+          className="justify-start"
+        >
+          {MOTION_CYCLE.map(m => {
+            const Icon = MOTION_ICONS[m]
+            return (
+              <ToggleGroupItem key={m} value={m} className="gap-2 px-3">
+                <Icon className="size-4" />
+                {t(`settings.motion${m.charAt(0).toUpperCase()}${m.slice(1)}` as "settings.motionSystem")}
               </ToggleGroupItem>
             )
           })}
