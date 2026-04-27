@@ -1,6 +1,7 @@
 import { useCallback } from "react"
 import i18n from "@/lib/i18n"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
+import { useAsyncAPIContext } from "@/contexts/AsyncAPIContext"
 import type {
   ModelRouteMap,
   OpenAPISpec,
@@ -17,6 +18,7 @@ import {
   parseValidatedSpec,
   resolveServerUrl,
 } from "@/lib/openapi/parser"
+import { detectSpecType, parseAsyncAPIDocument } from "@/lib/asyncapi/parser"
 
 function extractRoutes(spec: OpenAPISpec, sourceSpec: OpenAPISpec): {
   routes: ParsedRoute[]
@@ -89,12 +91,14 @@ function detectOAuth2TokenUrl(spec: OpenAPISpec): string | null {
 
 export function useOpenAPI() {
   const { state, dispatch } = useOpenAPIContext()
+  const { dispatch: asyncDispatch } = useAsyncAPIContext()
 
   const yieldToUI = () => new Promise<void>(r => requestAnimationFrame(() => setTimeout(r, 0)))
 
-  const processSpec = useCallback(async (input: string | OpenAPISpec, url: string, baseUrlOverride?: string) => {
+  const processOpenAPISpec = useCallback(async (input: string | OpenAPISpec, url: string, baseUrlOverride?: string) => {
     const { spec: parsedSpec, sourceSpec } = await parseValidatedSpec(input)
     const spec = normalizeParsedSpec(parsedSpec)
+    asyncDispatch({ type: "RESET" })
     dispatch({ type: "SET_SPEC", spec, sourceSpec })
     dispatch({ type: "SET_SPEC_URL", url })
     await yieldToUI()
@@ -103,19 +107,59 @@ export function useOpenAPI() {
     dispatch({ type: "SET_ROUTES", routes, allTags, modelRouteMap })
     dispatch({ type: "SET_BASE_URL", url: baseUrl })
     dispatch({ type: "SET_LOADING", loading: false })
-  }, [dispatch])
+  }, [dispatch, asyncDispatch])
+
+  const processAsyncAPISpec = useCallback(async (rawText: string, url: string) => {
+    const result = await parseAsyncAPIDocument(rawText)
+    // Populate OpenAPIContext with a compatibility shim so getSchemas()/getSpecInfo()
+    // and all downstream consumers (ModelsView, SchemaViewerView, sidebar) work without branching.
+    const compatSpec: OpenAPISpec = {
+      openapi: `AsyncAPI ${result.info.specVersion}`,
+      info: {
+        title: result.info.title,
+        version: result.info.version,
+        description: result.info.description,
+      },
+      components: { schemas: result.schemas },
+    }
+    if (result.info.license) (compatSpec.info as Record<string, unknown>).license = result.info.license
+    if (result.info.contact) (compatSpec.info as Record<string, unknown>).contact = result.info.contact
+    if (result.info.termsOfService) (compatSpec.info as Record<string, unknown>).termsOfService = result.info.termsOfService
+    if (result.info.externalDocs) (compatSpec as Record<string, unknown>).externalDocs = result.info.externalDocs
+
+    dispatch({ type: "SET_SPEC", spec: compatSpec })
+    dispatch({ type: "SET_SPEC_TYPE", specType: "asyncapi" })
+    dispatch({ type: "SET_SPEC_URL", url })
+    dispatch({ type: "SET_ROUTES", routes: [], allTags: [], modelRouteMap: { modelToRoutes: {}, routeToModels: {} } })
+    asyncDispatch({ type: "SET_PARSED_RESULT", result })
+    dispatch({ type: "SET_MAIN_VIEW", view: "channels" })
+    dispatch({ type: "SET_LOADING", loading: false })
+  }, [dispatch, asyncDispatch])
 
   const loadFromUrl = useCallback(async (url: string, options?: { baseUrlOverride?: string }) => {
     if (!url.trim()) return
     dispatch({ type: "SET_LOADING", loading: true })
     dispatch({ type: "SET_ERROR", error: null })
     try {
-      await processSpec(url, url, options?.baseUrlOverride)
+      // Fetch the raw text to detect spec type.
+      // We need the text for AsyncAPI; for OpenAPI we can pass it directly too
+      // (parseValidatedSpec accepts both URLs and raw text/objects).
+      const response = await fetch(url)
+      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      const text = await response.text()
+      const specType = detectSpecType(text)
+      if (specType === "asyncapi") {
+        await processAsyncAPISpec(text, url)
+      } else {
+        // Pass raw text to OpenAPI parser (not the URL) so it doesn't double-fetch.
+        // parseValidatedSpec/asParserInput handles raw JSON/YAML strings fine.
+        await processOpenAPISpec(parseSpecText(text), url, options?.baseUrlOverride)
+      }
     } catch (e) {
       dispatch({ type: "SET_ERROR", error: getErrorMessage(e) })
       dispatch({ type: "SET_LOADING", loading: false })
     }
-  }, [dispatch, processSpec])
+  }, [dispatch, processOpenAPISpec, processAsyncAPISpec])
 
   const loadFromFile = useCallback((file: File) => {
     dispatch({ type: "SET_LOADING", loading: true })
@@ -125,7 +169,12 @@ export function useOpenAPI() {
       try {
         const result = e.target?.result
         if (typeof result !== "string") throw new Error(i18n.t("validation.fileReadFailed"))
-        await processSpec(parseSpecText(result), "")
+        const specType = detectSpecType(result)
+        if (specType === "asyncapi") {
+          await processAsyncAPISpec(result, "")
+        } else {
+          await processOpenAPISpec(parseSpecText(result), "")
+        }
       } catch (err) {
         dispatch({ type: "SET_ERROR", error: getErrorMessage(err) })
         dispatch({ type: "SET_LOADING", loading: false })
@@ -136,7 +185,7 @@ export function useOpenAPI() {
       dispatch({ type: "SET_LOADING", loading: false })
     }
     reader.readAsText(file)
-  }, [dispatch, processSpec])
+  }, [dispatch, processOpenAPISpec, processAsyncAPISpec])
 
   const getServers = useCallback(() => {
     const servers = state.spec?.servers || []

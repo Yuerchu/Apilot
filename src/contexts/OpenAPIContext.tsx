@@ -7,6 +7,7 @@ import type {
   MainView,
   ModelViewMode,
   SchemaViewerSource,
+  SpecType,
   TagInfo,
   ModelRouteMap,
 } from "@/lib/openapi/types"
@@ -35,6 +36,7 @@ interface OpenAPIState {
   mainView: MainView
   baseUrl: string
   specUrl: string
+  specType: SpecType
   loading: boolean
   error: string | null
 }
@@ -70,6 +72,7 @@ type Action =
   | { type: "SET_SPEC_URL"; url: string }
   | { type: "SET_LOADING"; loading: boolean }
   | { type: "SET_ERROR"; error: string | null }
+  | { type: "SET_SPEC_TYPE"; specType: SpecType }
   | { type: "APPLY_URL_STATE"; urlState: UrlState }
   | { type: "RESET" }
 
@@ -101,6 +104,7 @@ export function reducer(state: OpenAPIState, action: Action): OpenAPIState {
         ...state,
         spec: action.spec,
         sourceSpec: action.sourceSpec ?? action.spec,
+        specType: "openapi",
         activeModelName: hasModel(action.spec, state.activeModelName) ? state.activeModelName : "",
         activeSchemaName: state.schemaSource === "openapi" && hasModel(action.spec, state.activeSchemaName)
           ? state.activeSchemaName
@@ -259,6 +263,9 @@ export function reducer(state: OpenAPIState, action: Action): OpenAPIState {
         schemaSource: action.urlState.schemaSource,
       }
 
+    case "SET_SPEC_TYPE":
+      return { ...state, specType: action.specType }
+
     case "RESET":
       return { ...initialState }
 
@@ -287,6 +294,7 @@ export const initialState: OpenAPIState = {
   schemaTypeFilter: "",
   activeSchemaName: "",
   schemaSource: "openapi",
+  specType: null,
   mainView: "endpoints",
   baseUrl: "",
   specUrl: "",

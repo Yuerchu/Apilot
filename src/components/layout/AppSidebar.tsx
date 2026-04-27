@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 import {
-  Route, Database, ExternalLink, Scale, Mail, FileJson, GitCompare, Stethoscope, Star,
+  Route, Database, ExternalLink, Scale, Mail, FileJson, GitCompare, Stethoscope, Star, Radio,
 } from "lucide-react"
 import {
   Sidebar,
@@ -15,6 +15,7 @@ import {
 } from "@/components/animate-ui/components/radix/sidebar"
 import { Badge } from "@/components/ui/badge"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
+import { useAsyncAPIContext } from "@/contexts/AsyncAPIContext"
 import { useOpenAPI } from "@/hooks/use-openapi"
 import { useFavorites } from "@/hooks/use-favorites"
 import type { MainView } from "@/lib/openapi/types"
@@ -24,12 +25,15 @@ import { EnvironmentSwitcher } from "@/components/layout/EnvironmentSwitcher"
 export function AppSidebar() {
   const { t } = useTranslation()
   const { state, setMainView } = useOpenAPIContext()
+  const { state: asyncState } = useAsyncAPIContext()
   const { getSpecInfo, getSchemas } = useOpenAPI()
   const { favorites } = useFavorites()
 
   const info = getSpecInfo()
   const schemas = getSchemas()
   const specLoaded = !!state.spec
+  const asyncSpecLoaded = !!asyncState.spec
+  const isAsyncAPI = state.specType === "asyncapi"
   const hasSchemas = Object.keys(schemas).length > 0
 
   return (
@@ -43,10 +47,14 @@ export function AppSidebar() {
             )}
             <div className="flex items-center gap-1.5 flex-wrap">
               <Badge variant="secondary" className="text-[10px]">{info.version}</Badge>
-              <Badge variant="outline" className="text-[10px]">OpenAPI {info.specVersion}</Badge>
-              <span className="text-[11px] text-muted-foreground">{t("sidebar.endpointCount", { count: info.routeCount })}</span>
+              <Badge variant="outline" className="text-[10px]">{info.specVersion}</Badge>
+              {isAsyncAPI ? (
+                <span className="text-[11px] text-muted-foreground">{t("sidebar.channelCount", { count: asyncState.channels.length })}</span>
+              ) : (
+                <span className="text-[11px] text-muted-foreground">{t("sidebar.endpointCount", { count: info.routeCount })}</span>
+              )}
             </div>
-            {(info.license || info.contact || info.termsOfService || info.externalDocs) && (
+            {info && (info.license || info.contact || info.termsOfService || info.externalDocs) && (
               <div className="flex flex-col gap-0.5 text-[11px] text-muted-foreground">
                 {info.license && (
                   <span className="flex items-center gap-1">
@@ -88,28 +96,44 @@ export function AppSidebar() {
         ) : (
           <span className="text-sm font-semibold px-3 py-3">{t("app.title")}</span>
         )}
-        {specLoaded && <EnvironmentSwitcher />}
+        {(specLoaded || asyncSpecLoaded) && <EnvironmentSwitcher />}
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>{t("sidebar.nav")}</SidebarGroupLabel>
           <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={state.mainView === "endpoints"}
-                onClick={() => setMainView("endpoints" as MainView)}
-              >
-                <Route className="size-4" />
-                <span>{t("sidebar.endpoints")}</span>
-                {specLoaded && (
+            {asyncSpecLoaded && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={state.mainView === "channels"}
+                  onClick={() => setMainView("channels" as MainView)}
+                >
+                  <Radio className="size-4" />
+                  <span>{t("sidebar.channels")}</span>
                   <Badge variant="secondary" className="ml-auto text-[10px]">
-                    {state.routes.length}
+                    {asyncState.channels.length}
                   </Badge>
-                )}
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            {specLoaded && (
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+            {!isAsyncAPI && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={state.mainView === "endpoints"}
+                  onClick={() => setMainView("endpoints" as MainView)}
+                >
+                  <Route className="size-4" />
+                  <span>{t("sidebar.endpoints")}</span>
+                  {specLoaded && (
+                    <Badge variant="secondary" className="ml-auto text-[10px]">
+                      {state.routes.length}
+                    </Badge>
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+            {specLoaded && !isAsyncAPI && (
               <SidebarMenuItem>
                 <SidebarMenuButton
                   isActive={state.mainView === "favorites"}
@@ -153,24 +177,28 @@ export function AppSidebar() {
                 )}
               </SidebarMenuButton>
             </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={state.mainView === "diagnostics"}
-                onClick={() => setMainView("diagnostics" as MainView)}
-              >
-                <Stethoscope className="size-4" />
-                <span>{t("sidebar.diagnostics")}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                isActive={state.mainView === "diff"}
-                onClick={() => setMainView("diff" as MainView)}
-              >
-                <GitCompare className="size-4" />
-                <span>{t("sidebar.diff")}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            {!isAsyncAPI && (
+              <>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={state.mainView === "diagnostics"}
+                    onClick={() => setMainView("diagnostics" as MainView)}
+                  >
+                    <Stethoscope className="size-4" />
+                    <span>{t("sidebar.diagnostics")}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={state.mainView === "diff"}
+                    onClick={() => setMainView("diff" as MainView)}
+                  >
+                    <GitCompare className="size-4" />
+                    <span>{t("sidebar.diff")}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </>
+            )}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>

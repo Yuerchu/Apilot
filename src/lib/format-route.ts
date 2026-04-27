@@ -1,4 +1,5 @@
 import type { SchemaObject, ParsedRoute } from './openapi/types'
+import type { ParsedChannel, ParsedOperation, ParsedMessage } from './asyncapi/types'
 import { getTypeStr } from './openapi/type-str'
 import { formatSchema } from './openapi/format-schema'
 import { generateExample } from './openapi/generate-example'
@@ -44,5 +45,55 @@ export function formatMarkdown(r: ParsedRoute, includeExamples?: boolean): strin
     }
   }
   return out;
+}
+
+export function formatMarkdownChannel(ch: ParsedChannel): string {
+  let out = `## WS ${ch.address}\n`
+  if (ch.title && ch.title !== ch.id) out += `**${ch.title}**\n`
+  if (ch.description) out += `${ch.description}\n`
+
+  if (ch.parameters.length > 0) {
+    out += `\n### Parameters\n`
+    for (const p of ch.parameters) {
+      out += `- ${p.name}${p.description ? ` — ${p.description}` : ""}\n`
+    }
+  }
+
+  if (ch.sendOperations.length > 0) {
+    out += `\n### Send Operations\n`
+    for (const op of ch.sendOperations) {
+      out += formatOperation(op)
+    }
+  }
+
+  if (ch.receiveOperations.length > 0) {
+    out += `\n### Receive Operations\n`
+    for (const op of ch.receiveOperations) {
+      out += formatOperation(op)
+    }
+  }
+
+  return out
+}
+
+function formatOperation(op: ParsedOperation): string {
+  let out = `\n#### ${op.action.toUpperCase()} — ${op.title}\n`
+  if (op.summary) out += `${op.summary}\n`
+  if (op.description) out += `${op.description}\n`
+  for (const msg of op.messages) {
+    out += formatMessage(msg)
+  }
+  return out
+}
+
+function formatMessage(msg: ParsedMessage): string {
+  let out = `\n**${msg.title}**`
+  if (msg.discriminatorField && msg.discriminatorValue) {
+    out += ` (${msg.discriminatorField}: ${msg.discriminatorValue})`
+  }
+  out += "\n"
+  if (msg.summary) out += `${msg.summary}\n`
+  if (msg.payload) out += `Payload:\n${formatSchema(msg.payload, 1, 15)}\n`
+  return out
 }
 

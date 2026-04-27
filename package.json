@@ -12,6 +12,7 @@
     "test": "vitest run --config vitest.config.mjs --configLoader native --pool threads"
   },
   "dependencies": {
+    "@asyncapi/parser": "^3.6.0",
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.3",
     "@codemirror/lang-cpp": "^6.0.3",

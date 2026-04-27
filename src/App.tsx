@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { OpenAPIProvider, useOpenAPIContext } from "@/contexts/OpenAPIContext"
+import { AsyncAPIProvider } from "@/contexts/AsyncAPIContext"
 import { AuthProvider, useAuthContext } from "@/contexts/AuthContext"
 import { useOpenAPI } from "@/hooks/use-openapi"
 import { useSettings } from "@/hooks/use-settings"
@@ -23,6 +24,8 @@ import { FavoritesView } from "@/components/endpoints/FavoritesView"
 import { ModelsView } from "@/components/models/ModelsView"
 import { SchemaViewerView } from "@/components/schema/SchemaViewerView"
 import { OpenAPIDiagnosticsView, OpenAPIDiffView } from "@/components/tools/ProjectToolsView"
+import { useAsyncAPIContext } from "@/contexts/AsyncAPIContext"
+import { ChannelsView } from "@/components/channels/ChannelsView"
 import { SidebarProvider, SidebarInset } from "@/components/animate-ui/components/radix/sidebar"
 import { toast } from "sonner"
 import { ShareProvider } from "@/components/share/ShareDialog"
@@ -36,9 +39,11 @@ export default function App() {
   return (
     <MotionConfig reducedMotion={toMotionReducedMotion(motionPref)}>
       <OpenAPIProvider>
-        <AuthProvider>
-          <AppInner />
-        </AuthProvider>
+        <AsyncAPIProvider>
+          <AuthProvider>
+            <AppInner />
+          </AuthProvider>
+        </AsyncAPIProvider>
       </OpenAPIProvider>
     </MotionConfig>
   )
@@ -72,6 +77,7 @@ function AppContent() {
     clearRouteSelection,
     clearModelSelection,
   } = useOpenAPIContext()
+  const { state: asyncState } = useAsyncAPIContext()
   const { loadFromUrl } = useOpenAPI()
   const auth = useAuthContext()
   useUrlState()
@@ -143,6 +149,14 @@ function AppContent() {
             specLoaded ? (
               <Fade key="endpoints" className="flex-1 flex flex-col min-h-0">
                 <EndpointsView />
+              </Fade>
+            ) : <NeedSpecEmpty />
+          )}
+
+          {!state.loading && state.mainView === "channels" && (
+            asyncState.spec ? (
+              <Fade key="channels" className="flex-1 flex flex-col min-h-0">
+                <ChannelsView />
               </Fade>
             ) : <NeedSpecEmpty />
           )}

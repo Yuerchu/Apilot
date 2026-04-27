@@ -46,8 +46,18 @@ export interface EnvironmentProfile {
   updatedAt: number
 }
 
+export interface WsHistoryEntry {
+  id?: number
+  specId: string
+  channelId: string
+  direction: "sent" | "received"
+  body: string
+  messageType: string
+  timestamp: number
+}
+
 const DB_NAME = "apilot"
-const DB_VERSION = 4
+const DB_VERSION = 5
 const MAX_BODY_SIZE = 100 * 1024
 
 let dbPromise: Promise<IDBPDatabase> | null = null
@@ -73,6 +83,12 @@ export function getDB(): Promise<IDBPDatabase> {
         if (!db.objectStoreNames.contains("environments")) {
           const environments = db.createObjectStore("environments", { keyPath: "id" })
           environments.createIndex("specId", "specId")
+        }
+        // v4 → v5: add wsHistory store
+        if (!db.objectStoreNames.contains("wsHistory")) {
+          const ws = db.createObjectStore("wsHistory", { keyPath: "id", autoIncrement: true })
+          ws.createIndex("specId_channelId", ["specId", "channelId"])
+          ws.createIndex("timestamp", "timestamp")
         }
         // v3 → v4: add stage and specPath to existing environment records
         if (oldVersion > 0 && oldVersion < 4 && db.objectStoreNames.contains("environments")) {
@@ -183,4 +199,42 @@ export async function putEnvironment(profile: EnvironmentProfile): Promise<void>
 export async function removeEnvironment(id: string): Promise<void> {
   const db = await getDB()
   await db.delete("environments", id)
+}
+
+// --- WebSocket History ---
+
+export async function addWsHistoryEntry(entry: Omit<WsHistoryEntry, "id">): Promise<void> {
+  const db = await getDB()
+  const body = entry.body.length > MAX_BODY_SIZE
+    ? entry.body.slice(0, MAX_BODY_SIZE) + "\n\n[truncated]"
+    : entry.body
+  await db.add("wsHistory", { ...entry, body })
+}
+
+export async function getWsHistory(specId: string, channelId: string, limit = 100): Promise<WsHistoryEntry[]> {
+  const db = await getDB()
+  const all = await db.getAllFromIndex("wsHistory", "specId_channelId", [specId, channelId])
+  return all.sort((a, b) => (b.timestamp as number) - (a.timestamp as number)).slice(0, limit)
+}
+
+export async function clearWsHistory(specId: string, channelId?: string): Promise<void> {
+  const db = await getDB()
+  const tx = db.transaction("wsHistory", "readwrite")
+  if (channelId) {
+    const index = tx.store.index("specId_channelId")
+    let cursor = await index.openCursor([specId, channelId])
+    while (cursor) {
+      cursor.delete()
+      cursor = await cursor.continue()
+    }
+  } else {
+    const index = tx.store.index("specId_channelId")
+    let cursor = await index.openCursor()
+    while (cursor) {
+      const record = cursor.value as WsHistoryEntry
+      if (record.specId === specId) cursor.delete()
+      cursor = await cursor.continue()
+    }
+  }
+  await tx.done
 }
