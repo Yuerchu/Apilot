@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 import {
-  Route, Database, ExternalLink, Scale, Mail, FileJson, GitCompare, Stethoscope, Star, Radio,
+  Route, Database, ExternalLink, Scale, Mail, GitCompare, Stethoscope, Star, Radio,
 } from "lucide-react"
 import {
   Sidebar,
@@ -149,28 +149,14 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
             )}
-            {hasSchemas && (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  isActive={state.mainView === "models"}
-                  onClick={() => setMainView("models" as MainView)}
-                >
-                  <Database className="size-4" />
-                  <span>{t("sidebar.models")}</span>
-                  <Badge variant="secondary" className="ml-auto text-[10px]">
-                    {Object.keys(schemas).length}
-                  </Badge>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            )}
             <SidebarMenuItem>
               <SidebarMenuButton
-                isActive={state.mainView === "schemas"}
-                onClick={() => setMainView("schemas" as MainView)}
+                isActive={state.mainView === "models"}
+                onClick={() => setMainView("models" as MainView)}
               >
-                <FileJson className="size-4" />
-                <span>{t("sidebar.schemaViewer")}</span>
-                {specLoaded && (
+                <Database className="size-4" />
+                <span>{t("sidebar.models")}</span>
+                {hasSchemas && (
                   <Badge variant="secondary" className="ml-auto text-[10px]">
                     {Object.keys(schemas).length}
                   </Badge>

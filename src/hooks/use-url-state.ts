@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react"
 import { useOpenAPIContext, type UrlState } from "@/contexts/OpenAPIContext"
 import type { EndpointDetailTab, MainView, ModelViewMode, SchemaViewerSource } from "@/lib/openapi/types"
 
-const MAIN_VIEWS = new Set<MainView>(["endpoints", "favorites", "models", "schemas", "diagnostics", "diff"])
+const MAIN_VIEWS = new Set<MainView>(["endpoints", "favorites", "models", "diagnostics", "diff", "channels"])
 const ENDPOINT_DETAIL_TABS = new Set<EndpointDetailTab>(["doc", "try"])
 const MODEL_VIEW_MODES = new Set<ModelViewMode>(["list", "graph"])
 const SCHEMA_SOURCES = new Set<SchemaViewerSource>(["openapi", "external"])
@@ -16,6 +16,7 @@ function getViewFromHashPath(path: string, params: URLSearchParams): MainView {
   if (value === "tools") {
     return getFirstParam(params, "tab") === "diff" ? "diff" : "diagnostics"
   }
+  if (value === "schemas") return "models"
   return MAIN_VIEWS.has(value as MainView) ? value as MainView : "endpoints"
 }
 
@@ -48,14 +49,14 @@ export function parseHashState(hash: string): UrlState {
       : new Set(),
     activeEndpointKey: mainView === "endpoints" ? getFirstParam(params, "endpoint") : "",
     endpointDetailTab: mainView === "endpoints" ? getEndpointDetailTab(getFirstParam(params, "tab")) : "doc",
-    modelFilter: mainView === "models" ? q : "",
+    modelFilter: "",
     modelViewMode: mainView === "models" ? getModelViewMode(getFirstParam(params, "mode")) : "list",
-    activeModelName: mainView === "models" ? getFirstParam(params, "model") : "",
-    schemaFilter: mainView === "schemas" ? q : "",
-    schemaCategoryFilter: mainView === "schemas" ? getFirstParam(params, "category") : "",
-    schemaTypeFilter: mainView === "schemas" ? getFirstParam(params, "type") : "",
-    activeSchemaName: mainView === "schemas" ? getFirstParam(params, "schema") : "",
-    schemaSource: mainView === "schemas" ? getSchemaSource(getFirstParam(params, "source")) : "openapi",
+    activeModelName: "",
+    schemaFilter: mainView === "models" ? q : "",
+    schemaCategoryFilter: mainView === "models" ? getFirstParam(params, "category") : "",
+    schemaTypeFilter: mainView === "models" ? getFirstParam(params, "type") : "",
+    activeSchemaName: mainView === "models" ? getFirstParam(params, "schema") : "",
+    schemaSource: mainView === "models" ? getSchemaSource(getFirstParam(params, "source")) : "openapi",
   }
 }
 
@@ -70,17 +71,12 @@ export function buildHashState(state: UrlState): string {
   }
 
   if (state.mainView === "models") {
-    if (state.modelFilter) params.set("q", state.modelFilter)
-    if (state.modelViewMode !== "list") params.set("mode", state.modelViewMode)
-    if (state.activeModelName) params.set("model", state.activeModelName)
-  }
-
-  if (state.mainView === "schemas") {
     if (state.schemaFilter) params.set("q", state.schemaFilter)
     if (state.schemaCategoryFilter) params.set("category", state.schemaCategoryFilter)
     if (state.schemaTypeFilter) params.set("type", state.schemaTypeFilter)
     if (state.activeSchemaName) params.set("schema", state.activeSchemaName)
     if (state.schemaSource !== "openapi") params.set("source", state.schemaSource)
+    if (state.modelViewMode !== "list") params.set("mode", state.modelViewMode)
   }
 
   const query = params.toString()

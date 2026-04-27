@@ -43,26 +43,22 @@ describe("url state", () => {
     expect(hash).toBe("#/endpoints?q=user&tag=admin&tag=beta&endpoint=get%3A%2Fusers&tab=try")
   })
 
-  it("round-trips model graph state", () => {
+  it("round-trips schema graph mode", () => {
     const hash = buildHashState(makeUrlState({
       mainView: "models",
-      modelFilter: "response",
       modelViewMode: "graph",
-      activeModelName: "UserResponse",
     }))
 
-    expect(hash).toBe("#/models?q=response&mode=graph&model=UserResponse")
+    expect(hash).toBe("#/schemas?mode=graph")
     expect(parseHashState(hash)).toMatchObject({
       mainView: "models",
-      modelFilter: "response",
       modelViewMode: "graph",
-      activeModelName: "UserResponse",
     })
   })
 
   it("round-trips schema viewer source, filter, and selected schema", () => {
     const hash = buildHashState(makeUrlState({
-      mainView: "schemas",
+      mainView: "models",
       schemaFilter: "generation",
       schemaCategoryFilter: "chat_completion",
       schemaTypeFilter: "text",
@@ -72,7 +68,7 @@ describe("url state", () => {
 
     expect(hash).toBe("#/schemas?q=generation&category=chat_completion&type=text&schema=TextGenerationRequest&source=external")
     expect(parseHashState(hash)).toMatchObject({
-      mainView: "schemas",
+      mainView: "models",
       schemaFilter: "generation",
       schemaCategoryFilter: "chat_completion",
       schemaTypeFilter: "text",

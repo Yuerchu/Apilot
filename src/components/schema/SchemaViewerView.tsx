@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import type { TFunction } from "i18next"
 import { useTranslation } from "react-i18next"
-import { ArrowLeft, ChevronDown, ChevronUp, Database, FileJson, Loader2, Search, Upload } from "lucide-react"
+import { ArrowLeft, ChevronDown, ChevronUp, Database, FileJson, Loader2, Network, List, Route, Search, Upload, X } from "lucide-react"
 import { Empty as ShadcnEmpty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
-import type { OpenAPISpec, SchemaViewerSource } from "@/lib/openapi/types"
+import type { OpenAPISpec, SchemaViewerSource, SchemaObject, MainView } from "@/lib/openapi/types"
+import { ModelGraphView } from "@/components/models/ModelGraphView"
 import {
   buildSchemaFieldExtensions,
   createSchemaLookup,
@@ -29,9 +30,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
-  CardAction,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -50,6 +49,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Markdown } from "@/components/ui/markdown"
 import { JsonSchemaTreeView } from "@/components/schema/JsonSchemaTreeView"
 import { cn } from "@/lib/utils"
@@ -113,32 +113,50 @@ function filterItems(
   })
 }
 
-function SourceButton({
-  active,
-  count,
-  icon,
-  label,
-  onClick,
-}: {
-  active: boolean
-  count: number
-  icon: ReactNode
-  label: string
-  onClick: () => void
-}) {
+function UsedByEndpoints({ modelName }: { modelName: string }) {
+  const { t } = useTranslation()
+  const { state, setMainView, setActiveEndpointKey } = useOpenAPIContext()
+  const routeIndices = state.modelRouteMap.modelToRoutes[modelName]
+  if (!routeIndices?.length) return null
+
+  const methodColors: Record<string, string> = {
+    get: "text-method-get",
+    post: "text-method-post",
+    put: "text-method-put",
+    patch: "text-method-patch",
+    delete: "text-method-delete",
+  }
+
   return (
-    <Button
-      type="button"
-      size="sm"
-      variant={active ? "secondary" : "ghost"}
-      onClick={onClick}
-    >
-      {icon}
-      {label}
-      <Badge variant="outline" className="text-[10px]">
-        {count.toLocaleString()}
-      </Badge>
-    </Button>
+    <div className="px-3 py-2">
+      <h4 className="text-xs font-semibold mb-1.5 flex items-center gap-1.5 text-muted-foreground">
+        <Route className="size-3" />
+        {t("models.usedBy", { count: routeIndices.length })}
+      </h4>
+      <div className="flex flex-wrap gap-1.5">
+        {routeIndices.map(idx => {
+          const r = state.routes[idx]
+          if (!r) return null
+          return (
+            <Badge
+              key={idx}
+              variant="outline"
+              className="cursor-pointer hover:bg-accent text-[11px] gap-1 font-mono"
+              onClick={() => {
+                setActiveEndpointKey(`${r.method}:${r.path}`)
+                setMainView("endpoints" as MainView)
+              }}
+              title={`${r.method.toUpperCase()} ${r.path}`}
+            >
+              <span className={methodColors[r.method] || "text-muted-foreground"}>
+                {r.method.toUpperCase()}
+              </span>
+              {r.path}
+            </Badge>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -667,6 +685,7 @@ export function SchemaViewerView({ spec }: SchemaViewerViewProps) {
     setSchemaFilter,
     setSchemaSource,
     setSchemaTypeFilter,
+    setModelViewMode,
   } = useOpenAPIContext()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [externalItems, setExternalItems] = useState<SchemaViewerItem[]>([])
@@ -677,6 +696,12 @@ export function SchemaViewerView({ spec }: SchemaViewerViewProps) {
   const [selectedFieldNodeId, setSelectedFieldNodeId] = useState<string | null>(null)
   const [schemaMobilePane, setSchemaMobilePane] = useState<SchemaFieldMobilePane>("schema")
   const [schemaViewerMobilePane, setSchemaViewerMobilePane] = useState<SchemaViewerMobilePane>("list")
+  const [graphMounted, setGraphMounted] = useState(false)
+  const viewMode = state.modelViewMode
+
+  const graphSchemas = useMemo(() => {
+    return (spec?.components?.schemas || spec?.definitions || {}) as Record<string, SchemaObject>
+  }, [spec])
 
   const openAPIItems = useMemo(() => spec ? getOpenAPISchemaViewerItems(spec) : [], [spec])
   const activeItems = state.schemaSource === "external" ? externalItems : openAPIItems
@@ -983,6 +1008,7 @@ export function SchemaViewerView({ spec }: SchemaViewerViewProps) {
               </Collapsible>
             )}
           </CardHeader>
+          <UsedByEndpoints modelName={selectedItem.name} />
           <Separator />
           <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden px-3 py-3">
             {selectedTreeResult.error ? (
@@ -1062,58 +1088,80 @@ export function SchemaViewerView({ spec }: SchemaViewerViewProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 pb-4">
-      <Card className="gap-0 py-0">
-        <CardHeader className="grid-rows-1 items-center gap-3 px-3 py-3">
-          <div className="min-w-0">
-            <CardTitle className="text-sm">{t("schemaViewer.title")}</CardTitle>
-            <CardDescription className="mt-1 truncate text-xs">
-              {state.schemaSource === "external"
-                ? externalFileName || t("schemaViewer.externalSource")
-                : t("schemaViewer.openapiSource")}
-            </CardDescription>
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card px-3 py-2.5">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold">{t("sidebar.models")}</div>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+            {state.schemaSource === "external" && externalFileName ? (
+              <button
+                type="button"
+                className="flex items-center gap-1 hover:text-foreground transition-colors"
+                onClick={() => selectSource("openapi")}
+                title={t("schemaViewer.openapiSource")}
+              >
+                <FileJson className="size-3" />
+                <span className="truncate max-w-[200px]">{externalFileName}</span>
+                <X className="size-3" />
+              </button>
+            ) : (
+              <span className="flex items-center gap-1">
+                <Database className="size-3" />
+                {t("schemaViewer.openapiSource")}
+              </span>
+            )}
+            <span>·</span>
+            <span>{t("sidebar.modelCount", { count: activeItems.length })}</span>
           </div>
-          <CardAction className="row-span-1 self-center flex flex-wrap items-center gap-2">
-            <SourceButton
-              active={state.schemaSource === "openapi"}
-              count={openAPIItems.length}
-              icon={<Database data-icon="inline-start" />}
-              label={t("schemaViewer.openapiSource")}
-              onClick={() => selectSource("openapi")}
-            />
-            <SourceButton
-              active={state.schemaSource === "external"}
-              count={externalItems.length}
-              icon={<FileJson data-icon="inline-start" />}
-              label={t("schemaViewer.externalSource")}
-              onClick={() => selectSource("external")}
-            />
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json,.yaml,.yml"
-              className="hidden"
-              onChange={event => {
-                void loadExternalFile(event.target.files?.[0])
-                event.target.value = ""
-              }}
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={loadingExternal}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {loadingExternal ? (
-                <Loader2 data-icon="inline-start" className="animate-spin" />
-              ) : (
-                <Upload data-icon="inline-start" />
-              )}
-              {t("schemaViewer.upload")}
-            </Button>
-          </CardAction>
-        </CardHeader>
-      </Card>
+        </div>
+
+        {Object.keys(graphSchemas).length > 0 && (
+          <ToggleGroup
+            type="single"
+            size="sm"
+            value={viewMode}
+            onValueChange={(v) => {
+              if (!v) return
+              if (v === "graph") setGraphMounted(true)
+              setModelViewMode(v as "list" | "graph")
+            }}
+          >
+            <ToggleGroupItem value="list" className="h-7 text-xs gap-1 px-2.5">
+              <List className="size-3.5" />
+              {t("models.listView")}
+            </ToggleGroupItem>
+            <ToggleGroupItem value="graph" className="h-7 text-xs gap-1 px-2.5">
+              <Network className="size-3.5" />
+              {t("models.graphView")}
+            </ToggleGroupItem>
+          </ToggleGroup>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,.yaml,.yml"
+          className="hidden"
+          onChange={event => {
+            void loadExternalFile(event.target.files?.[0])
+            event.target.value = ""
+          }}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs gap-1"
+          disabled={loadingExternal}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          {loadingExternal ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Upload className="size-3.5" />
+          )}
+          {t("schemaViewer.upload")}
+        </Button>
+      </div>
 
       {externalError && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
@@ -1121,7 +1169,18 @@ export function SchemaViewerView({ spec }: SchemaViewerViewProps) {
         </div>
       )}
 
-      {isMobile ? (
+      {viewMode === "graph" ? (
+        (graphMounted || viewMode === "graph") && (
+          <div className="flex min-h-0 flex-1">
+            <ModelGraphView
+              schemas={graphSchemas}
+              filter={state.schemaFilter}
+              selectedModels={state.selectedModels}
+              modelRouteMap={state.modelRouteMap}
+            />
+          </div>
+        )
+      ) : isMobile ? (
         <div className="min-h-0 flex-1 overflow-hidden">
           {schemaViewerMobilePane === "detail" ? schemaDetailCard : schemaListCard}
         </div>

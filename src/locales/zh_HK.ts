@@ -32,6 +32,7 @@ export default {
     endpointCount: "{{count}} 個端點",
     channels: "WebSocket 頻道",
     channelCount: "{{count}} 個頻道",
+    modelCount: "{{count}} 個模型",
     license: "許可證",
     tos: "服務條款",
     externalDocs: "外部文檔",

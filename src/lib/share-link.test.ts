@@ -48,7 +48,7 @@ describe("share links", () => {
     const state = buildSharedUrlState(
       makeUrlState({
         mainView: "models",
-        activeModelName: "User",
+        activeSchemaName: "User",
       }),
       { type: "endpoint", endpointKey: "post:/chat", label: "POST /chat" },
     )

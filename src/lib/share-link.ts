@@ -49,8 +49,7 @@ export function buildSharedUrlState(state: UrlState, target: ShareTarget): UrlSt
     return {
       ...next,
       mainView: "models",
-      activeModelName: target.modelName,
-      modelViewMode: state.mainView === "models" ? state.modelViewMode : "list",
+      activeSchemaName: target.modelName,
     }
   }
 

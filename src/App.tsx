@@ -21,7 +21,6 @@ import { AppSidebar } from "@/components/layout/AppSidebar"
 import { SelectionFab } from "@/components/layout/SelectionFab"
 import { EndpointsView } from "@/components/endpoints/EndpointsView"
 import { FavoritesView } from "@/components/endpoints/FavoritesView"
-import { ModelsView } from "@/components/models/ModelsView"
 import { SchemaViewerView } from "@/components/schema/SchemaViewerView"
 import { OpenAPIDiagnosticsView, OpenAPIDiffView } from "@/components/tools/ProjectToolsView"
 import { useAsyncAPIContext } from "@/contexts/AsyncAPIContext"
@@ -170,15 +169,7 @@ function AppContent() {
           )}
 
           {!state.loading && state.mainView === "models" && (
-            specLoaded ? (
-              <Fade key="models" className="flex-1 flex flex-col min-h-0">
-                <ModelsView spec={state.spec!} sourceSpec={state.sourceSpec} />
-              </Fade>
-            ) : <NeedSpecEmpty />
-          )}
-
-          {!state.loading && state.mainView === "schemas" && (
-            <Fade key="schemas" className="flex-1 flex flex-col min-h-0">
+            <Fade key="models" className="flex-1 flex flex-col min-h-0">
               <SchemaViewerView spec={state.spec ?? undefined} />
             </Fade>
           )}
