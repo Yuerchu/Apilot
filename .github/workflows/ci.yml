@@ -44,7 +44,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/attest-build-provenance@v2
         with:
-          subject-path: dist/index.html
+          subject-path: dist/*
 
       - name: Upload dist
         uses: actions/upload-artifact@v4

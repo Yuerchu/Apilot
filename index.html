@@ -5,9 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <title>Apilot</title>
+  <style>
+    body{margin:0;background:#0a0a0a}
+    @media(prefers-color-scheme:light){body{background:#fafafa}}
+    .apilot-loader{display:flex;align-items:center;justify-content:center;height:100vh}
+    .apilot-loader svg{width:24px;height:24px;animation:apilot-spin .7s linear infinite}
+    @media(prefers-color-scheme:light){.apilot-loader svg{color:#a3a3a3}}
+    @media(prefers-color-scheme:dark){.apilot-loader svg{color:#525252}}
+    @keyframes apilot-spin{to{transform:rotate(360deg)}}
+  </style>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root"><div class="apilot-loader"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 3a9 9 0 0 1 9 9" stroke-linecap="round"/></svg></div></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
