@@ -49,7 +49,7 @@ describe("url state", () => {
       modelViewMode: "graph",
     }))
 
-    expect(hash).toBe("#/schemas?mode=graph")
+    expect(hash).toBe("#/models?mode=graph")
     expect(parseHashState(hash)).toMatchObject({
       mainView: "models",
       modelViewMode: "graph",
@@ -66,7 +66,7 @@ describe("url state", () => {
       activeSchemaName: "TextGenerationRequest",
     }))
 
-    expect(hash).toBe("#/schemas?q=generation&category=chat_completion&type=text&schema=TextGenerationRequest&source=external")
+    expect(hash).toBe("#/models?q=generation&category=chat_completion&type=text&schema=TextGenerationRequest&source=external")
     expect(parseHashState(hash)).toMatchObject({
       mainView: "models",
       schemaFilter: "generation",
