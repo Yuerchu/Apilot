@@ -135,6 +135,26 @@ export function convertSwaggerV2(spec: OpenAPISpec): OpenAPISpec {
   }
   if (s.securityDefinitions) {
     if (!s.components) s.components = {}
+    // Convert Swagger 2.0 top-level oauth2 fields to OAS3 flows structure
+    for (const scheme of Object.values(s.securityDefinitions)) {
+      if (scheme.type === "oauth2" && scheme.flow && !scheme.flows) {
+        const flowObj = {
+          tokenUrl: scheme.tokenUrl,
+          authorizationUrl: scheme.authorizationUrl,
+          scopes: scheme.scopes ?? {},
+        }
+        const flowMap: Record<string, string> = {
+          password: "password",
+          application: "clientCredentials",
+          accessCode: "authorizationCode",
+          implicit: "implicit",
+        }
+        const oas3Flow = flowMap[scheme.flow]
+        if (oas3Flow) {
+          scheme.flows = { [oas3Flow]: flowObj }
+        }
+      }
+    }
     s.components.securitySchemes = s.securityDefinitions
   }
 

@@ -6,12 +6,11 @@ import { getParsedRouteKey } from "@/lib/openapi/route-key"
 import { cn } from "@/lib/utils"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { formatMarkdown } from "@/lib/format-route"
-import { useMultiEnvStatus, type InferredStatus } from "@/hooks/use-multi-env-status"
+import { useMultiEnvStatus } from "@/hooks/use-multi-env-status"
 import { Checkbox } from "@/components/ui/checkbox"
 import { CopyButton } from "@/components/animate-ui/components/buttons/copy"
 import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
-import { TooltipProvider } from "@/components/ui/tooltip"
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -59,7 +58,6 @@ export const RouteCard = memo(function RouteCard({ route, index, isFavorite, onT
 
   const handleCheckChange = useCallback((checked: boolean | "indeterminate") => {
     if (checked === "indeterminate") return
-    // Only toggle if the state actually differs
     if (checked !== isSelected) {
       toggleRoute(index)
     }
@@ -88,7 +86,7 @@ export const RouteCard = memo(function RouteCard({ route, index, isFavorite, onT
             )}
           >
             <CollapsibleTrigger asChild>
-              <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-accent/30 transition-colors rounded-t-lg">
+              <div className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-accent/30 transition-colors rounded-t-lg">
                 <div onClick={e => e.stopPropagation()}>
                   <Checkbox
                     checked={isSelected}
@@ -101,55 +99,57 @@ export const RouteCard = memo(function RouteCard({ route, index, isFavorite, onT
                 <Badge
                   variant="outline"
                   className={cn(
-                    "text-[10px] font-bold uppercase tracking-wider border px-1.5 py-0 min-w-[52px] justify-center",
+                    "text-[10px] font-bold uppercase tracking-wider border px-1.5 py-0 min-w-[52px] justify-center shrink-0",
                     METHOD_COLORS[route.method] || "bg-muted text-muted-foreground"
                   )}
                 >
                   {route.method}
                 </Badge>
 
-                <PathTemplate path={route.path} />
-
-                {route.security?.length > 0 && route.security.some(s => Object.keys(s).length > 0) && (
-                  <span title={t("endpoints.authRequired")}><Lock className="size-3 text-muted-foreground shrink-0" /></span>
-                )}
-
-                <EnvPresenceDots routeKey={routeKey} />
-
-                {summary && (
-                  <span className="text-xs text-muted-foreground truncate hidden sm:inline">
-                    {summary}
-                  </span>
-                )}
-
-                <div className="flex-1" />
-
-                {onToggleFavorite && (
-                  <button
-                    type="button"
-                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={e => { e.stopPropagation(); onToggleFavorite(routeKey) }}
-                    title={isFavorite ? t("favorites.remove") : t("favorites.add")}
-                  >
-                    <Star className={cn("size-3.5", isFavorite && "fill-amber-400 text-amber-400")} />
-                  </button>
-                )}
-
-                <CopyButton
-                  variant="ghost"
-                  size="xs"
-                  content={copyText}
-                  onClick={e => e.stopPropagation()}
-                  onCopiedChange={(copied) => { if (copied) toast.success(t("toast.copied")) }}
-                  className="shrink-0"
-                />
-
-                <ChevronDown
-                  className={cn(
-                    "size-4 text-muted-foreground transition-transform shrink-0",
-                    isOpen && "rotate-180"
+                {/* Path + description stacked */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <PathTemplate path={route.path} />
+                    {route.security?.length > 0 && route.security.some(s => Object.keys(s).length > 0) && (
+                      <span title={t("endpoints.authRequired")}><Lock className="size-3 text-muted-foreground shrink-0" /></span>
+                    )}
+                    <EnvPresenceDots routeKey={routeKey} />
+                  </div>
+                  {summary && (
+                    <div className="text-xs text-muted-foreground truncate mt-0.5">
+                      {summary}
+                    </div>
                   )}
-                />
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  {onToggleFavorite && (
+                    <button
+                      type="button"
+                      className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                      onClick={e => { e.stopPropagation(); onToggleFavorite(routeKey) }}
+                      title={isFavorite ? t("favorites.remove") : t("favorites.add")}
+                    >
+                      <Star className={cn("size-3.5", isFavorite && "fill-amber-400 text-amber-400")} />
+                    </button>
+                  )}
+
+                  <CopyButton
+                    variant="ghost"
+                    size="xs"
+                    content={copyText}
+                    onClick={e => e.stopPropagation()}
+                    onCopiedChange={(copied) => { if (copied) toast.success(t("toast.copied")) }}
+                    className="shrink-0"
+                  />
+
+                  <ChevronDown
+                    className={cn(
+                      "size-4 text-muted-foreground transition-transform shrink-0",
+                      isOpen && "rotate-180"
+                    )}
+                  />
+                </div>
               </div>
             </CollapsibleTrigger>
 
@@ -171,20 +171,21 @@ export const RouteCard = memo(function RouteCard({ route, index, isFavorite, onT
   )
 })
 
-const STATUS_COLORS: Record<InferredStatus & string, string> = {
-  online: "bg-emerald-500/15 text-emerald-600 border-emerald-500/30",
-  testing: "bg-amber-500/15 text-amber-600 border-amber-500/30",
-  inDev: "bg-blue-500/15 text-blue-600 border-blue-500/30",
-  localOnly: "bg-purple-500/15 text-purple-600 border-purple-500/30",
-  teammate: "bg-cyan-500/15 text-cyan-600 border-cyan-500/30",
+// Sort environments: local → development → testing → staging → production
+const STAGE_ORDER: Record<string, number> = {
+  local: 0,
+  development: 1,
+  testing: 2,
+  staging: 3,
+  production: 4,
 }
 
-const STATUS_I18N: Record<InferredStatus & string, string> = {
-  online: "envStatus.online",
-  testing: "envStatus.testing",
-  inDev: "envStatus.inDev",
-  localOnly: "envStatus.localOnly",
-  teammate: "envStatus.teammate",
+const STAGE_ABBR_I18N: Record<string, string> = {
+  local: "envStatus.abbr.local",
+  development: "envStatus.abbr.dev",
+  testing: "envStatus.abbr.test",
+  staging: "envStatus.abbr.staging",
+  production: "envStatus.abbr.prod",
 }
 
 function EnvPresenceDots({ routeKey }: { routeKey: string }) {
@@ -194,39 +195,37 @@ function EnvPresenceDots({ routeKey }: { routeKey: string }) {
   if (!multiEnv.enabled || multiEnv.envStatuses.length === 0) return null
 
   const presence = multiEnv.getRoutePresence(routeKey)
-  const status = multiEnv.inferStatus(routeKey)
+  const sorted = [...presence].sort((a, b) => (STAGE_ORDER[a.stage] ?? 5) - (STAGE_ORDER[b.stage] ?? 5))
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <div className="flex items-center gap-1 shrink-0">
-        {presence.map(p => (
-          <Tooltip key={p.envId}>
+    <div className="flex items-center gap-0.5 shrink-0">
+      {sorted.map(p => {
+        const abbr = t(STAGE_ABBR_I18N[p.stage] ?? "envStatus.abbr.unknown")
+        return (
+          <Tooltip key={p.envId} delayDuration={200}>
             <TooltipTrigger asChild>
               <span
                 className={cn(
-                  "size-1.5 rounded-full shrink-0",
-                  p.status === "error" ? "bg-destructive" :
-                  p.present ? "bg-emerald-500" : "bg-muted-foreground/30",
+                  "text-[9px] font-medium px-1 py-px rounded leading-none cursor-default",
+                  p.status === "error"
+                    ? "text-destructive/70"
+                    : p.present
+                      ? "text-status-online bg-status-online/10"
+                      : "text-muted-foreground/40",
                 )}
-              />
+              >
+                {abbr}
+              </span>
             </TooltipTrigger>
-            <TooltipContent side="top" className="text-xs">
+            <TooltipContent className="text-xs">
               <span className="font-medium">{p.envName}</span>
               {" — "}
               {p.status === "error" ? t("envStatus.error") :
                p.present ? t("envStatus.present") : t("envStatus.absent")}
             </TooltipContent>
           </Tooltip>
-        ))}
-        {status && (
-          <Badge
-            variant="outline"
-            className={cn("text-[9px] px-1 py-0 border", STATUS_COLORS[status])}
-          >
-            {t(STATUS_I18N[status])}
-          </Badge>
-        )}
-      </div>
-    </TooltipProvider>
+        )
+      })}
+    </div>
   )
 }

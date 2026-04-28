@@ -135,7 +135,7 @@ function TruncatedCode({ value, className }: { value: string; className?: string
 function LoadingMessage({ children }: { children: string }) {
   return (
     <div className="flex items-center justify-center gap-2" role="status">
-      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+      <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden="true" />
       <span>{children}</span>
     </div>
   )
@@ -240,10 +240,6 @@ export function OpenAPIDiagnosticsView({ spec, sourceSpec }: OpenAPIToolViewProp
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto pb-4">
-      <div className="rounded-lg border bg-card p-3">
-        <div className="text-sm font-semibold">{t("tools.diagnostics")}</div>
-      </div>
-
       {diagnosticsError && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {diagnosticsError}
@@ -423,10 +419,6 @@ export function OpenAPIDiffView({ spec }: OpenAPIDiffViewProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto pb-4">
-      <div className="rounded-lg border bg-card p-3">
-        <div className="text-sm font-semibold">{t("tools.diff")}</div>
-      </div>
-
       <div className="grid gap-2 md:grid-cols-2">
         <div className="rounded-lg border bg-card p-3">
           <div className="text-sm font-medium">{t("tools.diffBefore")}</div>
@@ -449,7 +441,7 @@ export function OpenAPIDiffView({ spec }: OpenAPIDiffViewProps) {
               disabled={loadingSlot === "before"}
               onClick={() => beforeInputRef.current?.click()}
             >
-              {loadingSlot === "before" && <Loader2 data-icon="inline-start" className="animate-spin" />}
+              {loadingSlot === "before" && <Loader2 data-icon="inline-start" className="motion-safe:animate-spin" />}
               {t("tools.chooseFile")}
             </Button>
             <Button
@@ -485,7 +477,7 @@ export function OpenAPIDiffView({ spec }: OpenAPIDiffViewProps) {
               disabled={loadingSlot === "after"}
               onClick={() => afterInputRef.current?.click()}
             >
-              {loadingSlot === "after" && <Loader2 data-icon="inline-start" className="animate-spin" />}
+              {loadingSlot === "after" && <Loader2 data-icon="inline-start" className="motion-safe:animate-spin" />}
               {t("tools.chooseFile")}
             </Button>
             <Button

@@ -4,6 +4,7 @@ import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { useAsyncAPIContext } from "@/contexts/AsyncAPIContext"
 import type {
   ModelRouteMap,
+  OAuth2Endpoints,
   OpenAPISpec,
   ParsedRoute,
   TagInfo,
@@ -80,10 +81,41 @@ function detectBaseUrl(spec: OpenAPISpec, specUrl: string): string {
 }
 
 function detectOAuth2TokenUrl(spec: OpenAPISpec): string | null {
+  const endpoints = detectOAuth2Endpoints(spec)
+  return endpoints?.tokenUrl ?? null
+}
+
+function detectOAuth2Endpoints(spec: OpenAPISpec): OAuth2Endpoints | null {
   const schemes = spec.components?.securitySchemes || {}
-  for (const scheme of Object.values(schemes)) {
-    if (scheme.type === "oauth2" && scheme.flows?.password) {
-      return scheme.flows.password.tokenUrl || null
+  for (const [name, scheme] of Object.entries(schemes)) {
+    if (scheme.type !== "oauth2") continue
+
+    // OAS 3.x flows (prefer password → clientCredentials → authorizationCode)
+    if (scheme.flows) {
+      for (const flowName of ["password", "clientCredentials", "authorizationCode", "implicit"] as const) {
+        const flow = scheme.flows[flowName]
+        if (!flow) continue
+        return {
+          schemeName: name,
+          flow: flowName,
+          tokenUrl: flow.tokenUrl ?? null,
+          refreshUrl: flow.refreshUrl ?? null,
+          authorizationUrl: flow.authorizationUrl ?? null,
+          scopes: flow.scopes ?? {},
+        }
+      }
+    }
+
+    // Swagger 2.0 top-level fields (fallback if not converted)
+    if (scheme.flow && scheme.tokenUrl) {
+      return {
+        schemeName: name,
+        flow: scheme.flow,
+        tokenUrl: scheme.tokenUrl,
+        refreshUrl: null,
+        authorizationUrl: scheme.authorizationUrl ?? null,
+        scopes: scheme.scopes ?? {},
+      }
     }
   }
   return null
@@ -200,6 +232,11 @@ export function useOpenAPI() {
     return detectOAuth2TokenUrl(state.spec)
   }, [state.spec])
 
+  const getOAuth2Endpoints = useCallback((): OAuth2Endpoints | null => {
+    if (!state.spec) return null
+    return detectOAuth2Endpoints(state.spec)
+  }, [state.spec])
+
   const getSchemas = useCallback(() => {
     if (!state.spec) return {}
     return state.spec.components?.schemas || state.spec.definitions || {}
@@ -235,6 +272,7 @@ export function useOpenAPI() {
     loadFromFile,
     getServers,
     getOAuth2TokenUrl,
+    getOAuth2Endpoints,
     getSchemas,
     getSpecInfo,
     getModelRouteMap,

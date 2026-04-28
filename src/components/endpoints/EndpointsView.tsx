@@ -6,19 +6,11 @@ import type { ParsedRoute } from "@/lib/openapi/types"
 import { getParsedRouteKey } from "@/lib/openapi/route-key"
 import { useFavorites } from "@/hooks/use-favorites"
 import { useMultiEnvStatus, type InferredStatus } from "@/hooks/use-multi-env-status"
-import { Search, RefreshCw } from "lucide-react"
+import { Search } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { ViewToolbar } from "@/components/layout/ViewToolbar"
-import { TagFilter } from "./TagFilter"
+import { EndpointFilterBar } from "./EndpointFilterBar"
 import { RouteCard } from "./RouteCard"
 
 type VirtualRow =
@@ -37,6 +29,18 @@ export function EndpointsView() {
   const { favorites, isFavorite, toggleFavorite } = useFavorites()
   const multiEnv = useMultiEnvStatus()
   const [statusFilter, setStatusFilter] = useState<InferredStatus | "all">("all")
+  const [activeMethods, setActiveMethods] = useState<Set<string>>(new Set())
+
+  const toggleMethod = useCallback((method: string) => {
+    setActiveMethods(prev => {
+      const next = new Set(prev)
+      if (next.has(method)) next.delete(method)
+      else next.add(method)
+      return next
+    })
+  }, [])
+
+  const clearMethods = useCallback(() => setActiveMethods(new Set()), [])
 
   // Filter routes
   const filteredRoutes = useMemo(() => {
@@ -44,6 +48,7 @@ export function EndpointsView() {
       .map((r, i) => ({ route: r, index: i }))
       .filter(({ route }) => {
         if (activeTags.size > 0 && !route.tags.some(tg => activeTags.has(tg))) return false
+        if (activeMethods.size > 0 && !activeMethods.has(route.method.toLowerCase())) return false
         if (filter) {
           const haystack = `${route.method} ${route.path} ${route.summary} ${route.description} ${route.tags.join(" ")} ${route.operationId}`.toLowerCase()
           if (!haystack.includes(filter.toLowerCase())) return false
@@ -55,9 +60,9 @@ export function EndpointsView() {
         }
         return true
       })
-  }, [routes, activeTags, filter, statusFilter, multiEnv])
+  }, [routes, activeTags, activeMethods, filter, statusFilter, multiEnv])
 
-  // Flatten grouped routes into virtual rows: [group header, route, route, group header, route, ...]
+  // Flatten grouped routes into virtual rows
   const virtualRows = useMemo<VirtualRow[]>(() => {
     const grouped: Record<string, Array<{ route: typeof routes[number]; index: number }>> = {}
     for (const item of filteredRoutes) {
@@ -98,7 +103,6 @@ export function EndpointsView() {
     }
   }, [allFilteredIndices, selectRoutes, deselectRoutes])
 
-
   const handleGroupCheck = useCallback((indices: number[], checked: boolean) => {
     if (checked) {
       selectRoutes(indices)
@@ -130,39 +134,15 @@ export function EndpointsView() {
         filter={filter}
         onFilterChange={setFilter}
         selectedCount={selectedCount}
-      />
-
-      {/* Tag filter + env status filter */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <TagFilter />
-        {multiEnv.enabled && (
-          <>
-            <Select value={statusFilter ?? "all"} onValueChange={v => setStatusFilter(v === "all" ? "all" : v as InferredStatus)}>
-              <SelectTrigger className="h-8 w-auto min-w-[120px] text-xs">
-                <SelectValue placeholder={t("envStatus.filterByStatus")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("envStatus.allStatuses")}</SelectItem>
-                <SelectItem value="online">{t("envStatus.online")}</SelectItem>
-                <SelectItem value="testing">{t("envStatus.testing")}</SelectItem>
-                <SelectItem value="inDev">{t("envStatus.inDev")}</SelectItem>
-                <SelectItem value="localOnly">{t("envStatus.localOnly")}</SelectItem>
-                <SelectItem value="teammate">{t("envStatus.teammate")}</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              onClick={multiEnv.refresh}
-              disabled={multiEnv.loading}
-              title={t("envStatus.refresh")}
-            >
-              <RefreshCw className={`size-3.5 ${multiEnv.loading ? "animate-spin" : ""}`} />
-            </Button>
-          </>
-        )}
-      </div>
+      >
+        <EndpointFilterBar
+          activeMethods={activeMethods}
+          onToggleMethod={toggleMethod}
+          onClearMethods={clearMethods}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+        />
+      </ViewToolbar>
 
       {/* Virtualized route list */}
       <div

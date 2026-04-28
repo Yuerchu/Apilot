@@ -149,13 +149,13 @@ function ChannelCard({ channel, isActive, onClick }: {
         </div>
         <div className="flex items-center gap-2">
           {sendCount > 0 && (
-            <span className="flex items-center gap-0.5 text-[10px] text-emerald-600 dark:text-emerald-400">
+            <span className="flex items-center gap-0.5 text-[10px] text-ws-send">
               <ArrowUp className="size-3" />
               {sendCount} send
             </span>
           )}
           {recvCount > 0 && (
-            <span className="flex items-center gap-0.5 text-[10px] text-blue-600 dark:text-blue-400">
+            <span className="flex items-center gap-0.5 text-[10px] text-ws-receive">
               <ArrowDown className="size-3" />
               {recvCount} receive
             </span>

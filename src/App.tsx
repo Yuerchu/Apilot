@@ -35,6 +35,21 @@ import { MultiEnvStatusContext, useMultiEnvStatusProvider } from "@/hooks/use-mu
 export default function App() {
   const [motionPref] = useMotionPreference()
 
+  // Sync app-level motion preference to DOM for CSS animation control
+  useEffect(() => {
+    const el = document.documentElement
+    if (motionPref === "reduced") {
+      el.setAttribute("data-reduce-motion", "")
+      el.removeAttribute("data-force-motion")
+    } else if (motionPref === "always") {
+      el.removeAttribute("data-reduce-motion")
+      el.setAttribute("data-force-motion", "")
+    } else {
+      el.removeAttribute("data-reduce-motion")
+      el.removeAttribute("data-force-motion")
+    }
+  }, [motionPref])
+
   return (
     <MotionConfig reducedMotion={toMotionReducedMotion(motionPref)}>
       <OpenAPIProvider>
@@ -132,7 +147,7 @@ function AppContent() {
     <ShareProvider>
       <SidebarProvider defaultOpen={!isEmbedded}>
         <AppSidebar />
-        <SidebarInset className="flex flex-col h-screen overflow-hidden">
+        <SidebarInset className="flex flex-col h-screen md:h-[calc(100svh-1rem)] overflow-hidden">
           <Header />
 
         <div className="max-w-[1280px] mx-auto w-full px-4 pt-4 flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -227,14 +242,9 @@ function LoadingSkeleton() {
         <div className="relative flex-1 min-w-[200px]">
           <Skeleton className="h-8 w-full rounded-md" />
         </div>
-      </div>
-
-      {/* TagFilter skeleton (collapsed) */}
-      <div className="rounded-lg border bg-card">
-        <div className="flex items-center gap-2 px-4 py-2.5">
-          <Skeleton className="size-4" />
-          <Skeleton className="h-4 w-16" />
-          <Skeleton className="h-5 w-8 rounded-full" />
+        <div className="flex items-center gap-1.5">
+          <Skeleton className="h-7 w-20 rounded-md" />
+          <Skeleton className="h-7 w-20 rounded-md" />
         </div>
       </div>
 

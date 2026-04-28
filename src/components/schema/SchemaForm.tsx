@@ -42,12 +42,13 @@ function useExcludedFields() {
 }
 
 type SchemaFormValues = Record<string, unknown>
+type SchemaFormOutput = SchemaFormValues | unknown[]
 type ArrayFieldValues = Record<string, unknown[]>
 
 interface SchemaFormProps {
   schema: SchemaObject
-  value: SchemaFormValues
-  onChange: (value: SchemaFormValues) => void
+  value: SchemaFormOutput
+  onChange: (value: SchemaFormOutput) => void
   prefix?: string
   showErrors?: boolean
 }
@@ -559,6 +560,40 @@ function stripExcludedFields(obj: unknown, excluded: Set<string>, prefix = ""): 
 }
 
 export function SchemaForm({ schema, value, onChange, prefix: _prefix, showErrors = false }: SchemaFormProps) {
+  if (!schema) return null
+
+  const resolved = resolveEffectiveSchema(schema)
+
+  // Top-level array with enum items → render EnumMultiSelect directly (no form hooks needed)
+  if (resolved.type === "array" && resolved.items) {
+    const itemSchema = resolveEffectiveSchema(resolved.items as SchemaObject)
+    const itemEnum = itemSchema.enum as string[] | undefined
+    if (itemEnum && itemEnum.length > 0) {
+      const current = Array.isArray(value) ? value as string[] : []
+      return (
+        <EnumMultiSelect
+          enumValues={itemEnum}
+          selected={current}
+          onChange={v => onChange(v)}
+        />
+      )
+    }
+  }
+
+  if (!schema.properties && schema.type !== "object") {
+    return null
+  }
+
+  const objectValue = Array.isArray(value) ? {} : value
+  return <ObjectSchemaForm schema={schema} value={objectValue} onChange={onChange} showErrors={showErrors} />
+}
+
+function ObjectSchemaForm({ schema, value, onChange, showErrors }: {
+  schema: SchemaObject
+  value: SchemaFormValues
+  onChange: (value: SchemaFormOutput) => void
+  showErrors: boolean
+}) {
   const form = useForm<SchemaFormValues>({
     defaultValues: value,
     resolver: customResolver(schema),
@@ -616,30 +651,6 @@ export function SchemaForm({ schema, value, onChange, prefix: _prefix, showError
   useEffect(() => {
     if (showErrors) form.trigger()
   }, [showErrors, form])
-
-  if (!schema) return null
-
-  const resolved = resolveEffectiveSchema(schema)
-
-  // Top-level array with enum items → render EnumMultiSelect directly
-  if (resolved.type === "array" && resolved.items) {
-    const itemSchema = resolveEffectiveSchema(resolved.items as SchemaObject)
-    const itemEnum = itemSchema.enum as string[] | undefined
-    if (itemEnum && itemEnum.length > 0) {
-      const current = Array.isArray(value) ? value as unknown as string[] : []
-      return (
-        <EnumMultiSelect
-          enumValues={itemEnum}
-          selected={current}
-          onChange={v => onChange(v as unknown as SchemaFormValues)}
-        />
-      )
-    }
-  }
-
-  if (!schema.properties && schema.type !== "object") {
-    return null
-  }
 
   return (
     <ExcludedFieldsContext.Provider value={excludedCtx}>

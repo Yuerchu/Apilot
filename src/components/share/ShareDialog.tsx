@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from "@/components/animate-ui/components/radix/dialog"
 import { Label } from "@/components/ui/label"
+import { Field, FieldLabel } from "@/components/ui/field"
 import { Textarea } from "@/components/ui/textarea"
 
 interface ShareDialogContextValue {
@@ -195,8 +196,8 @@ function ShareDialogContent({
           </p>
         )}
 
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="share-link">{t("share.link")}</Label>
+        <Field>
+          <FieldLabel htmlFor="share-link">{t("share.link")}</FieldLabel>
           <Textarea
             id="share-link"
             readOnly
@@ -204,7 +205,7 @@ function ShareDialogContent({
             value={shareLink}
             className="min-h-24 w-full min-w-0 max-w-full resize-none font-mono text-xs [field-sizing:fixed] [overflow-wrap:anywhere]"
           />
-        </div>
+        </Field>
 
         <DialogFooter>
           <Button

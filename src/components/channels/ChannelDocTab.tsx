@@ -85,7 +85,7 @@ export function ChannelDocTab({ channel }: { channel: ParsedChannel }) {
       {channel.sendOperations.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-xs font-semibold flex items-center gap-1.5">
-            <ArrowUp className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+            <ArrowUp className="size-3.5 text-ws-send" />
             {t("channels.sendOps")} ({channel.sendOperations.length})
           </h4>
           {channel.sendOperations.map(op => (
@@ -98,7 +98,7 @@ export function ChannelDocTab({ channel }: { channel: ParsedChannel }) {
       {channel.receiveOperations.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-xs font-semibold flex items-center gap-1.5">
-            <ArrowDown className="size-3.5 text-blue-600 dark:text-blue-400" />
+            <ArrowDown className="size-3.5 text-ws-receive" />
             {t("channels.receiveOps")} ({channel.receiveOperations.length})
           </h4>
           {channel.receiveOperations.map(op => (
@@ -117,7 +117,7 @@ function OperationSection({ operation }: { operation: ParsedOperation }) {
         <div className="flex items-center gap-2">
           <Badge
             variant="outline"
-            className={`text-[9px] ${operation.action === "send" ? "text-emerald-600 border-emerald-300 dark:text-emerald-400 dark:border-emerald-700" : "text-blue-600 border-blue-300 dark:text-blue-400 dark:border-blue-700"}`}
+            className={`text-[9px] ${operation.action === "send" ? "text-ws-send border-ws-send/30" : "text-ws-receive border-ws-receive/30"}`}
           >
             {operation.action.toUpperCase()}
           </Badge>

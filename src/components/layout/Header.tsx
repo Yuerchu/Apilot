@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useTranslation } from "react-i18next"
-import { SearchIcon, Settings } from "lucide-react"
-import { SidebarTrigger } from "@/components/animate-ui/components/radix/sidebar"
+import { SearchIcon, Settings, ChevronRight } from "lucide-react"
+import { SidebarTrigger, useSidebar } from "@/components/animate-ui/components/radix/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
@@ -10,10 +10,22 @@ import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { CommandPalette } from "@/components/search/CommandPalette"
 import { HeaderShareButton } from "@/components/share/ShareDialog"
 import { SettingsDialog } from "@/components/settings/SettingsDialog"
+import type { MainView } from "@/lib/openapi/types"
+
+const VIEW_I18N: Record<string, string> = {
+  endpoints: "sidebar.endpoints",
+  favorites: "sidebar.favorites",
+  models: "sidebar.models",
+  channels: "sidebar.channels",
+  diagnostics: "sidebar.diagnostics",
+  diff: "sidebar.diff",
+  tools: "sidebar.tools",
+}
 
 export function Header() {
   const { t } = useTranslation()
   const { state } = useOpenAPIContext()
+  const sidebar = useSidebar()
   const info = state.spec?.info
   const [searchOpen, setSearchOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -30,18 +42,30 @@ export function Header() {
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [handleKeyDown])
 
+  const viewKey = VIEW_I18N[state.mainView as MainView]
+  const isCollapsed = sidebar.state === "collapsed"
+
   return (
     <>
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
         <SidebarTrigger className="shrink-0" />
         <Separator orientation="vertical" className="h-4" />
-        {info ? (
-          <span className="text-sm text-muted-foreground truncate">
-            {info.title} {info.version ? `v${info.version}` : ""}
-          </span>
-        ) : (
-          <span className="text-sm text-muted-foreground">{t("app.title")}</span>
-        )}
+
+        {/* Breadcrumb: show title only when sidebar is collapsed */}
+        <nav className="flex items-center gap-1 text-sm text-muted-foreground truncate">
+          {isCollapsed && info && (
+            <>
+              <span className="truncate max-w-48">{info.title}</span>
+              <ChevronRight className="size-3 shrink-0" />
+            </>
+          )}
+          {viewKey && (
+            <span className="text-foreground font-medium">{t(viewKey)}</span>
+          )}
+          {!viewKey && !isCollapsed && (
+            <span>{info ? `${info.title}` : t("app.title")}</span>
+          )}
+        </nav>
 
         <div className="flex-1" />
 

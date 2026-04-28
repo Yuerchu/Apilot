@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { Loader2, Upload, Trash2, Pencil, Server, Plus } from "lucide-react"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
@@ -6,7 +6,7 @@ import { useOpenAPI } from "@/hooks/use-openapi"
 import { useEnvironments } from "@/hooks/use-environments"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
+import { Field, FieldLabel } from "@/components/ui/field"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -19,11 +19,11 @@ import {
 import type { EnvironmentStage } from "@/lib/db"
 
 const STAGE_PRIORITY: Record<string, number> = {
-  production: 0,
-  staging: 1,
+  local: 0,
+  development: 1,
   testing: 2,
-  development: 3,
-  local: 4,
+  staging: 3,
+  production: 4,
   "": 5,
 }
 
@@ -35,8 +35,16 @@ export function ConnectionSettings() {
 
   const specLoaded = !!state.spec
 
+  const [urlEdited, setUrlEdited] = useState(false)
   const [url, setUrl] = useState(state.specUrl || "")
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Show specUrl from context if user hasn't manually edited
+  const displayUrl = urlEdited ? url : (state.specUrl || url)
+  const handleUrlChange = (v: string) => {
+    setUrlEdited(true)
+    setUrl(v)
+  }
 
   // Inline add form
   const [addOpen, setAddOpen] = useState(false)
@@ -52,12 +60,8 @@ export function ConnectionSettings() {
   const [editStage, setEditStage] = useState<EnvironmentStage>("")
   const [editSpecPath, setEditSpecPath] = useState("")
 
-  useEffect(() => {
-    if (state.specUrl && !url) setUrl(state.specUrl)
-  }, [state.specUrl]) // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleLoad = () => {
-    if (url.trim()) loadFromUrl(url.trim())
+    if (displayUrl.trim()) loadFromUrl(displayUrl.trim())
   }
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -102,17 +106,18 @@ export function ConnectionSettings() {
   return (
     <div className="space-y-6">
       {/* OpenAPI URL */}
-      <div className="space-y-2">
-        <Label>{t("sidebar.openapiUrl")}</Label>
+      <Field>
+        <FieldLabel htmlFor="openapi-url">{t("sidebar.openapiUrl")}</FieldLabel>
         <Input
-          value={url}
-          onChange={e => setUrl(e.target.value)}
+          id="openapi-url"
+          value={displayUrl}
+          onChange={e => handleUrlChange(e.target.value)}
           onKeyDown={e => e.key === "Enter" && handleLoad()}
           placeholder={t("sidebar.openapiUrlPlaceholder")}
         />
         <div className="flex gap-2">
           <Button onClick={handleLoad} disabled={loading} className="flex-1">
-            {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+            {loading ? <Loader2 className="size-4 motion-safe:animate-spin" /> : null}
             {t("sidebar.load")}
           </Button>
           <input ref={fileRef} type="file" accept=".json,.yaml,.yml" className="hidden" onChange={handleFile} />
@@ -121,7 +126,7 @@ export function ConnectionSettings() {
             {t("sidebar.file")}
           </Button>
         </div>
-      </div>
+      </Field>
 
       {/* Environment Management */}
       {specLoaded && environments.length > 0 && (
@@ -129,7 +134,7 @@ export function ConnectionSettings() {
           <Separator />
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>{t("environments.title")}</Label>
+              <FieldLabel>{t("environments.title")}</FieldLabel>
               <Button variant="ghost" size="sm" onClick={() => setAddOpen(true)}>
                 <Plus className="size-3.5" />
                 {t("environments.addNew")}

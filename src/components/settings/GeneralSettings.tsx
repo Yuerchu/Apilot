@@ -3,7 +3,7 @@ import { useTheme } from "next-themes"
 import i18n from "@/lib/i18n"
 import { Sun, Moon, Monitor, Sparkles, Leaf } from "lucide-react"
 import { useMotionPreference, type MotionPreference } from "@/hooks/use-reduced-motion"
-import { Label } from "@/components/ui/label"
+import { Field, FieldLabel } from "@/components/ui/field"
 import {
   Select,
   SelectContent,
@@ -45,10 +45,10 @@ export function GeneralSettings() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        <Label>{t("settings.language")}</Label>
+      <Field>
+        <FieldLabel htmlFor="settings-language">{t("settings.language")}</FieldLabel>
         <Select value={i18n.language} onValueChange={v => i18n.changeLanguage(v)}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger id="settings-language" className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -59,16 +59,17 @@ export function GeneralSettings() {
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </Field>
 
-      <div className="space-y-2">
-        <Label>{t("settings.theme")}</Label>
+      <Field>
+        <FieldLabel id="label-theme">{t("settings.theme")}</FieldLabel>
         <ToggleGroup
           type="single"
           variant="outline"
           value={current}
           onValueChange={v => { if (v) setTheme(v) }}
           className="justify-start"
+          aria-labelledby="label-theme"
         >
           {THEME_CYCLE.map(t => {
             const Icon = THEME_ICONS[t]
@@ -80,16 +81,17 @@ export function GeneralSettings() {
             )
           })}
         </ToggleGroup>
-      </div>
+      </Field>
 
-      <div className="space-y-2">
-        <Label>{t("settings.motion")}</Label>
+      <Field>
+        <FieldLabel id="label-motion">{t("settings.motion")}</FieldLabel>
         <ToggleGroup
           type="single"
           variant="outline"
           value={motionPref}
           onValueChange={v => { if (v) setMotionPref(v as MotionPreference) }}
           className="justify-start"
+          aria-labelledby="label-motion"
         >
           {MOTION_CYCLE.map(m => {
             const Icon = MOTION_ICONS[m]
@@ -101,7 +103,7 @@ export function GeneralSettings() {
             )
           })}
         </ToggleGroup>
-      </div>
+      </Field>
     </div>
   )
 }

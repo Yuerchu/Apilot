@@ -219,7 +219,7 @@ export function TryTab({ route, index: _index }: TryTabProps) {
   })
 
   // Body object for form sync
-  const [bodyObj, setBodyObj] = useState<Record<string, unknown>>(() => {
+  const [bodyObj, setBodyObj] = useState<Record<string, unknown> | unknown[]>(() => {
     try { return JSON.parse(bodyJson) } catch { return {} }
   })
 
@@ -233,7 +233,7 @@ export function TryTab({ route, index: _index }: TryTabProps) {
   // Sync form → JSON
   const syncingRef = useRef(false)
 
-  const handleFormChange = useCallback((newValues: Record<string, unknown>) => {
+  const handleFormChange = useCallback((newValues: Record<string, unknown> | unknown[]) => {
     if (syncingRef.current) return
     syncingRef.current = true
     setBodyObj(newValues)
@@ -509,7 +509,7 @@ export function TryTab({ route, index: _index }: TryTabProps) {
       <div className="flex items-center gap-3">
         <Button onClick={handleSend} disabled={loading}>
           {loading ? (
-            <Loader2 className="size-4 animate-spin" />
+            <Loader2 className="size-4 motion-safe:animate-spin" />
           ) : (
             <Send className="size-4" />
           )}

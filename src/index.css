@@ -37,6 +37,17 @@
   --color-method-redirect: oklch(0.45 0.15 230);
   --color-success: oklch(0.45 0.18 162.48);
 
+  /* Environment status colors */
+  --color-status-online: oklch(0.45 0.18 162.48);
+  --color-status-testing: oklch(0.55 0.16 55);
+  --color-status-dev: oklch(0.45 0.16 260);
+  --color-status-local: oklch(0.50 0.18 300);
+  --color-status-teammate: oklch(0.45 0.14 200);
+
+  /* WebSocket direction colors */
+  --color-ws-send: oklch(0.45 0.18 162.48);
+  --color-ws-receive: oklch(0.45 0.16 260);
+
   /* Sidebar (light) */
   --color-sidebar: oklch(0.97 0 0);
   --color-sidebar-foreground: oklch(0.145 0 0);
@@ -79,6 +90,17 @@
   --color-method-options: oklch(0.556 0 0);
   --color-method-redirect: oklch(0.65 0.15 230);
   --color-success: oklch(0.696 0.17 162.48);
+
+  /* Environment status colors */
+  --color-status-online: oklch(0.696 0.17 162.48);
+  --color-status-testing: oklch(0.719 0.12 55);
+  --color-status-dev: oklch(0.65 0.15 260);
+  --color-status-local: oklch(0.627 0.17 300);
+  --color-status-teammate: oklch(0.65 0.13 200);
+
+  /* WebSocket direction colors */
+  --color-ws-send: oklch(0.696 0.17 162.48);
+  --color-ws-receive: oklch(0.65 0.15 260);
 
   /* Sidebar (dark) */
   --color-sidebar: oklch(0.17 0 0);
@@ -123,5 +145,25 @@
   body {
     @apply bg-background text-foreground;
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+}
+
+/* App-level motion preference: data-reduce-motion disables CSS animations,
+   data-force-motion keeps them even when OS prefers-reduced-motion is on */
+[data-reduce-motion] *,
+[data-reduce-motion] *::before,
+[data-reduce-motion] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-force-motion]) *,
+  :root:not([data-force-motion]) *::before,
+  :root:not([data-force-motion]) *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

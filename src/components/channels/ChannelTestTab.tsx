@@ -83,9 +83,9 @@ export function ChannelTestTab({ channel }: { channel: ParsedChannel }) {
     return ws.messages.filter(m => m.direction === dirFilter)
   }, [ws.messages, dirFilter])
 
-  const statusColor = ws.status === "connected" ? "bg-emerald-500"
-    : ws.status === "connecting" ? "bg-yellow-500 animate-pulse"
-    : ws.status === "error" ? "bg-red-500"
+  const statusColor = ws.status === "connected" ? "bg-ws-send"
+    : ws.status === "connecting" ? "bg-status-testing motion-safe:animate-pulse"
+    : ws.status === "error" ? "bg-destructive"
     : "bg-muted-foreground/30"
 
   return (
@@ -283,15 +283,15 @@ function MessageLogEntry({ message }: { message: WsMessage }) {
     <div
       className={cn(
         "border-b last:border-0 cursor-pointer hover:bg-muted/20 transition-colors",
-        message.direction === "sent" ? "bg-emerald-50/30 dark:bg-emerald-950/10" : "",
+        message.direction === "sent" ? "bg-ws-send/5" : "",
       )}
       onClick={() => setExpanded(!expanded)}
     >
       <div className="flex items-center gap-1.5 px-3 py-1.5">
         {message.direction === "sent" ? (
-          <ArrowUp className="size-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <ArrowUp className="size-3 text-ws-send shrink-0" />
         ) : (
-          <ArrowDown className="size-3 text-blue-600 dark:text-blue-400 shrink-0" />
+          <ArrowDown className="size-3 text-ws-receive shrink-0" />
         )}
         <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">{time}</span>
         {message.messageType && (

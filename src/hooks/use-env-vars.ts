@@ -5,13 +5,24 @@ import { getEnvVars, setEnvVar, removeEnvVar, type EnvVarEntry } from "@/lib/db"
 export function useEnvVars() {
   const specId = useSpecId()
   const [vars, setVars] = useState<EnvVarEntry[]>([])
+  const [loadedSpecId, setLoadedSpecId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!specId) { setVars([]); return }
-    getEnvVars(specId).then(setVars)
+    if (!specId) return
+    let cancelled = false
+    getEnvVars(specId).then(result => {
+      if (!cancelled) {
+        setVars(result)
+        setLoadedSpecId(specId)
+      }
+    })
+    return () => { cancelled = true }
   }, [specId])
 
-  const varsMap = Object.fromEntries(vars.map(v => [v.key, v.value]))
+  // Derive empty when specId is absent or changed but not yet loaded
+  const effectiveVars = !specId || loadedSpecId !== specId ? [] : vars
+
+  const varsMap = Object.fromEntries(effectiveVars.map(v => [v.key, v.value]))
 
   const set = useCallback(async (key: string, value: string) => {
     if (!specId) return
@@ -29,5 +40,5 @@ export function useEnvVars() {
     setVars(prev => prev.filter(v => v.key !== key))
   }, [specId])
 
-  return { vars, varsMap, set, remove }
+  return { vars: effectiveVars, varsMap, set, remove }
 }

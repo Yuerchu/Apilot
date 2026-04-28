@@ -37,7 +37,7 @@ export function AppSidebar() {
   const hasSchemas = Object.keys(schemas).length > 0
 
   return (
-    <Sidebar>
+    <Sidebar variant="inset">
       <SidebarHeader className="border-b border-sidebar-border">
         {info ? (
           <div className="flex flex-col gap-1.5 px-3 py-3">

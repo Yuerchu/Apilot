@@ -142,18 +142,42 @@ export interface ResponseObject {
   schema?: SchemaObject
 }
 
+export interface OAuthFlowObject {
+  authorizationUrl?: string
+  tokenUrl?: string
+  refreshUrl?: string
+  scopes?: Record<string, string>
+}
+
 export interface SecurityScheme {
   type: string
   name?: string
   in?: string
   scheme?: string
   bearerFormat?: string
+  // OAS 3.x
   flows?: {
-    password?: { tokenUrl?: string; scopes?: Record<string, string> }
-    clientCredentials?: { tokenUrl?: string; scopes?: Record<string, string> }
-    authorizationCode?: { authorizationUrl?: string; tokenUrl?: string; scopes?: Record<string, string> }
-    implicit?: { authorizationUrl?: string; scopes?: Record<string, string> }
+    password?: OAuthFlowObject
+    clientCredentials?: OAuthFlowObject
+    authorizationCode?: OAuthFlowObject
+    implicit?: OAuthFlowObject
   }
+  // Swagger 2.0 (top-level, converted to flows in parser)
+  flow?: "implicit" | "password" | "application" | "accessCode"
+  authorizationUrl?: string
+  tokenUrl?: string
+  scopes?: Record<string, string>
+  // OpenID Connect
+  openIdConnectUrl?: string
+}
+
+export interface OAuth2Endpoints {
+  schemeName: string
+  flow: string
+  tokenUrl: string | null
+  refreshUrl: string | null
+  authorizationUrl: string | null
+  scopes: Record<string, string>
 }
 
 export type SecurityRequirement = Record<string, string[]>

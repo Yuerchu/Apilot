@@ -23,7 +23,7 @@ import {
   DialogDescription,
 } from "@/components/animate-ui/components/radix/dialog"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Field, FieldLabel } from "@/components/ui/field"
 import { Button } from "@/components/ui/button"
 import { useEnvironments } from "@/hooks/use-environments"
 import { openSettings } from "@/components/settings/SettingsDialog"
@@ -35,7 +35,7 @@ export function EnvironmentSwitcher() {
   const [newName, setNewName] = useState("")
   const [newUrl, setNewUrl] = useState("")
 
-  const stagePriority: Record<string, number> = { production: 0, staging: 1, testing: 2, development: 3, local: 4, "": 5 }
+  const stagePriority: Record<string, number> = { local: 0, development: 1, testing: 2, staging: 3, production: 4, "": 5 }
   const sorted = [...environments].sort((a, b) => (stagePriority[a.stage] ?? 5) - (stagePriority[b.stage] ?? 5))
   const specEnvs = sorted.filter(e => e.source === "spec")
   const customEnvs = sorted.filter(e => e.source === "custom")
@@ -147,23 +147,25 @@ export function EnvironmentSwitcher() {
             <DialogDescription>{t("environments.addDesc")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>{t("environments.name")}</Label>
+            <Field>
+              <FieldLabel htmlFor="env-new-name">{t("environments.name")}</FieldLabel>
               <Input
+                id="env-new-name"
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
                 placeholder={t("environments.namePlaceholder")}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>{t("environments.baseUrl")}</Label>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="env-new-url">{t("environments.baseUrl")}</FieldLabel>
               <Input
+                id="env-new-url"
                 value={newUrl}
                 onChange={e => setNewUrl(e.target.value)}
                 placeholder="https://api.example.com"
                 onKeyDown={e => e.key === "Enter" && handleAdd()}
               />
-            </div>
+            </Field>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setAddOpen(false)}>
                 {t("storage.cancel")}

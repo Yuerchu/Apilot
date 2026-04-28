@@ -10,20 +10,33 @@ export interface FavoritesContextValue {
 
 export const FavoritesContext = createContext<FavoritesContextValue | null>(null)
 
+const EMPTY_SET = new Set<string>()
+
 export function useFavoritesProvider(): FavoritesContextValue {
   const specId = useSpecId()
-  const [favorites, setFavorites] = useState<Set<string>>(new Set())
+  const [favorites, setFavorites] = useState<Set<string>>(EMPTY_SET)
+  const [loadedSpecId, setLoadedSpecId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!specId) { setFavorites(new Set()); return }
-    getFavorites(specId).then(setFavorites)
+    if (!specId) return
+    let cancelled = false
+    getFavorites(specId).then(result => {
+      if (!cancelled) {
+        setFavorites(result)
+        setLoadedSpecId(specId)
+      }
+    })
+    return () => { cancelled = true }
   }, [specId])
 
-  const isFavorite = useCallback((routeKey: string) => favorites.has(routeKey), [favorites])
+  // Derive empty when specId is absent or changed but not yet loaded
+  const effectiveFavorites = !specId || loadedSpecId !== specId ? EMPTY_SET : favorites
+
+  const isFavorite = useCallback((routeKey: string) => effectiveFavorites.has(routeKey), [effectiveFavorites])
 
   const toggleFavorite = useCallback((routeKey: string) => {
     if (!specId) return
-    const next = new Set(favorites)
+    const next = new Set(effectiveFavorites)
     if (next.has(routeKey)) {
       next.delete(routeKey)
       removeFavorite(specId, routeKey)
@@ -32,9 +45,9 @@ export function useFavoritesProvider(): FavoritesContextValue {
       addFavorite(specId, routeKey)
     }
     setFavorites(next)
-  }, [specId, favorites])
+  }, [specId, effectiveFavorites])
 
-  return { favorites, isFavorite, toggleFavorite }
+  return { favorites: effectiveFavorites, isFavorite, toggleFavorite }
 }
 
 export function useFavorites() {
