@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react"
 import i18n from "@/lib/i18n"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
+import { normalizeRestoredAuth, type RestoredAuthState } from "@/lib/auth-state"
 import { buildAuthHeaders } from "@/lib/request-utils"
 import type { AuthType } from "@/lib/openapi/types"
 
@@ -69,18 +70,13 @@ export function useAuth() {
     setOAuth2Token(token)
   }, [])
 
-  const restoreAuth = useCallback((saved: {
-    authType?: string
-    authToken?: string
-    authUser?: string
-    authKeyName?: string
-    oauth2Token?: string
-  }) => {
-    if (saved.authType) setAuthType(saved.authType as AuthType)
-    if (saved.authToken) setAuthToken(saved.authToken)
-    if (saved.authUser) setAuthUser(saved.authUser)
-    if (saved.authKeyName) setAuthKeyName(saved.authKeyName)
-    if (saved.oauth2Token) setOAuth2Token(saved.oauth2Token)
+  const restoreAuth = useCallback((saved: Partial<RestoredAuthState>) => {
+    const next = normalizeRestoredAuth(saved)
+    setAuthType(next.authType)
+    setAuthToken(next.authToken)
+    setAuthUser(next.authUser)
+    setAuthKeyName(next.authKeyName)
+    setOAuth2Token(next.oauth2Token)
   }, [])
 
   return {

@@ -9,6 +9,7 @@ import { getParsedRouteKey } from "@/lib/openapi/route-key"
 import { useHistory } from "@/hooks/use-history"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { cn } from "@/lib/utils"
 import { CodeViewer } from "@/components/editor/CodeViewer"
@@ -41,33 +42,48 @@ interface HistoryTabProps {
 export const HistoryTab = memo(function HistoryTab({ route }: HistoryTabProps) {
   const { t } = useTranslation()
   const routeKey = getParsedRouteKey(route)
-  const { entries, clearEntries } = useHistory(routeKey)
+  const { entries, clearEntries, envFilter, setEnvFilter } = useHistory(routeKey)
   const locale = DATE_LOCALES[i18n.language] ?? enUS
 
-  if (!entries.length) {
-    return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <History />
-          </EmptyMedia>
-          <EmptyTitle>{t("history.empty")}</EmptyTitle>
-        </EmptyHeader>
-      </Empty>
-    )
-  }
-
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
           {entries.length} {t("history.title").toLowerCase()}
         </span>
-        <Button variant="ghost" size="xs" onClick={clearEntries}>
-          <Trash2 className="size-3" />
-          {t("history.clear")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={envFilter}
+            onValueChange={value => { if (value === "current" || value === "all") setEnvFilter(value) }}
+            className="h-7"
+          >
+            <ToggleGroupItem value="current" className="h-7 px-2 text-[11px]">
+              {t("history.currentEnv")}
+            </ToggleGroupItem>
+            <ToggleGroupItem value="all" className="h-7 px-2 text-[11px]">
+              {t("history.allEnvs")}
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <Button variant="ghost" size="xs" onClick={clearEntries}>
+            <Trash2 />
+            {t("history.clear")}
+          </Button>
+        </div>
       </div>
+
+      {!entries.length && (
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <History />
+            </EmptyMedia>
+            <EmptyTitle>{t("history.empty")}</EmptyTitle>
+          </EmptyHeader>
+        </Empty>
+      )}
 
       {entries.map(entry => (
         <Collapsible key={entry.id}>
@@ -78,6 +94,11 @@ export const HistoryTab = memo(function HistoryTab({ route }: HistoryTabProps) {
               </Badge>
               <span className="text-xs font-mono truncate">{entry.method.toUpperCase()} {entry.path}</span>
               <span className="text-[11px] text-muted-foreground tabular-nums">{entry.response.elapsed}ms</span>
+              {envFilter === "all" && entry.envNameSnapshot && (
+                <Badge variant="secondary" className="text-[10px]">
+                  {entry.envNameSnapshot}
+                </Badge>
+              )}
               <span className="ml-auto text-[11px] text-muted-foreground">
                 {formatDistanceToNow(entry.timestamp, { addSuffix: true, locale })}
               </span>

@@ -7,7 +7,7 @@ import { useOpenAPI } from "@/hooks/use-openapi"
 import { useEnvironments } from "@/hooks/use-environments"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Field, FieldLabel } from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -115,7 +115,7 @@ export function ConnectionSettings() {
   ]
 
   return (
-    <div className="space-y-6">
+    <FieldGroup className="gap-6">
       {/* OpenAPI URL */}
       <Field>
         <FieldLabel htmlFor="openapi-url">{t("sidebar.openapiUrl")}</FieldLabel>
@@ -136,22 +136,30 @@ export function ConnectionSettings() {
         </button>
 
         {showFetchAuth && (
-          <div className="flex gap-2">
-            <Input
-              value={fetchUser}
-              onChange={e => setFetchUser(e.target.value)}
-              placeholder={t("connection.specAuthUser")}
-              className="h-8 text-xs flex-1"
-            />
-            <Input
-              type="password"
-              value={fetchPass}
-              onChange={e => setFetchPass(e.target.value)}
-              placeholder={t("connection.specAuthPass")}
-              className="h-8 text-xs flex-1"
-              onKeyDown={e => e.key === "Enter" && handleLoad()}
-            />
-          </div>
+          <FieldGroup className="gap-2 sm:flex-row">
+            <Field>
+              <FieldLabel htmlFor="spec-auth-user" className="sr-only">{t("connection.specAuthUser")}</FieldLabel>
+              <Input
+                id="spec-auth-user"
+                value={fetchUser}
+                onChange={e => setFetchUser(e.target.value)}
+                placeholder={t("connection.specAuthUser")}
+                className="h-8 text-xs flex-1"
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="spec-auth-pass" className="sr-only">{t("connection.specAuthPass")}</FieldLabel>
+              <Input
+                id="spec-auth-pass"
+                type="password"
+                value={fetchPass}
+                onChange={e => setFetchPass(e.target.value)}
+                placeholder={t("connection.specAuthPass")}
+                className="h-8 text-xs flex-1"
+                onKeyDown={e => e.key === "Enter" && handleLoad()}
+              />
+            </Field>
+          </FieldGroup>
         )}
 
         <div className="flex gap-2">
@@ -171,7 +179,7 @@ export function ConnectionSettings() {
       {specLoaded && environments.length > 0 && (
         <>
           <Separator />
-          <div className="space-y-3">
+          <FieldGroup className="gap-3">
             <div className="flex items-center justify-between">
               <FieldLabel>{t("environments.title")}</FieldLabel>
               <Button variant="ghost" size="sm" onClick={() => setAddOpen(true)}>
@@ -180,39 +188,54 @@ export function ConnectionSettings() {
               </Button>
             </div>
 
-            <div className="space-y-1.5">
+            <FieldGroup className="gap-1.5">
               {[...environments].sort((a, b) => (STAGE_PRIORITY[a.stage] ?? 5) - (STAGE_PRIORITY[b.stage] ?? 5)).map(env => (
                 <div key={env.id}>
                   {editId === env.id ? (
-                    <div className="rounded-lg border bg-card p-3 space-y-2">
-                      <Input
-                        value={editName}
-                        onChange={e => setEditName(e.target.value)}
-                        placeholder={t("environments.name")}
-                      />
-                      <Input
-                        value={editUrl}
-                        onChange={e => setEditUrl(e.target.value)}
-                        placeholder="https://api.example.com"
-                        disabled={env.source === "spec"}
-                      />
-                      <Select value={editStage || "_none"} onValueChange={v => setEditStage((v === "_none" ? "" : v) as EnvironmentStage)}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder={t("environments.stagePlaceholder")} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {STAGE_OPTIONS.map(opt => (
-                            <SelectItem key={opt.value || "_none"} value={opt.value || "_none"}>
-                              {t(opt.labelKey)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        value={editSpecPath}
-                        onChange={e => setEditSpecPath(e.target.value)}
-                        placeholder={t("environments.specPathPlaceholder")}
-                      />
+                    <FieldGroup className="rounded-lg border bg-card p-3 gap-2">
+                      <Field>
+                        <FieldLabel htmlFor="env-edit-name" className="sr-only">{t("environments.name")}</FieldLabel>
+                        <Input
+                          id="env-edit-name"
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                          placeholder={t("environments.name")}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="env-edit-url" className="sr-only">{t("environments.baseUrl")}</FieldLabel>
+                        <Input
+                          id="env-edit-url"
+                          value={editUrl}
+                          onChange={e => setEditUrl(e.target.value)}
+                          placeholder="https://api.example.com"
+                          disabled={env.source === "spec"}
+                        />
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="env-edit-stage" className="sr-only">{t("environments.stagePlaceholder")}</FieldLabel>
+                        <Select value={editStage || "_none"} onValueChange={v => setEditStage((v === "_none" ? "" : v) as EnvironmentStage)}>
+                          <SelectTrigger id="env-edit-stage" className="w-full">
+                            <SelectValue placeholder={t("environments.stagePlaceholder")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {STAGE_OPTIONS.map(opt => (
+                              <SelectItem key={opt.value || "_none"} value={opt.value || "_none"}>
+                                {t(opt.labelKey)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field>
+                        <FieldLabel htmlFor="env-edit-spec-path" className="sr-only">{t("environments.specPathPlaceholder")}</FieldLabel>
+                        <Input
+                          id="env-edit-spec-path"
+                          value={editSpecPath}
+                          onChange={e => setEditSpecPath(e.target.value)}
+                          placeholder={t("environments.specPathPlaceholder")}
+                        />
+                      </Field>
                       <div className="flex gap-2 justify-end">
                         <Button variant="ghost" size="sm" onClick={() => setEditId(null)}>
                           {t("storage.cancel")}
@@ -221,7 +244,7 @@ export function ConnectionSettings() {
                           {t("environments.save")}
                         </Button>
                       </div>
-                    </div>
+                    </FieldGroup>
                   ) : (
                     <div
                       className={`flex items-center gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors ${
@@ -256,38 +279,53 @@ export function ConnectionSettings() {
                   )}
                 </div>
               ))}
-            </div>
+            </FieldGroup>
 
             {/* Inline add form */}
             {addOpen && (
-              <div className="rounded-lg border bg-card p-3 space-y-2">
-                <Input
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  placeholder={t("environments.namePlaceholder")}
-                />
-                <Input
-                  value={newUrl}
-                  onChange={e => setNewUrl(e.target.value)}
-                  placeholder="https://api.example.com"
-                />
-                <Select value={newStage || "_none"} onValueChange={v => setNewStage((v === "_none" ? "" : v) as EnvironmentStage)}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder={t("environments.stagePlaceholder")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STAGE_OPTIONS.map(opt => (
-                      <SelectItem key={opt.value || "_none"} value={opt.value || "_none"}>
-                        {t(opt.labelKey)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  value={newSpecPath}
-                  onChange={e => setNewSpecPath(e.target.value)}
-                  placeholder={t("environments.specPathPlaceholder")}
-                />
+              <FieldGroup className="rounded-lg border bg-card p-3 gap-2">
+                <Field>
+                  <FieldLabel htmlFor="env-new-name" className="sr-only">{t("environments.name")}</FieldLabel>
+                  <Input
+                    id="env-new-name"
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    placeholder={t("environments.namePlaceholder")}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="env-new-url" className="sr-only">{t("environments.baseUrl")}</FieldLabel>
+                  <Input
+                    id="env-new-url"
+                    value={newUrl}
+                    onChange={e => setNewUrl(e.target.value)}
+                    placeholder="https://api.example.com"
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="env-new-stage" className="sr-only">{t("environments.stagePlaceholder")}</FieldLabel>
+                  <Select value={newStage || "_none"} onValueChange={v => setNewStage((v === "_none" ? "" : v) as EnvironmentStage)}>
+                    <SelectTrigger id="env-new-stage" className="w-full">
+                      <SelectValue placeholder={t("environments.stagePlaceholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STAGE_OPTIONS.map(opt => (
+                        <SelectItem key={opt.value || "_none"} value={opt.value || "_none"}>
+                          {t(opt.labelKey)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="env-new-spec-path" className="sr-only">{t("environments.specPathPlaceholder")}</FieldLabel>
+                  <Input
+                    id="env-new-spec-path"
+                    value={newSpecPath}
+                    onChange={e => setNewSpecPath(e.target.value)}
+                    placeholder={t("environments.specPathPlaceholder")}
+                  />
+                </Field>
                 <div className="flex gap-2 justify-end">
                   <Button variant="ghost" size="sm" onClick={() => { setAddOpen(false); setNewName(""); setNewUrl(""); setNewStage(""); setNewSpecPath("") }}>
                     {t("storage.cancel")}
@@ -296,11 +334,11 @@ export function ConnectionSettings() {
                     {t("environments.add")}
                   </Button>
                 </div>
-              </div>
+              </FieldGroup>
             )}
-          </div>
+          </FieldGroup>
         </>
       )}
-    </div>
+    </FieldGroup>
   )
 }

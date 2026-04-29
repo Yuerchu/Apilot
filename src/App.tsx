@@ -97,16 +97,8 @@ function AppContent() {
   useUrlState()
 
   useSettings({
-    authType: auth.authType,
-    authToken: auth.authToken,
-    authUser: auth.authUser,
-    authKeyName: auth.authKeyName,
-    oauth2Token: auth.oauth2Token,
     setAuthType: auth.setAuthType,
     setAuthToken: auth.setAuthToken,
-    setAuthUser: auth.setAuthUser,
-    setAuthKeyName: auth.setAuthKeyName,
-    setOAuth2Token: auth.setOAuth2Token,
   }, loadFromUrl)
 
   const isEmbedded = useMemo(() => !!window.__OPENAPI_URL__, [])

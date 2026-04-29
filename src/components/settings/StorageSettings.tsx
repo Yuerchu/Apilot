@@ -5,6 +5,7 @@ import { Trash2 } from "@/components/animate-ui/icons/trash-2"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { FieldGroup } from "@/components/ui/field"
 import { getDB } from "@/lib/db"
 
 const LS_PREFIX = "oa_"
@@ -12,13 +13,7 @@ const LS_PREFIX = "oa_"
 const LS_DESCRIPTIONS: Record<string, string> = {
   oa_locale: "storage.desc.locale",
   oa_theme: "storage.desc.theme",
-  oa_specUrl: "storage.desc.specUrl",
-  oa_baseUrl: "storage.desc.baseUrl",
-  oa_authType: "storage.desc.authType",
-  oa_authToken: "storage.desc.authToken",
-  oa_authUser: "storage.desc.authUser",
-  oa_authKeyName: "storage.desc.authKeyName",
-  oa_oauth2Token: "storage.desc.oauth2Token",
+  oa_reducedMotion: "storage.desc.reducedMotion",
 }
 
 interface LsEntry {
@@ -64,7 +59,12 @@ export function StorageSettings() {
     try {
       const db = await getDB()
       const storeNames: { name: string; labelKey: string }[] = [
+        { name: "specs", labelKey: "storage.specs" },
+        { name: "specSettings", labelKey: "storage.specSettings" },
+        { name: "environments", labelKey: "storage.environments" },
+        { name: "environmentCredentials", labelKey: "storage.environmentCredentials" },
         { name: "history", labelKey: "storage.history" },
+        { name: "wsHistory", labelKey: "storage.wsHistory" },
         { name: "favorites", labelKey: "storage.favorites" },
         { name: "envVars", labelKey: "storage.envVars" },
       ]
@@ -122,9 +122,9 @@ export function StorageSettings() {
   const totalDbCount = dbStores.reduce((sum, s) => sum + s.count, 0)
 
   return (
-    <div className="space-y-6">
+    <FieldGroup className="gap-6">
       {/* LocalStorage */}
-      <div className="space-y-3">
+      <FieldGroup className="gap-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium">LocalStorage</h3>
           <Badge variant="outline" className="text-[10px] font-mono">{formatBytes(lsSize)}</Badge>
@@ -159,12 +159,12 @@ export function StorageSettings() {
             ))}
           </div>
         )}
-      </div>
+      </FieldGroup>
 
       <Separator />
 
       {/* IndexedDB */}
-      <div className="space-y-3">
+      <FieldGroup className="gap-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium">IndexedDB</h3>
           <Badge variant="outline" className="text-[10px] font-mono">
@@ -191,7 +191,7 @@ export function StorageSettings() {
             ))}
           </div>
         )}
-      </div>
+      </FieldGroup>
 
       <Separator />
 
@@ -219,6 +219,6 @@ export function StorageSettings() {
           </Button>
         )}
       </div>
-    </div>
+    </FieldGroup>
   )
 }

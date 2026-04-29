@@ -27,7 +27,7 @@ export function AboutSettings() {
 
       <Separator />
 
-      <div className="text-xs text-muted-foreground space-y-1 w-full max-w-xs">
+      <div className="flex w-full max-w-xs flex-col gap-1 text-xs text-muted-foreground">
         {BUILD_TIME && (
           <div className="flex justify-between">
             <span>{t("settings.buildTime")}</span>

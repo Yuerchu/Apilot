@@ -1,44 +1,90 @@
 import { useState, useEffect, useCallback } from "react"
 import { useSpecId } from "@/hooks/use-spec-id"
-import { getEnvVars, setEnvVar, removeEnvVar, type EnvVarEntry } from "@/lib/db"
+import { useEnvironments } from "@/hooks/use-environments"
+import {
+  getEnvVars,
+  mergeEnvVars,
+  removeEnvVar,
+  setEnvVar,
+  type EnvVarEntry,
+} from "@/lib/db"
+
+export type EnvVarScope = "document" | "environment"
 
 export function useEnvVars() {
   const specId = useSpecId()
-  const [vars, setVars] = useState<EnvVarEntry[]>([])
-  const [loadedSpecId, setLoadedSpecId] = useState<string | null>(null)
+  const { activeEnvId } = useEnvironments()
+  const [documentVars, setDocumentVars] = useState<EnvVarEntry[]>([])
+  const [environmentVars, setEnvironmentVars] = useState<EnvVarEntry[]>([])
+  const [loadedKey, setLoadedKey] = useState<string | null>(null)
 
   useEffect(() => {
     if (!specId) return
     let cancelled = false
-    getEnvVars(specId).then(result => {
+    Promise.all([
+      getEnvVars(specId, null),
+      activeEnvId ? getEnvVars(specId, activeEnvId) : Promise.resolve([]),
+    ]).then(([docResult, envResult]) => {
       if (!cancelled) {
-        setVars(result)
-        setLoadedSpecId(specId)
+        setDocumentVars(docResult)
+        setEnvironmentVars(envResult)
+        setLoadedKey(`${specId}::${activeEnvId ?? "none"}`)
       }
     })
     return () => { cancelled = true }
-  }, [specId])
+  }, [specId, activeEnvId])
 
-  // Derive empty when specId is absent or changed but not yet loaded
-  const effectiveVars = !specId || loadedSpecId !== specId ? [] : vars
+  const currentKey = specId ? `${specId}::${activeEnvId ?? "none"}` : null
+  const isLoaded = !!specId && loadedKey === currentKey
+  const effectiveDocumentVars = isLoaded ? documentVars : []
+  const effectiveEnvironmentVars = isLoaded ? environmentVars : []
+  const vars = mergeEnvVars(effectiveDocumentVars, effectiveEnvironmentVars)
+  const varsMap = Object.fromEntries(vars.map(v => [v.key, v.value]))
 
-  const varsMap = Object.fromEntries(effectiveVars.map(v => [v.key, v.value]))
-
-  const set = useCallback(async (key: string, value: string) => {
+  const set = useCallback(async (key: string, value: string, scope: EnvVarScope = "environment") => {
     if (!specId) return
-    await setEnvVar(specId, key, value)
-    setVars(prev => {
+    const envId = scope === "environment" ? activeEnvId : null
+    await setEnvVar(specId, key, value, envId)
+    const entry: EnvVarEntry = {
+      id: `${specId}::${envId ?? "doc"}::${key}`,
+      specId,
+      envId,
+      key,
+      value,
+    }
+    if (scope === "environment") {
+      setEnvironmentVars(prev => {
+        const next = prev.filter(v => v.key !== key)
+        next.push(entry)
+        return next.sort((a, b) => a.key.localeCompare(b.key))
+      })
+      return
+    }
+    setDocumentVars(prev => {
       const next = prev.filter(v => v.key !== key)
-      next.push({ id: `${specId}::${key}`, specId, key, value })
-      return next
+      next.push(entry)
+      return next.sort((a, b) => a.key.localeCompare(b.key))
     })
-  }, [specId])
+  }, [specId, activeEnvId])
 
-  const remove = useCallback(async (key: string) => {
+  const remove = useCallback(async (key: string, scope: EnvVarScope = "environment") => {
     if (!specId) return
-    await removeEnvVar(specId, key)
-    setVars(prev => prev.filter(v => v.key !== key))
-  }, [specId])
+    const envId = scope === "environment" ? activeEnvId : null
+    await removeEnvVar(specId, key, envId)
+    if (scope === "environment") {
+      setEnvironmentVars(prev => prev.filter(v => v.key !== key))
+      return
+    }
+    setDocumentVars(prev => prev.filter(v => v.key !== key))
+  }, [specId, activeEnvId])
 
-  return { vars: effectiveVars, varsMap, set, remove }
+  return {
+    vars,
+    varsMap,
+    documentVars: effectiveDocumentVars,
+    environmentVars: effectiveEnvironmentVars,
+    set,
+    remove,
+    activeEnvId,
+  }
 }

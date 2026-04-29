@@ -3,15 +3,28 @@ import { useSpecId } from "@/hooks/use-spec-id"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { useAuthContext } from "@/contexts/AuthContext"
 import { useOpenAPI } from "@/hooks/use-openapi"
-import { getEnvironments, putEnvironment, removeEnvironment as removeEnvFromDB } from "@/lib/db"
-import type { EnvironmentProfile, EnvironmentStage } from "@/lib/db"
-
-const LS_ACTIVE_ENV = "oa_activeEnvId"
+import {
+  clearLegacyBusinessLocalStorage,
+  createEmptyEnvironmentCredential,
+  getEnvironmentRuntimes,
+  getSpecSettings,
+  putEnvironment,
+  putEnvironmentCredential,
+  readLegacySettingsFromLocalStorage,
+  removeEnvironment as removeEnvFromDB,
+  setActiveEnvironmentForSpec,
+} from "@/lib/db"
+import type {
+  EnvironmentCredential,
+  EnvironmentProfile,
+  EnvironmentRuntime,
+  EnvironmentStage,
+} from "@/lib/db"
 
 export interface EnvironmentsContextValue {
-  environments: EnvironmentProfile[]
+  environments: EnvironmentRuntime[]
   activeEnvId: string | null
-  activeEnv: EnvironmentProfile | null
+  activeEnv: EnvironmentRuntime | null
   loading: boolean
   switchEnvironment: (id: string) => void
   addEnvironment: (name: string, baseUrl: string, stage?: EnvironmentStage, specPath?: string) => Promise<void>
@@ -21,27 +34,60 @@ export interface EnvironmentsContextValue {
 
 export const EnvironmentsContext = createContext<EnvironmentsContextValue | null>(null)
 
+function profileFromRuntime(env: EnvironmentRuntime): EnvironmentProfile {
+  return {
+    id: env.id,
+    specId: env.specId,
+    name: env.name,
+    baseUrl: env.baseUrl,
+    source: env.source,
+    stage: env.stage,
+    specPath: env.specPath,
+    createdAt: env.createdAt,
+    updatedAt: env.updatedAt,
+  }
+}
+
+function hasLegacyCredential(legacy: ReturnType<typeof readLegacySettingsFromLocalStorage>): boolean {
+  return legacy.authType !== "none"
+    || legacy.authToken.length > 0
+    || legacy.authUser.length > 0
+    || legacy.authKeyName.length > 0
+    || !!legacy.oauth2Token
+}
+
 export function useEnvironmentsProvider(): EnvironmentsContextValue {
   const specId = useSpecId()
   const { state, setBaseUrl } = useOpenAPIContext()
   const auth = useAuthContext()
   const { getServers } = useOpenAPI()
 
-  const [environments, setEnvironments] = useState<EnvironmentProfile[]>([])
-  const [activeEnvId, setActiveEnvId] = useState<string | null>(
-    localStorage.getItem(LS_ACTIVE_ENV),
-  )
+  const [environments, setEnvironments] = useState<EnvironmentRuntime[]>([])
+  const [activeEnvId, setActiveEnvId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  // Prevent auto-save during restore
   const restoringRef = useRef(false)
   const specIdRef = useRef(specId)
   useEffect(() => { specIdRef.current = specId }, [specId])
 
-  // Load environments when specId changes
+  const applyEnvironment = useCallback((env: EnvironmentRuntime) => {
+    restoringRef.current = true
+    setActiveEnvId(env.id)
+    setBaseUrl(env.baseUrl)
+    auth.restoreAuth({
+      authType: env.authType,
+      authToken: env.authToken,
+      authUser: env.authUser,
+      authKeyName: env.authKeyName,
+      oauth2Token: env.oauth2Token,
+    })
+    setTimeout(() => { restoringRef.current = false }, 100)
+  }, [auth, setBaseUrl])
+
   useEffect(() => {
     if (!specId) {
       setEnvironments([])
+      setActiveEnvId(null)
       return
     }
 
@@ -49,113 +95,92 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
     setLoading(true)
 
     ;(async () => {
-      const existing = await getEnvironments(specId)
+      const existing = await getEnvironmentRuntimes(specId)
+      const settings = await getSpecSettings(specId)
+      const legacy = readLegacySettingsFromLocalStorage()
 
       if (cancelled) return
 
       if (existing.length > 0) {
         setEnvironments(existing)
-
-        // Restore active environment
-        const savedId = localStorage.getItem(LS_ACTIVE_ENV)
+        const savedId = settings?.activeEnvId || legacy.activeEnvId
         const match = existing.find(e => e.id === savedId)
-        if (match) {
-          restoringRef.current = true
-          setActiveEnvId(match.id)
-          setBaseUrl(match.baseUrl)
-          auth.restoreAuth({
-            authType: match.authType,
-            authToken: match.authToken,
-            authUser: match.authUser,
-            authKeyName: match.authKeyName,
-            oauth2Token: match.oauth2Token ?? "",
-          })
-          setTimeout(() => { restoringRef.current = false }, 100)
-        } else {
-          // Saved env not found, select first
-          const first = existing[0]!
-          setActiveEnvId(first.id)
-          localStorage.setItem(LS_ACTIVE_ENV, first.id)
-        }
-      } else {
-        // Seed from spec.servers[]
-        const servers = getServers()
-        const now = Date.now()
-        const profiles: EnvironmentProfile[] = []
-
-        for (let i = 0; i < servers.length; i++) {
-          const s = servers[i]!
-          profiles.push({
-            id: crypto.randomUUID(),
-            specId,
-            name: s.description || s.url,
-            baseUrl: s.url,
-            authType: "none",
-            authToken: "",
-            authUser: "",
-            authKeyName: "",
-            oauth2Token: null,
-            source: "spec",
-            stage: "",
-            specPath: "",
-            createdAt: now,
-            updatedAt: now,
-          })
-        }
-
-        // If no servers in spec, create a default from current state
-        if (profiles.length === 0) {
-          profiles.push({
-            id: crypto.randomUUID(),
-            specId,
-            name: "Default",
-            baseUrl: state.baseUrl || "",
-            authType: auth.authType,
-            authToken: auth.authToken,
-            authUser: auth.authUser,
-            authKeyName: auth.authKeyName,
-            oauth2Token: auth.oauth2Token,
-            source: "custom",
-            stage: "",
-            specPath: "",
-            createdAt: now,
-            updatedAt: now,
-          })
-        } else {
-          // Check if current auth is configured — if so, apply it to the matching server profile
-          const currentBaseUrl = state.baseUrl
-          const matchingSpec = profiles.find(p => p.baseUrl === currentBaseUrl)
-          if (matchingSpec && auth.authType !== "none") {
-            matchingSpec.authType = auth.authType
-            matchingSpec.authToken = auth.authToken
-            matchingSpec.authUser = auth.authUser
-            matchingSpec.authKeyName = auth.authKeyName
-            matchingSpec.oauth2Token = auth.oauth2Token
-          }
-        }
-
-        // Save all to IndexedDB
-        for (const p of profiles) {
-          await putEnvironment(p)
-        }
-
-        if (cancelled) return
-
-        setEnvironments(profiles)
-
-        // Auto-select: prefer matching current baseUrl, else first
-        const current = profiles.find(p => p.baseUrl === state.baseUrl) ?? profiles[0]!
-        setActiveEnvId(current.id)
-        localStorage.setItem(LS_ACTIVE_ENV, current.id)
+        const selected = match ?? existing[0]!
+        applyEnvironment(selected)
+        await setActiveEnvironmentForSpec(specId, selected.id)
+        clearLegacyBusinessLocalStorage()
+        setLoading(false)
+        return
       }
 
+      const servers = getServers()
+      const now = Date.now()
+      const profiles: EnvironmentProfile[] = []
+
+      for (let i = 0; i < servers.length; i++) {
+        const server = servers[i]!
+        profiles.push({
+          id: crypto.randomUUID(),
+          specId,
+          name: server.description || server.url,
+          baseUrl: server.url,
+          source: "spec",
+          stage: "",
+          specPath: "",
+          createdAt: now,
+          updatedAt: now,
+        })
+      }
+
+      if (profiles.length === 0) {
+        profiles.push({
+          id: crypto.randomUUID(),
+          specId,
+          name: "Default",
+          baseUrl: state.baseUrl || legacy.baseUrl || "",
+          source: "custom",
+          stage: "",
+          specPath: "",
+          createdAt: now,
+          updatedAt: now,
+        })
+      }
+
+      const current = profiles.find(p => p.baseUrl === state.baseUrl)
+        ?? profiles.find(p => p.baseUrl === legacy.baseUrl)
+        ?? profiles[0]!
+
+      const runtimes: EnvironmentRuntime[] = []
+      for (const profile of profiles) {
+        const credential = profile.id === current.id && hasLegacyCredential(legacy)
+          ? {
+              envId: profile.id,
+              authType: legacy.authType,
+              authToken: legacy.authToken,
+              authUser: legacy.authUser,
+              authKeyName: legacy.authKeyName,
+              oauth2Token: legacy.oauth2Token,
+              updatedAt: now,
+            }
+          : createEmptyEnvironmentCredential(profile.id, now)
+        await putEnvironment(profile)
+        await putEnvironmentCredential(credential)
+        runtimes.push({ ...profile, ...credential })
+      }
+
+      if (cancelled) return
+
+      setEnvironments(runtimes)
+      const selected = runtimes.find(env => env.id === current.id) ?? runtimes[0]!
+      applyEnvironment(selected)
+      await setActiveEnvironmentForSpec(specId, selected.id)
+      clearLegacyBusinessLocalStorage()
       setLoading(false)
     })()
 
     return () => { cancelled = true }
   }, [specId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-save auth changes back to active environment (debounced)
   useEffect(() => {
     if (restoringRef.current || !activeEnvId || !specIdRef.current) return
 
@@ -163,9 +188,8 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
       const env = environments.find(e => e.id === activeEnvId)
       if (!env) return
 
-      const updated: EnvironmentProfile = {
-        ...env,
-        baseUrl: state.baseUrl,
+      const credential: EnvironmentCredential = {
+        envId: activeEnvId,
         authType: auth.authType,
         authToken: auth.authToken,
         authUser: auth.authUser,
@@ -173,30 +197,20 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
         oauth2Token: auth.oauth2Token,
         updatedAt: Date.now(),
       }
-      putEnvironment(updated)
-      setEnvironments(prev => prev.map(e => e.id === activeEnvId ? updated : e))
+      putEnvironmentCredential(credential)
+      setEnvironments(prev => prev.map(e => e.id === activeEnvId ? { ...e, ...credential } : e))
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [auth.authType, auth.authToken, auth.authUser, auth.authKeyName, auth.oauth2Token, state.baseUrl, activeEnvId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [auth.authType, auth.authToken, auth.authUser, auth.authKeyName, auth.oauth2Token, activeEnvId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const switchEnvironment = useCallback((id: string) => {
     const env = environments.find(e => e.id === id)
-    if (!env) return
+    if (!env || !specIdRef.current) return
 
-    restoringRef.current = true
-    setActiveEnvId(id)
-    localStorage.setItem(LS_ACTIVE_ENV, id)
-    setBaseUrl(env.baseUrl)
-    auth.restoreAuth({
-      authType: env.authType,
-      authToken: env.authToken,
-      authUser: env.authUser,
-      authKeyName: env.authKeyName,
-      oauth2Token: env.oauth2Token ?? "",
-    })
-    setTimeout(() => { restoringRef.current = false }, 100)
-  }, [environments, setBaseUrl, auth])
+    applyEnvironment(env)
+    setActiveEnvironmentForSpec(specIdRef.current, id)
+  }, [environments, applyEnvironment])
 
   const addEnvironment = useCallback(async (name: string, baseUrl: string, stage?: EnvironmentStage, specPath?: string) => {
     if (!specIdRef.current) return
@@ -206,28 +220,24 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
       specId: specIdRef.current,
       name,
       baseUrl,
-      authType: "none",
-      authToken: "",
-      authUser: "",
-      authKeyName: "",
-      oauth2Token: null,
       source: "custom",
       stage: stage || "",
       specPath: specPath || "",
       createdAt: now,
       updatedAt: now,
     }
+    const credential = createEmptyEnvironmentCredential(profile.id, now)
     await putEnvironment(profile)
-    setEnvironments(prev => [...prev, profile])
+    await putEnvironmentCredential(credential)
+    setEnvironments(prev => [...prev, { ...profile, ...credential }])
   }, [])
 
   const updateEnvironment = useCallback(async (id: string, updates: Partial<Pick<EnvironmentProfile, "name" | "baseUrl" | "stage" | "specPath">>) => {
     const env = environments.find(e => e.id === id)
     if (!env) return
-    const updated = { ...env, ...updates, updatedAt: Date.now() }
-    await putEnvironment(updated)
+    const updated: EnvironmentRuntime = { ...env, ...updates, updatedAt: Date.now() }
+    await putEnvironment(profileFromRuntime(updated))
     setEnvironments(prev => prev.map(e => e.id === id ? updated : e))
-    // If updating the active env's baseUrl, apply it
     if (id === activeEnvId && updates.baseUrl) {
       setBaseUrl(updates.baseUrl)
     }
@@ -237,11 +247,16 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
     await removeEnvFromDB(id)
     const remaining = environments.filter(e => e.id !== id)
     setEnvironments(remaining)
-    // If deleted the active one, switch to first remaining
     if (id === activeEnvId && remaining.length > 0) {
-      switchEnvironment(remaining[0]!.id)
+      const next = remaining[0]!
+      applyEnvironment(next)
+      if (specIdRef.current) await setActiveEnvironmentForSpec(specIdRef.current, next.id)
     }
-  }, [environments, activeEnvId, switchEnvironment])
+    if (id === activeEnvId && remaining.length === 0) {
+      setActiveEnvId(null)
+      if (specIdRef.current) await setActiveEnvironmentForSpec(specIdRef.current, null)
+    }
+  }, [environments, activeEnvId, applyEnvironment])
 
   const activeEnv = environments.find(e => e.id === activeEnvId) || null
 

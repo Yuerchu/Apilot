@@ -7,7 +7,7 @@ import { useEnvironments } from "@/hooks/use-environments"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Field, FieldLabel, FieldDescription } from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field"
 import {
   Select,
   SelectContent,
@@ -52,7 +52,7 @@ export function AuthSettings() {
   }
 
   return (
-    <div className="space-y-6">
+    <FieldGroup className="gap-6">
       {activeEnv && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>{t("environments.authNote")}</span>
@@ -83,7 +83,7 @@ export function AuthSettings() {
       )}
 
       {auth.authType === "basic" && (
-        <div className="space-y-3">
+        <FieldGroup className="gap-3">
           <Field>
             <FieldLabel htmlFor="auth-basic-user">Username</FieldLabel>
             <Input id="auth-basic-user" value={auth.authUser} onChange={e => auth.setAuthUser(e.target.value)} placeholder="Username" />
@@ -92,11 +92,11 @@ export function AuthSettings() {
             <FieldLabel htmlFor="auth-basic-pass">Password</FieldLabel>
             <Input id="auth-basic-pass" type="password" value={auth.authToken} onChange={e => auth.setAuthToken(e.target.value)} placeholder="Password" />
           </Field>
-        </div>
+        </FieldGroup>
       )}
 
       {auth.authType === "apikey" && (
-        <div className="space-y-3">
+        <FieldGroup className="gap-3">
           <Field>
             <FieldLabel htmlFor="auth-apikey-name">Header Name</FieldLabel>
             <Input id="auth-apikey-name" value={auth.authKeyName} onChange={e => auth.setAuthKeyName(e.target.value)} placeholder="X-API-Key" />
@@ -105,14 +105,14 @@ export function AuthSettings() {
             <FieldLabel htmlFor="auth-apikey-value">API Key</FieldLabel>
             <Input id="auth-apikey-value" type="password" value={auth.authToken} onChange={e => auth.setAuthToken(e.target.value)} placeholder="API Key" />
           </Field>
-        </div>
+        </FieldGroup>
       )}
 
       {auth.authType === "oauth2" && (
-        <div className="space-y-3">
+        <FieldGroup className="gap-3">
           {/* Detected OAuth2 info from spec */}
           {oauth2Endpoints && (
-            <div className="rounded-md border bg-muted/20 px-3 py-2 space-y-1">
+            <div className="flex flex-col gap-1 rounded-md border bg-muted/20 px-3 py-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium">{oauth2Endpoints.schemeName}</span>
                 <Badge variant="secondary" className="text-[9px]">
@@ -168,11 +168,11 @@ export function AuthSettings() {
               {auth.oauth2Token && <span className="text-sm text-success">{t("auth.authenticated")}</span>}
             </>
           ) : (
-            <div className="rounded-md border bg-muted/10 px-3 py-2">
+            <div className="flex flex-col gap-2 rounded-md border bg-muted/10 px-3 py-2">
               <p className="text-xs text-muted-foreground">
                 {t("auth.oauth2FlowNotSupported", { flow: FLOW_LABELS[oauth2Endpoints.flow] ?? oauth2Endpoints.flow })}
               </p>
-              <Field className="mt-2">
+              <Field>
                 <FieldLabel htmlFor="auth-oauth2-manual">Token</FieldLabel>
                 <Input
                   id="auth-oauth2-manual"
@@ -184,8 +184,8 @@ export function AuthSettings() {
               </Field>
             </div>
           )}
-        </div>
+        </FieldGroup>
       )}
-    </div>
+    </FieldGroup>
   )
 }

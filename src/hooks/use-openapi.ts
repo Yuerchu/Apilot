@@ -20,6 +20,7 @@ import {
   resolveServerUrl,
 } from "@/lib/openapi/parser"
 import { detectSpecType, parseAsyncAPIDocument } from "@/lib/asyncapi/parser"
+import { putSpecFromDocument } from "@/lib/db"
 
 function extractRoutes(spec: OpenAPISpec, sourceSpec: OpenAPISpec): {
   routes: ParsedRoute[]
@@ -133,6 +134,7 @@ export function useOpenAPI() {
     asyncDispatch({ type: "RESET" })
     dispatch({ type: "SET_SPEC", spec, sourceSpec })
     dispatch({ type: "SET_SPEC_URL", url })
+    await putSpecFromDocument(spec, url, url ? "url" : "file")
     await yieldToUI()
     const { routes, allTags, modelRouteMap } = extractRoutes(spec, sourceSpec)
     const baseUrl = baseUrlOverride?.trim() || detectBaseUrl(spec, url)
@@ -162,6 +164,7 @@ export function useOpenAPI() {
     dispatch({ type: "SET_SPEC", spec: compatSpec })
     dispatch({ type: "SET_SPEC_TYPE", specType: "asyncapi" })
     dispatch({ type: "SET_SPEC_URL", url })
+    await putSpecFromDocument(compatSpec, url, url ? "url" : "file")
     dispatch({ type: "SET_ROUTES", routes: [], allTags: [], modelRouteMap: { modelToRoutes: {}, routeToModels: {} } })
     asyncDispatch({ type: "SET_PARSED_RESULT", result })
     dispatch({ type: "SET_MAIN_VIEW", view: "channels" })

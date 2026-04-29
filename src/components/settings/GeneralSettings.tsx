@@ -3,7 +3,7 @@ import { useTheme } from "next-themes"
 import i18n from "@/lib/i18n"
 import { Sun, Moon, Monitor, Sparkles, Leaf } from "lucide-react"
 import { useMotionPreference, type MotionPreference } from "@/hooks/use-reduced-motion"
-import { Field, FieldLabel } from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import {
   Select,
   SelectContent,
@@ -44,7 +44,7 @@ export function GeneralSettings() {
   const labels = THEME_LABELS[i18n.language] ?? THEME_LABELS.en
 
   return (
-    <div className="space-y-6">
+    <FieldGroup className="gap-6">
       <Field>
         <FieldLabel htmlFor="settings-language">{t("settings.language")}</FieldLabel>
         <Select value={i18n.language} onValueChange={v => i18n.changeLanguage(v)}>
@@ -104,6 +104,6 @@ export function GeneralSettings() {
           })}
         </ToggleGroup>
       </Field>
-    </div>
+    </FieldGroup>
   )
 }
