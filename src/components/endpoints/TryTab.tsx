@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react"
 import { useTranslation } from "react-i18next"
-import { Send, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
+import { Send } from "@/components/animate-ui/icons/send"
 import type { ParsedRoute, SchemaObject } from "@/lib/openapi/types"
 import { resolveEffectiveSchema } from "@/lib/openapi/resolve-schema"
 import { getTypeStr, getConstraints } from "@/lib/openapi/type-str"
@@ -511,7 +512,7 @@ export function TryTab({ route, index: _index }: TryTabProps) {
           {loading ? (
             <Loader2 className="size-4 motion-safe:animate-spin" />
           ) : (
-            <Send className="size-4" />
+            <Send size={16} animateOnTap />
           )}
           {t("tryIt.send")}
         </Button>

@@ -4,7 +4,7 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { getParsedRouteKey } from "@/lib/openapi/route-key"
 import { useFavorites } from "@/hooks/use-favorites"
-import { Star } from "lucide-react"
+import { Star } from "@/components/animate-ui/icons/star"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle, EmptyDescription } from "@/components/ui/empty"
 import { RouteCard } from "./RouteCard"
 
@@ -55,7 +55,7 @@ export function FavoritesView() {
   return (
     <div className="flex flex-col gap-3 flex-1 min-h-0">
       <div className="flex items-center gap-2 px-1">
-        <Star className="size-4 fill-amber-400 text-amber-400" />
+        <Star size={16} className="fill-amber-400 text-amber-400" />
         <span className="text-xs text-muted-foreground">
           {t("favoritesView.count", { count: favoriteRoutes.length })}
         </span>

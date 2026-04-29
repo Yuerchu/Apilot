@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { useTranslation } from "react-i18next"
-import { Trash2, AlertTriangle } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
+import { Trash2 } from "@/components/animate-ui/icons/trash-2"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -152,7 +153,7 @@ export function StorageSettings() {
                   size="icon-xs"
                   onClick={() => removeLsKey(entry.key)}
                 >
-                  <Trash2 className="size-3" />
+                  <Trash2 size={12} animateOnHover />
                 </Button>
               </div>
             ))}
@@ -184,7 +185,7 @@ export function StorageSettings() {
                   onClick={() => clearDbStore(store.name)}
                   disabled={store.count === 0}
                 >
-                  <Trash2 className="size-3" />
+                  <Trash2 size={12} animateOnHover />
                 </Button>
               </div>
             ))}
@@ -213,7 +214,7 @@ export function StorageSettings() {
             className="w-full text-destructive hover:text-destructive"
             onClick={() => setConfirmClearAll(true)}
           >
-            <Trash2 className="size-4" />
+            <Trash2 size={16} animateOnHover />
             {t("storage.clearAll")}
           </Button>
         )}

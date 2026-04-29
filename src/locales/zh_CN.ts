@@ -346,6 +346,18 @@ export default {
     noAccessToken: "响应中无 access_token",
     fileReadFailed: "文件读取失败",
   },
+  error: {
+    fetchCors: "无法访问 {{url}}，可能是跨域策略(CORS)阻止了请求。请确认目标服务器允许跨域访问，或使用同源地址",
+    fetchNetwork: "无法连接到 {{url}}，请检查网络连接或确认地址是否正确",
+    fetchNetworkHttp: "无法连接到 {{url}}，请检查网络连接。如果目标是 HTTPS 服务，请使用 https:// 开头的地址",
+    fetchHttp: "服务器返回错误 {{status}} {{statusText}}",
+    fetchAuth: "需要认证 ({{status}})。请在「文档认证」中填写用户名和密码后重试",
+  },
+  connection: {
+    specAuth: "文档需要认证？",
+    specAuthUser: "用户名",
+    specAuthPass: "密码",
+  },
   footer: {
     language: "语言",
   },

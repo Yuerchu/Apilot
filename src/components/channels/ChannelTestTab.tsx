@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plug, Unplug, Send, Trash2, ArrowUp, ArrowDown, Copy, ChevronDown, Sparkles } from "lucide-react"
+import { Plug, Unplug, Trash2, ArrowUp, ArrowDown, Copy, ChevronDown, Sparkles } from "lucide-react"
+import { Send } from "@/components/animate-ui/icons/send"
 import { cn } from "@/lib/utils"
 import { CodeViewer } from "@/components/editor/CodeViewer"
 import type { ParsedChannel } from "@/lib/asyncapi/types"
@@ -207,7 +208,7 @@ export function ChannelTestTab({ channel }: { channel: ParsedChannel }) {
             onClick={handleSend}
             disabled={ws.status !== "connected" || !bodyJson.trim()}
           >
-            <Send className="size-3" />
+            <Send size={12} animateOnTap />
             {t("wsTest.send")}
           </Button>
         </div>

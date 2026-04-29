@@ -346,6 +346,18 @@ export default {
     noAccessToken: "응답에 access_token이 없습니다",
     fileReadFailed: "파일 읽기 실패",
   },
+  error: {
+    fetchCors: "{{url}}에 접근할 수 없습니다. CORS 정책에 의해 요청이 차단되었을 수 있습니다. 서버의 CORS 설정을 확인하거나 동일 출처 URL을 사용하세요",
+    fetchNetwork: "{{url}}에 연결할 수 없습니다. 네트워크 연결 또는 URL을 확인하세요",
+    fetchNetworkHttp: "{{url}}에 연결할 수 없습니다. 서버가 HTTPS를 사용하는 경우 https:// URL을 사용하세요",
+    fetchHttp: "서버 오류 {{status}} {{statusText}}",
+    fetchAuth: "인증이 필요합니다 ({{status}}). \"문서 인증\"에서 자격 증명을 입력하고 다시 시도하세요",
+  },
+  connection: {
+    specAuth: "인증이 필요한가요?",
+    specAuthUser: "사용자 이름",
+    specAuthPass: "비밀번호",
+  },
   footer: {
     language: "언어",
   },

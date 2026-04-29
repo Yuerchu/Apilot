@@ -346,6 +346,18 @@ export default {
     noAccessToken: "レスポンスに access_token がありません",
     fileReadFailed: "ファイルの読み取りに失敗しました",
   },
+  error: {
+    fetchCors: "{{url}} にアクセスできません。CORSポリシーによりリクエストがブロックされた可能性があります。サーバーのCORS設定を確認するか、同一オリジンのURLを使用してください",
+    fetchNetwork: "{{url}} に接続できません。ネットワーク接続またはURLを確認してください",
+    fetchNetworkHttp: "{{url}} に接続できません。サーバーがHTTPSの場合は https:// で始まるURLを使用してください",
+    fetchHttp: "サーバーエラー {{status}} {{statusText}}",
+    fetchAuth: "認証が必要です ({{status}})。「ドキュメント認証」に認証情報を入力して再試行してください",
+  },
+  connection: {
+    specAuth: "認証が必要？",
+    specAuthUser: "ユーザー名",
+    specAuthPass: "パスワード",
+  },
   footer: {
     language: "言語",
   },

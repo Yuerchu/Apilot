@@ -54,16 +54,27 @@ export const PathTemplate = memo(function PathTemplate({ path, className }: Path
       title={path}
     >
       {parts.map((part, index) => {
-        if (part.type === "text") {
-          return <span key={`${index}:text`}>{part.value}</span>
+        if (part.type === "parameter") {
+          return (
+            <span
+              key={`${index}:parameter`}
+              className="mx-0.5 rounded border bg-muted/60 px-1 py-0.5 text-[0.92em] text-foreground"
+            >
+              {part.value}
+            </span>
+          )
         }
 
+        // Split text on "/" to dim the slashes
+        const segments = part.value.split("/")
         return (
-          <span
-            key={`${index}:parameter`}
-            className="mx-0.5 rounded border bg-muted/60 px-1 py-0.5 text-[0.92em] text-foreground"
-          >
-            {part.value}
+          <span key={`${index}:text`}>
+            {segments.map((seg, si) => (
+              <span key={si}>
+                {si > 0 && <span className="text-muted-foreground/50">/</span>}
+                {seg}
+              </span>
+            ))}
           </span>
         )
       })}

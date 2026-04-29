@@ -1,6 +1,7 @@
 import { useCallback, useMemo, memo } from "react"
 import { useTranslation } from "react-i18next"
-import { ChevronDown, Lock, Share2, Star } from "lucide-react"
+import { ChevronDown, Lock, Share2 } from "lucide-react"
+import { Star } from "@/components/animate-ui/icons/star"
 import type { ParsedRoute } from "@/lib/openapi/types"
 import { getParsedRouteKey } from "@/lib/openapi/route-key"
 import { cn } from "@/lib/utils"
@@ -130,7 +131,7 @@ export const RouteCard = memo(function RouteCard({ route, index, isFavorite, onT
                       onClick={e => { e.stopPropagation(); onToggleFavorite(routeKey) }}
                       title={isFavorite ? t("favorites.remove") : t("favorites.add")}
                     >
-                      <Star className={cn("size-3.5", isFavorite && "fill-amber-400 text-amber-400")} />
+                      <Star size={14} animateOnTap className={cn(isFavorite && "fill-amber-400 text-amber-400")} />
                     </button>
                   )}
 

@@ -346,6 +346,18 @@ export default {
     noAccessToken: "響應中無 access_token",
     fileReadFailed: "檔案讀取失敗",
   },
+  error: {
+    fetchCors: "無法存取 {{url}}，可能是跨域策略(CORS)阻止了請求。請確認目標伺服器允許跨域存取，或使用同源地址",
+    fetchNetwork: "無法連線到 {{url}}，請檢查網路連線或確認地址是否正確",
+    fetchNetworkHttp: "無法連線到 {{url}}，請檢查網路連線。如果目標是 HTTPS 服務，請使用 https:// 開頭的地址",
+    fetchHttp: "伺服器回傳錯誤 {{status}} {{statusText}}",
+    fetchAuth: "需要認證 ({{status}})。請在「文件認證」中填寫使用者名稱和密碼後重試",
+  },
+  connection: {
+    specAuth: "文件需要認證？",
+    specAuthUser: "使用者名稱",
+    specAuthPass: "密碼",
+  },
   footer: {
     language: "語言",
   },

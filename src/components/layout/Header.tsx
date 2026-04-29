@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from "react"
 import { useTranslation } from "react-i18next"
-import { SearchIcon, Settings, ChevronRight } from "lucide-react"
+import { ChevronRight } from "lucide-react"
+import { Search as SearchIcon } from "@/components/animate-ui/icons/search"
+import { Settings } from "@/components/animate-ui/icons/settings"
+import { AnimateIcon } from "@/components/animate-ui/icons/icon"
 import { SidebarTrigger, useSidebar } from "@/components/animate-ui/components/radix/sidebar"
 import { Separator } from "@/components/ui/separator"
 import { Button } from "@/components/ui/button"
@@ -74,7 +77,7 @@ export function Header() {
         {state.spec && (
           <InputGroup className="max-w-xs cursor-pointer" onClick={() => setSearchOpen(true)}>
             <InputGroupAddon>
-              <SearchIcon className="text-muted-foreground" />
+              <SearchIcon size={16} className="text-muted-foreground" />
             </InputGroupAddon>
             <InputGroupInput
               placeholder={t("search.placeholder")}
@@ -87,14 +90,17 @@ export function Header() {
           </InputGroup>
         )}
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setSettingsOpen(true)}
-          title={t("settings.title")}
-        >
-          <Settings className="size-4" />
-        </Button>
+        <AnimateIcon animateOnHover>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSettingsOpen(true)}
+            title={t("settings.title")}
+            asChild
+          >
+            <span><Settings size={16} /></span>
+          </Button>
+        </AnimateIcon>
       </div>
 
       <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />

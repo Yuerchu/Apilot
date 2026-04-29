@@ -1,6 +1,7 @@
 import { useState, useRef } from "react"
 import { useTranslation } from "react-i18next"
-import { Loader2, Upload, Trash2, Pencil, Server, Plus } from "lucide-react"
+import { Loader2, Upload, Pencil, Server, Plus, KeyRound } from "lucide-react"
+import { Trash2 } from "@/components/animate-ui/icons/trash-2"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { useOpenAPI } from "@/hooks/use-openapi"
 import { useEnvironments } from "@/hooks/use-environments"
@@ -39,6 +40,11 @@ export function ConnectionSettings() {
   const [url, setUrl] = useState(state.specUrl || "")
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // Spec fetch auth
+  const [showFetchAuth, setShowFetchAuth] = useState(false)
+  const [fetchUser, setFetchUser] = useState("")
+  const [fetchPass, setFetchPass] = useState("")
+
   // Show specUrl from context if user hasn't manually edited
   const displayUrl = urlEdited ? url : (state.specUrl || url)
   const handleUrlChange = (v: string) => {
@@ -61,7 +67,12 @@ export function ConnectionSettings() {
   const [editSpecPath, setEditSpecPath] = useState("")
 
   const handleLoad = () => {
-    if (displayUrl.trim()) loadFromUrl(displayUrl.trim())
+    if (!displayUrl.trim()) return
+    if (showFetchAuth && fetchUser) {
+      loadFromUrl(displayUrl.trim(), { fetchAuth: { username: fetchUser, password: fetchPass } })
+    } else {
+      loadFromUrl(displayUrl.trim())
+    }
   }
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -115,6 +126,34 @@ export function ConnectionSettings() {
           onKeyDown={e => e.key === "Enter" && handleLoad()}
           placeholder={t("sidebar.openapiUrlPlaceholder")}
         />
+        <button
+          type="button"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          onClick={() => setShowFetchAuth(!showFetchAuth)}
+        >
+          <KeyRound className="size-3" />
+          {t("connection.specAuth")}
+        </button>
+
+        {showFetchAuth && (
+          <div className="flex gap-2">
+            <Input
+              value={fetchUser}
+              onChange={e => setFetchUser(e.target.value)}
+              placeholder={t("connection.specAuthUser")}
+              className="h-8 text-xs flex-1"
+            />
+            <Input
+              type="password"
+              value={fetchPass}
+              onChange={e => setFetchPass(e.target.value)}
+              placeholder={t("connection.specAuthPass")}
+              className="h-8 text-xs flex-1"
+              onKeyDown={e => e.key === "Enter" && handleLoad()}
+            />
+          </div>
+        )}
+
         <div className="flex gap-2">
           <Button onClick={handleLoad} disabled={loading} className="flex-1">
             {loading ? <Loader2 className="size-4 motion-safe:animate-spin" /> : null}
@@ -209,7 +248,7 @@ export function ConnectionSettings() {
                         </Button>
                         {environments.length > 1 && (
                           <Button variant="ghost" size="icon" className="size-7 text-destructive" onClick={() => removeEnvironment(env.id)}>
-                            <Trash2 className="size-3" />
+                            <Trash2 size={12} animateOnHover />
                           </Button>
                         )}
                       </div>

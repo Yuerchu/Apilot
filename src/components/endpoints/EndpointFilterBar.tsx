@@ -1,6 +1,7 @@
 import { useState, useMemo, memo } from "react"
 import { useTranslation } from "react-i18next"
-import { Check, Tag, Activity, RefreshCw, X, ArrowLeftRight } from "lucide-react"
+import { Check, Tag, Activity, X, ArrowLeftRight } from "lucide-react"
+import { RefreshCw } from "@/components/animate-ui/icons/refresh-cw"
 import { cn } from "@/lib/utils"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { useMultiEnvStatus, type InferredStatus } from "@/hooks/use-multi-env-status"
@@ -76,7 +77,7 @@ export const EndpointFilterBar = memo(function EndpointFilterBar({
             disabled={multiEnv.loading}
             title={t("envStatus.refresh")}
           >
-            <RefreshCw className={cn("size-3.5", multiEnv.loading && "motion-safe:animate-spin")} />
+            <RefreshCw size={14} animate={multiEnv.loading} animateOnHover />
           </Button>
         </>
       )}

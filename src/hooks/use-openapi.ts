@@ -168,16 +168,42 @@ export function useOpenAPI() {
     dispatch({ type: "SET_LOADING", loading: false })
   }, [dispatch, asyncDispatch])
 
-  const loadFromUrl = useCallback(async (url: string, options?: { baseUrlOverride?: string }) => {
+  const loadFromUrl = useCallback(async (url: string, options?: { baseUrlOverride?: string; fetchAuth?: { username: string; password: string } }) => {
     if (!url.trim()) return
     dispatch({ type: "SET_LOADING", loading: true })
     dispatch({ type: "SET_ERROR", error: null })
     try {
       // Fetch the raw text to detect spec type.
-      // We need the text for AsyncAPI; for OpenAPI we can pass it directly too
-      // (parseValidatedSpec accepts both URLs and raw text/objects).
-      const response = await fetch(url)
-      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      let response: Response
+      const fetchInit: RequestInit = {}
+      if (options?.fetchAuth) {
+        const { username, password } = options.fetchAuth
+        fetchInit.headers = { Authorization: `Basic ${btoa(`${username}:${password}`)}` }
+      }
+      try {
+        response = await fetch(url, fetchInit)
+      } catch (fetchErr) {
+        // Distinguish common network-level failures
+        const msg = fetchErr instanceof TypeError ? fetchErr.message : ""
+        if (msg.includes("Failed to fetch")) {
+          const isHttps = url.startsWith("https://")
+          const targetOrigin = new URL(url).origin
+          const isCrossOrigin = targetOrigin !== location.origin
+          if (isCrossOrigin) {
+            throw new Error(i18n.t("error.fetchCors", { url: targetOrigin }))
+          }
+          throw new Error(isHttps
+            ? i18n.t("error.fetchNetwork", { url })
+            : i18n.t("error.fetchNetworkHttp", { url }))
+        }
+        throw fetchErr
+      }
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(i18n.t("error.fetchAuth", { status: response.status }))
+        }
+        throw new Error(i18n.t("error.fetchHttp", { status: response.status, statusText: response.statusText }))
+      }
       const text = await response.text()
       const specType = detectSpecType(text)
       if (specType === "asyncapi") {
