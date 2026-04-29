@@ -105,12 +105,16 @@ function NodeMeta({ node }: { node: JsonSchemaTreeNode }) {
           {t("schemaViewer.defaultValue", { value: node.defaultValue })}
         </Badge>
       )}
-      {visibleEnumValues.map(value => (
-        <Badge key={value} variant="outline" className="font-mono text-[10px]">
-          {value}
-        </Badge>
-      ))}
-      {hiddenEnumValues.length > 0 && <EnumOverflowBadge values={hiddenEnumValues} />}
+      {visibleEnumValues.length > 0 && (
+        <span className="inline-flex flex-wrap items-center gap-1">
+          {visibleEnumValues.map(value => (
+            <Badge key={value} variant="secondary" className="font-mono text-[10px] font-normal">
+              {value}
+            </Badge>
+          ))}
+          {hiddenEnumValues.length > 0 && <EnumOverflowBadge values={hiddenEnumValues} />}
+        </span>
+      )}
     </div>
   )
 }

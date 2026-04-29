@@ -156,7 +156,7 @@ export function ConnectionSettings() {
 
         <div className="flex gap-2">
           <Button onClick={handleLoad} disabled={loading} className="flex-1">
-            {loading ? <Loader2 className="size-4 motion-safe:animate-spin" /> : null}
+            {loading ? <Loader2 className="size-4 animate-spin" /> : null}
             {t("sidebar.load")}
           </Button>
           <input ref={fileRef} type="file" accept=".json,.yaml,.yml" className="hidden" onChange={handleFile} />

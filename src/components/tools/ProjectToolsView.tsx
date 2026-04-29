@@ -135,7 +135,7 @@ function TruncatedCode({ value, className }: { value: string; className?: string
 function LoadingMessage({ children }: { children: string }) {
   return (
     <div className="flex items-center justify-center gap-2" role="status">
-      <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden="true" />
+      <Loader2 className="size-4 animate-spin" aria-hidden="true" />
       <span>{children}</span>
     </div>
   )
@@ -441,7 +441,7 @@ export function OpenAPIDiffView({ spec }: OpenAPIDiffViewProps) {
               disabled={loadingSlot === "before"}
               onClick={() => beforeInputRef.current?.click()}
             >
-              {loadingSlot === "before" && <Loader2 data-icon="inline-start" className="motion-safe:animate-spin" />}
+              {loadingSlot === "before" && <Loader2 data-icon="inline-start" className="animate-spin" />}
               {t("tools.chooseFile")}
             </Button>
             <Button
@@ -477,7 +477,7 @@ export function OpenAPIDiffView({ spec }: OpenAPIDiffViewProps) {
               disabled={loadingSlot === "after"}
               onClick={() => afterInputRef.current?.click()}
             >
-              {loadingSlot === "after" && <Loader2 data-icon="inline-start" className="motion-safe:animate-spin" />}
+              {loadingSlot === "after" && <Loader2 data-icon="inline-start" className="animate-spin" />}
               {t("tools.chooseFile")}
             </Button>
             <Button

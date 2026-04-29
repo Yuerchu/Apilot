@@ -510,7 +510,7 @@ export function TryTab({ route, index: _index }: TryTabProps) {
       <div className="flex items-center gap-3">
         <Button onClick={handleSend} disabled={loading}>
           {loading ? (
-            <Loader2 className="size-4 motion-safe:animate-spin" />
+            <Loader2 className="size-4 animate-spin" />
           ) : (
             <Send size={16} animateOnTap />
           )}

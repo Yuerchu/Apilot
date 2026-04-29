@@ -585,7 +585,7 @@ function GraphLoadingState({ phase, metrics }: { phase: ModelGraphWorkerPhase; m
   return (
     <GraphStatusShell>
       <div className="flex h-9 w-9 items-center justify-center rounded-md border bg-secondary/60">
-        <div className="h-4 w-4 motion-safe:animate-spin rounded-full border-2 border-muted-foreground/35 border-t-foreground" />
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/35 border-t-foreground" />
       </div>
       <div className="min-w-0">
         <div className="text-sm font-medium text-foreground">{title}</div>

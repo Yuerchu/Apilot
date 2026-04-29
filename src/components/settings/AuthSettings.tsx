@@ -162,7 +162,7 @@ export function AuthSettings() {
                 <Input id="auth-oauth2-url" value={effectiveTokenUrl} onChange={e => handleTokenUrlChange(e.target.value)} placeholder="https://..." />
               </Field>
               <Button onClick={handleOAuth2Login} disabled={auth.oauth2Loading} className="w-full">
-                {auth.oauth2Loading ? <Loader2 className="size-4 motion-safe:animate-spin" /> : null}
+                {auth.oauth2Loading ? <Loader2 className="size-4 animate-spin" /> : null}
                 {t("auth.login")}
               </Button>
               {auth.oauth2Token && <span className="text-sm text-success">{t("auth.authenticated")}</span>}
@@ -177,8 +177,8 @@ export function AuthSettings() {
                 <Input
                   id="auth-oauth2-manual"
                   type="password"
-                  value={auth.authToken}
-                  onChange={e => auth.applyToken(e.target.value)}
+                  value={auth.oauth2Token ?? ""}
+                  onChange={e => auth.setOAuth2Token(e.target.value || null)}
                   placeholder="Paste access token"
                 />
               </Field>

@@ -85,7 +85,7 @@ export function ChannelTestTab({ channel }: { channel: ParsedChannel }) {
   }, [ws.messages, dirFilter])
 
   const statusColor = ws.status === "connected" ? "bg-ws-send"
-    : ws.status === "connecting" ? "bg-status-testing motion-safe:animate-pulse"
+    : ws.status === "connecting" ? "bg-status-testing animate-pulse"
     : ws.status === "error" ? "bg-destructive"
     : "bg-muted-foreground/30"
 

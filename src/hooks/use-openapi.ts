@@ -187,14 +187,14 @@ export function useOpenAPI() {
         const msg = fetchErr instanceof TypeError ? fetchErr.message : ""
         if (msg.includes("Failed to fetch")) {
           const isHttps = url.startsWith("https://")
-          const targetOrigin = new URL(url).origin
-          const isCrossOrigin = targetOrigin !== location.origin
+          let isCrossOrigin = false
+          try { isCrossOrigin = new URL(url).origin !== location.origin } catch { /* invalid URL */ }
           if (isCrossOrigin) {
-            throw new Error(i18n.t("error.fetchCors", { url: targetOrigin }))
+            throw new Error(i18n.t("error.fetchCors", { url: new URL(url).origin }), { cause: fetchErr })
           }
           throw new Error(isHttps
             ? i18n.t("error.fetchNetwork", { url })
-            : i18n.t("error.fetchNetworkHttp", { url }))
+            : i18n.t("error.fetchNetworkHttp", { url }), { cause: fetchErr })
         }
         throw fetchErr
       }

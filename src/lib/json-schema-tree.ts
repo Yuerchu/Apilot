@@ -305,7 +305,7 @@ function toTreeNode(node: SchemaNode): JsonSchemaTreeNode {
   if (isRegularNode(node)) {
     const children = (node.children ?? []).map(toTreeNode)
     const constraints = getConstraints(node)
-    return {
+    const result: JsonSchemaTreeNode = {
       id: node.id,
       name: getNodeName(node),
       path: getPath(node),
@@ -320,6 +320,30 @@ function toTreeNode(node: SchemaNode): JsonSchemaTreeNode {
       defaultValue: getDefaultValue(node),
       children,
     }
+
+    // Collapse nullable anyOf/oneOf: [SomeType, null] → merge into parent
+    if (result.typeInfo.combiner && children.length >= 1) {
+      const nullChildren = children.filter(c => c.typeInfo.summary === "null" && c.children.length === 0)
+      const nonNullChildren = children.filter(c => c.typeInfo.summary !== "null" || c.children.length > 0)
+      if (nullChildren.length > 0 && nonNullChildren.length === 1) {
+        const real = nonNullChildren[0]!
+        // Merge the non-null child's info up, keeping nullable in summary
+        result.typeInfo = {
+          summary: `${real.typeInfo.summary} | null`,
+          format: real.typeInfo.format || result.typeInfo.format,
+          combiner: real.typeInfo.combiner,
+          variantCount: real.typeInfo.variantCount,
+        }
+        result.description = result.description || real.description
+        result.constraints = result.constraints.length > 0 ? result.constraints : real.constraints
+        result.validations = result.validations.length > 0 ? result.validations : real.validations
+        result.enumValues = result.enumValues.length > 0 ? result.enumValues : real.enumValues
+        result.defaultValue = result.defaultValue || real.defaultValue
+        result.children = real.children
+      }
+    }
+
+    return result
   }
 
   const children = node.children.map(toTreeNode)

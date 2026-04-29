@@ -1154,7 +1154,7 @@ export function SchemaViewerView({ spec }: SchemaViewerViewProps) {
           onClick={() => fileInputRef.current?.click()}
         >
           {loadingExternal ? (
-            <Loader2 className="size-3.5 motion-safe:animate-spin" />
+            <Loader2 className="size-3.5 animate-spin" />
           ) : (
             <Upload className="size-3.5" />
           )}

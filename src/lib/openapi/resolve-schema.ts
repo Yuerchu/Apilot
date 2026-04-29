@@ -22,16 +22,20 @@ export function resolveEffectiveSchema(schema: SchemaObject | undefined | null):
   }
   // OAS 3.0: nullable: true
   if (s.nullable) nullable = true;
-  // Unwrap anyOf nullable pattern
-  if (s.anyOf) {
-    const hasNull = s.anyOf.some(x => x.type === 'null');
-    const nonNull = s.anyOf.find(x => x.type !== 'null');
-    if (hasNull && nonNull) {
+  // Unwrap anyOf/oneOf nullable pattern: [SomeType, {type:"null"}] → SomeType + nullable
+  for (const key of ['anyOf', 'oneOf'] as const) {
+    const variants = s[key] as SchemaObject[] | undefined;
+    if (!variants) continue;
+    const nullVariants = variants.filter(x => x.type === 'null' || (Array.isArray(x.type) && x.type.length === 1 && x.type[0] === 'null'));
+    const nonNullVariants = variants.filter(x => !nullVariants.includes(x));
+    if (nullVariants.length > 0 && nonNullVariants.length === 1) {
       const topDefault = s.default;
       const topDesc = s.description;
-      s = { ...nonNull };
+      const topTitle = s.title;
+      s = { ...nonNullVariants[0]! };
       if (topDefault !== undefined && s.default === undefined) s.default = topDefault;
       if (topDesc && !s.description) s.description = topDesc;
+      if (topTitle && !s.title) s.title = topTitle;
       nullable = true;
     }
   }
