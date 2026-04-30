@@ -176,7 +176,7 @@ function JsonEditorPane({
         <span className="text-[10px] text-muted-foreground font-medium">{t("tryIt.jsonPreview")}</span>
         <span className="text-[10px] text-muted-foreground">{t("tryIt.editable")}</span>
       </div>
-      <JsonEditor value={value} onChange={onChange} minHeight="200px" />
+      <JsonEditor value={value} onChange={onChange} minHeight="120px" />
     </div>
   )
 }
@@ -446,19 +446,22 @@ export function TryTab({ route, index: _index }: TryTabProps) {
                 onFileChange={handleFdFileChange}
               />
             ) : hasFormableSchema ? (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2 max-h-[400px] overflow-auto px-1">
+              <div className="grid grid-cols-2 gap-3 items-start">
+                <div className="space-y-2 px-1">
                   <SchemaForm
                     schema={currentSchema!}
                     value={bodyObj}
                     onChange={handleFormChange}
                     showErrors={showErrors}
+                    defaultExcludeOptional={route.method === "patch"}
                   />
                 </div>
-                <JsonEditorPane
-                  value={bodyJson}
-                  onChange={handleJsonChange}
-                />
+                <div className="sticky top-0">
+                  <JsonEditorPane
+                    value={bodyJson}
+                    onChange={handleJsonChange}
+                  />
+                </div>
               </div>
             ) : (
               <JsonEditorPane

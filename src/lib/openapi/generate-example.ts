@@ -115,6 +115,105 @@ function randomizeLeaves(value: unknown, rawSchema: SchemaObject): unknown {
   return value
 }
 
+export interface RandomVariant {
+  id: string
+  label: string
+}
+
+const PHONE_VARIANTS: RandomVariant[] = [
+  { id: "phone-international", label: "+1 (555) 123-4567" },
+  { id: "phone-e164", label: "+8613800138000 (E.164)" },
+  { id: "phone-digits", label: "13800138000" },
+  { id: "phone-cn", label: "138-0013-8000" },
+]
+
+const DATETIME_VARIANTS: RandomVariant[] = [
+  { id: "dt-recent", label: "Recent (ISO 8601)" },
+  { id: "dt-past", label: "Past (ISO 8601)" },
+  { id: "dt-future", label: "Future (ISO 8601)" },
+  { id: "dt-epoch", label: "Unix timestamp" },
+]
+
+const DATE_VARIANTS: RandomVariant[] = [
+  { id: "date-recent", label: "Recent" },
+  { id: "date-past", label: "Past" },
+  { id: "date-future", label: "Future" },
+]
+
+const EMAIL_VARIANTS: RandomVariant[] = [
+  { id: "email-random", label: "Random email" },
+  { id: "email-example", label: "user@example.com" },
+]
+
+const UUID_VARIANTS: RandomVariant[] = [
+  { id: "uuid-v4", label: "UUID v4" },
+  { id: "uuid-nil", label: "Nil UUID" },
+]
+
+const STRING_VARIANTS: RandomVariant[] = [
+  { id: "str-alpha", label: "Alphanumeric" },
+  { id: "str-lorem", label: "Lorem text" },
+  { id: "str-slug", label: "slug-format" },
+]
+
+export function getRandomVariants(rawSchema: SchemaObject): RandomVariant[] {
+  const schema = resolveEffectiveSchema(rawSchema)
+  if (schema.enum) return []
+  const type = Array.isArray(schema.type) ? schema.type[0] : schema.type
+  const fmt = schema.format
+
+  if (type === "boolean") return []
+
+  if (type === "string" || !type) {
+    if (fmt === "date-time") return DATETIME_VARIANTS
+    if (fmt === "date") return DATE_VARIANTS
+    if (fmt === "email" || fmt === "idn-email") return EMAIL_VARIANTS
+    if (fmt === "uuid") return UUID_VARIANTS
+    if (fmt === "phone" || fmt === "telephone" || fmt === "mobile" || fmt === "e164" || fmt === "e.164") return PHONE_VARIANTS
+    // Plain string — offer text variants if no pattern
+    if (!schema.pattern) return STRING_VARIANTS
+  }
+
+  return []
+}
+
+export function generateWithVariant(rawSchema: SchemaObject, variantId: string): unknown {
+  const schema = resolveEffectiveSchema(rawSchema)
+  const minLen = schema.minLength ?? 1
+  const maxLen = schema.maxLength ?? Math.max(minLen, 20)
+
+  switch (variantId) {
+    // Phone
+    case "phone-international": return faker.phone.number({ style: "international" })
+    case "phone-e164": return `+${faker.helpers.arrayElement(["1", "44", "86", "81", "82", "49"])}${faker.string.numeric({ length: { min: 8, max: 11 } })}`
+    case "phone-digits": return faker.string.numeric({ length: { min: 10, max: 11 } })
+    case "phone-cn": {
+      const n = faker.string.numeric(11)
+      return `${n.slice(0, 3)}-${n.slice(3, 7)}-${n.slice(7)}`
+    }
+    // DateTime
+    case "dt-recent": return faker.date.recent().toISOString()
+    case "dt-past": return faker.date.past().toISOString()
+    case "dt-future": return faker.date.future().toISOString()
+    case "dt-epoch": return String(Math.floor(faker.date.recent().getTime() / 1000))
+    // Date
+    case "date-recent": return faker.date.recent().toISOString().split("T")[0]
+    case "date-past": return faker.date.past().toISOString().split("T")[0]
+    case "date-future": return faker.date.future().toISOString().split("T")[0]
+    // Email
+    case "email-random": return faker.internet.email()
+    case "email-example": return `user${faker.number.int({ min: 1, max: 999 })}@example.com`
+    // UUID
+    case "uuid-v4": return faker.string.uuid()
+    case "uuid-nil": return "00000000-0000-0000-0000-000000000000"
+    // String
+    case "str-alpha": return faker.string.alphanumeric(faker.number.int({ min: minLen, max: Math.min(maxLen, 30) }))
+    case "str-lorem": return faker.lorem.words(faker.number.int({ min: 1, max: 5 })).slice(0, maxLen)
+    case "str-slug": return faker.lorem.slug(faker.number.int({ min: 1, max: 4 })).slice(0, maxLen)
+    default: return generateExample(rawSchema)
+  }
+}
+
 export function generateExample(schema: SchemaObject | null | undefined, _depth: number = 0): unknown {
   if (!schema) return null
   if (schema._circular || schema._unresolved) return null

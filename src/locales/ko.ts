@@ -185,6 +185,12 @@ export default {
     empty: "(비어있음)",
     random: "랜덤",
   },
+  schemaForm: {
+    selectAll: "전체 선택",
+    selectNone: "전체 해제",
+    invert: "반전",
+    fieldCount: "{{included}}/{{total}}개 선택적 필드",
+  },
   response: {
     headers: "응답 헤더",
     copyBody: "Body 복사",

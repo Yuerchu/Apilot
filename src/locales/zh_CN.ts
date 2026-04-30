@@ -185,6 +185,12 @@ export default {
     empty: "(空)",
     random: "随机",
   },
+  schemaForm: {
+    selectAll: "全选",
+    selectNone: "全不选",
+    invert: "反选",
+    fieldCount: "{{included}}/{{total}} 个可选字段",
+  },
   response: {
     headers: "Response Headers",
     copyBody: "复制 Body",

@@ -185,6 +185,12 @@ export default {
     empty: "(空)",
     random: "ランダム",
   },
+  schemaForm: {
+    selectAll: "全選択",
+    selectNone: "全解除",
+    invert: "反転",
+    fieldCount: "{{included}}/{{total}} 個の任意フィールド",
+  },
   response: {
     headers: "レスポンスヘッダー",
     copyBody: "Body をコピー",

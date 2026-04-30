@@ -1,11 +1,18 @@
 import { useTranslation } from "react-i18next"
-import { Dices, X } from "lucide-react"
+import { Dices, X, ChevronDown } from "lucide-react"
 import type { SchemaObject } from "@/lib/openapi"
 import { resolveEffectiveSchema, getTypeStr, generateExample } from "@/lib/openapi"
+import { getRandomVariants, generateWithVariant } from "@/lib/openapi/generate-example"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
 import { DateTimePicker } from "@/components/ui/date-time-picker"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Select,
   SelectContent,
@@ -34,20 +41,54 @@ function NullButton({ onChange }: { onChange: (v: string) => void }) {
 
 function RandomButton({ schema, onChange }: { schema: SchemaObject; onChange: (v: string) => void }) {
   const { t } = useTranslation()
+  const variants = getRandomVariants(schema)
+
+  const handleDefault = () => {
+    const val = generateExample(schema)
+    if (val !== null && val !== undefined) onChange(String(val))
+  }
+
+  const handleVariant = (variantId: string) => {
+    const val = generateWithVariant(schema, variantId)
+    if (val !== null && val !== undefined) onChange(String(val))
+  }
+
+  if (variants.length === 0) {
+    return (
+      <Button variant="outline" size="sm" className="h-8 shrink-0" type="button" onClick={handleDefault}>
+        <Dices className="size-3.5" />
+        {t("tryIt.random")}
+      </Button>
+    )
+  }
+
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      className="h-8 shrink-0"
-      type="button"
-      onClick={() => {
-        const val = generateExample(schema)
-        if (val !== null && val !== undefined) onChange(String(val))
-      }}
-    >
-      <Dices className="size-3.5" />
-      {t("tryIt.random")}
-    </Button>
+    <div className="flex shrink-0">
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 rounded-r-none border-r-0"
+        type="button"
+        onClick={handleDefault}
+      >
+        <Dices className="size-3.5" />
+        {t("tryIt.random")}
+      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-8 px-1.5 rounded-l-none" type="button">
+            <ChevronDown className="size-3" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-36">
+          {variants.map(v => (
+            <DropdownMenuItem key={v.id} onClick={() => handleVariant(v.id)} className="text-xs">
+              {v.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   )
 }
 

@@ -185,6 +185,12 @@ export default {
     empty: "(empty)",
     random: "Random",
   },
+  schemaForm: {
+    selectAll: "All",
+    selectNone: "None",
+    invert: "Invert",
+    fieldCount: "{{included}}/{{total}} optional fields",
+  },
   response: {
     headers: "Response Headers",
     copyBody: "Copy Body",

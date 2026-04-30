@@ -47,6 +47,8 @@ type ArrayFieldValues = Record<string, unknown[]>
 
 interface SchemaFormProps {
   schema: SchemaObject
+  /** When true, non-required fields default to excluded (useful for PATCH) */
+  defaultExcludeOptional?: boolean
   value: SchemaFormOutput
   onChange: (value: SchemaFormOutput) => void
   prefix?: string
@@ -559,7 +561,7 @@ function stripExcludedFields(obj: unknown, excluded: Set<string>, prefix = ""): 
   return result
 }
 
-export function SchemaForm({ schema, value, onChange, prefix: _prefix, showErrors = false }: SchemaFormProps) {
+export function SchemaForm({ schema, value, onChange, prefix: _prefix, showErrors = false, defaultExcludeOptional = false }: SchemaFormProps) {
   if (!schema) return null
 
   const resolved = resolveEffectiveSchema(schema)
@@ -585,21 +587,51 @@ export function SchemaForm({ schema, value, onChange, prefix: _prefix, showError
   }
 
   const objectValue = Array.isArray(value) ? {} : value
-  return <ObjectSchemaForm schema={schema} value={objectValue} onChange={onChange} showErrors={showErrors} />
+  return <ObjectSchemaForm schema={schema} value={objectValue} onChange={onChange} showErrors={showErrors} defaultExcludeOptional={defaultExcludeOptional} />
 }
 
-function ObjectSchemaForm({ schema, value, onChange, showErrors }: {
+function BulkFieldActions({
+  onSelectAll,
+  onSelectNone,
+  onInvert,
+  includedCount,
+  totalCount,
+}: {
+  onSelectAll: () => void
+  onSelectNone: () => void
+  onInvert: () => void
+  includedCount: number
+  totalCount: number
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="text-muted-foreground">{t("schemaForm.fieldCount", { included: includedCount, total: totalCount })}</span>
+      <div className="flex-1" />
+      <Button variant="ghost" size="xs" type="button" onClick={onSelectAll}>{t("schemaForm.selectAll")}</Button>
+      <Button variant="ghost" size="xs" type="button" onClick={onInvert}>{t("schemaForm.invert")}</Button>
+      <Button variant="ghost" size="xs" type="button" onClick={onSelectNone}>{t("schemaForm.selectNone")}</Button>
+    </div>
+  )
+}
+
+function ObjectSchemaForm({ schema, value, onChange, showErrors, defaultExcludeOptional = false }: {
   schema: SchemaObject
   value: SchemaFormValues
   onChange: (value: SchemaFormOutput) => void
   showErrors: boolean
+  defaultExcludeOptional?: boolean
 }) {
   const form = useForm<SchemaFormValues>({
     defaultValues: value,
     resolver: customResolver(schema),
   })
 
-  const [excluded, setExcluded] = useState<Set<string>>(new Set())
+  const [excluded, setExcluded] = useState<Set<string>>(() => {
+    if (!defaultExcludeOptional || !schema.properties) return new Set()
+    const required = new Set(schema.required || [])
+    return new Set(Object.keys(schema.properties).filter(k => !required.has(k)))
+  })
   const toggleExcluded = useCallback((fieldName: string) => {
     setExcluded(prev => {
       const next = new Set(prev)
@@ -652,9 +684,36 @@ function ObjectSchemaForm({ schema, value, onChange, showErrors }: {
     if (showErrors) form.trigger()
   }, [showErrors, form])
 
+  const optionalFields = useMemo(() => {
+    if (!schema.properties) return []
+    const required = new Set(schema.required || [])
+    return Object.keys(schema.properties).filter(k => !required.has(k))
+  }, [schema])
+
+  const selectAll = useCallback(() => setExcluded(new Set()), [])
+  const selectNone = useCallback(() => setExcluded(new Set(optionalFields)), [optionalFields])
+  const invertSelection = useCallback(() => {
+    setExcluded(prev => {
+      const next = new Set<string>()
+      for (const f of optionalFields) {
+        if (!prev.has(f)) next.add(f)
+      }
+      return next
+    })
+  }, [optionalFields])
+
   return (
     <ExcludedFieldsContext.Provider value={excludedCtx}>
       <div className="space-y-3">
+        {optionalFields.length > 0 && (
+          <BulkFieldActions
+            onSelectAll={selectAll}
+            onSelectNone={selectNone}
+            onInvert={invertSelection}
+            includedCount={optionalFields.length - optionalFields.filter(f => excluded.has(f)).length}
+            totalCount={optionalFields.length}
+          />
+        )}
         <FormFields
           schema={schema}
           basePath=""

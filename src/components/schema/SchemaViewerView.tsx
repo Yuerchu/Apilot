@@ -699,9 +699,11 @@ export function SchemaViewerView({ spec }: SchemaViewerViewProps) {
   const [graphMounted, setGraphMounted] = useState(false)
   const viewMode = state.modelViewMode
 
+  // Use sourceSpec for graph — it retains $ref pointers needed to build edges
   const graphSchemas = useMemo(() => {
-    return (spec?.components?.schemas || spec?.definitions || {}) as Record<string, SchemaObject>
-  }, [spec])
+    const src = state.sourceSpec ?? spec
+    return (src?.components?.schemas || src?.definitions || {}) as Record<string, SchemaObject>
+  }, [state.sourceSpec, spec])
 
   const openAPIItems = useMemo(() => spec ? getOpenAPISchemaViewerItems(spec) : [], [spec])
   const activeItems = state.schemaSource === "external" ? externalItems : openAPIItems
