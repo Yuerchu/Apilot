@@ -352,6 +352,7 @@ export default {
     graphExportFailed: "グラフのエクスポートに失敗しました",
     shareCopied: "Share link copied",
     shareCopyFailed: "Could not copy share link",
+    nonStandardProperties: "ドキュメントに OpenAPI 仕様外の非標準プロパティ（例: itemSchema）が含まれています。互換性のため自動変換しました。",
   },
   validation: {
     baseUrl: "先にサーバー URL を入力してください",

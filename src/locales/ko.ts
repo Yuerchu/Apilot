@@ -352,6 +352,7 @@ export default {
     graphExportFailed: "그래프 내보내기 실패",
     shareCopied: "Share link copied",
     shareCopyFailed: "Could not copy share link",
+    nonStandardProperties: "문서에 OpenAPI 사양에 포���되지 않는 비표준 속성(예: itemSchema)이 포함되어 있습니다. 호환성을 ���해 자동 변환되었습니다.",
   },
   validation: {
     baseUrl: "먼저 서버 URL을 입력하세요",

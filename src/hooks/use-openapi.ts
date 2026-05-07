@@ -1,4 +1,5 @@
 import { useCallback } from "react"
+import { toast } from "sonner"
 import i18n from "@/lib/i18n"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { useAsyncAPIContext } from "@/contexts/AsyncAPIContext"
@@ -129,7 +130,10 @@ export function useOpenAPI() {
   const yieldToUI = () => new Promise<void>(r => requestAnimationFrame(() => setTimeout(r, 0)))
 
   const processOpenAPISpec = useCallback(async (input: string | OpenAPISpec, url: string, baseUrlOverride?: string) => {
-    const { spec: parsedSpec, sourceSpec } = await parseValidatedSpec(input)
+    const { spec: parsedSpec, sourceSpec, warnings } = await parseValidatedSpec(input)
+    if (warnings.length > 0) {
+      toast.warning(i18n.t("toast.nonStandardProperties"), { duration: 8000 })
+    }
     const spec = normalizeParsedSpec(parsedSpec)
     asyncDispatch({ type: "RESET" })
     dispatch({ type: "SET_SPEC", spec, sourceSpec })

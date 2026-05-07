@@ -352,6 +352,7 @@ export default {
     graphExportFailed: "圖譜匯出失敗",
     shareCopied: "分享連結已複製",
     shareCopyFailed: "分享連結複製失敗",
+    nonStandardProperties: "文件包含不符合 OpenAPI 規範的非標準屬性（如 itemSchema），已自動轉換以相容。",
   },
   validation: {
     baseUrl: "請先在 Server 欄填寫 Base URL",

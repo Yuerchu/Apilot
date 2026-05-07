@@ -11,6 +11,7 @@ export type OpenAPIDiagnosticCode =
   | "missing-response-schema"
   | "missing-description"
   | "enum-missing-description"
+  | "non-standard-property"
 
 export interface OpenAPIDiagnosticIssue {
   id: string
@@ -42,6 +43,7 @@ const DIAGNOSTIC_CODES: OpenAPIDiagnosticCode[] = [
   "missing-response-schema",
   "missing-description",
   "enum-missing-description",
+  "non-standard-property",
 ]
 
 let configPromise: ReturnType<typeof createConfig> | null = null
@@ -344,7 +346,11 @@ function summarizeByCode(issues: OpenAPIDiagnosticIssue[]): OpenAPIDiagnosticsRe
   return initial
 }
 
-export async function runOpenAPIDiagnostics(_spec: OpenAPISpec, sourceSpec: OpenAPISpec = _spec): Promise<OpenAPIDiagnosticsResult> {
+export async function runOpenAPIDiagnostics(
+  _spec: OpenAPISpec,
+  sourceSpec: OpenAPISpec = _spec,
+  extraIssues: OpenAPIDiagnosticIssue[] = [],
+): Promise<OpenAPIDiagnosticsResult> {
   const config = await getDiagnosticsConfig()
   const problems = await lintFromString({
     source: JSON.stringify(sourceSpec),
@@ -352,6 +358,7 @@ export async function runOpenAPIDiagnostics(_spec: OpenAPISpec, sourceSpec: Open
     config,
   })
   const issues = [
+    ...extraIssues,
     ...problems.map(redoclyProblemToIssue).filter((issue): issue is OpenAPIDiagnosticIssue => !!issue),
     ...scanSupplementalRules(sourceSpec),
   ]

@@ -97,6 +97,7 @@ export interface RequestBody {
 
 export interface MediaTypeObject {
   schema?: SchemaObject
+  itemSchema?: SchemaObject // non-standard, draft proposal used by FastAPI/sse-starlette for SSE
   example?: unknown
 }
 

@@ -352,6 +352,7 @@ export default {
     graphExportFailed: "Graph export failed",
     shareCopied: "Share link copied",
     shareCopyFailed: "Could not copy share link",
+    nonStandardProperties: "Document contains non-standard properties (e.g. itemSchema) not part of the OpenAPI spec. Auto-converted for compatibility.",
   },
   validation: {
     baseUrl: "Please fill in the Base URL first",
