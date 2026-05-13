@@ -11,4 +11,5 @@ declare const __CI_RUN_NUMBER__: string
 interface Window {
   __OPENAPI_URL__?: string
   __OPENAPI_TITLE__?: string
+  __EMBEDDED_SPEC__?: Record<string, unknown>
 }

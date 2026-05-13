@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react"
+import type { OpenAPISpec } from "@/lib/openapi/types"
 import { useTranslation } from "react-i18next"
 import { OpenAPIProvider, useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { AsyncAPIProvider } from "@/contexts/AsyncAPIContext"
@@ -92,7 +93,7 @@ function AppContent() {
     clearModelSelection,
   } = useOpenAPIContext()
   const { state: asyncState } = useAsyncAPIContext()
-  const { loadFromUrl } = useOpenAPI()
+  const { loadFromUrl, loadFromSpec } = useOpenAPI()
   const auth = useAuthContext()
   useUrlState()
 
@@ -101,10 +102,12 @@ function AppContent() {
     setAuthToken: auth.setAuthToken,
   }, loadFromUrl)
 
-  const isEmbedded = useMemo(() => !!window.__OPENAPI_URL__, [])
+  const isEmbedded = useMemo(() => !!(window.__EMBEDDED_SPEC__ || window.__OPENAPI_URL__), [])
 
   useEffect(() => {
-    if (window.__OPENAPI_URL__) {
+    if (window.__EMBEDDED_SPEC__) {
+      loadFromSpec(window.__EMBEDDED_SPEC__ as OpenAPISpec, window.__OPENAPI_TITLE__)
+    } else if (window.__OPENAPI_URL__) {
       loadFromUrl(window.__OPENAPI_URL__)
       if (window.__OPENAPI_TITLE__) document.title = window.__OPENAPI_TITLE__
     }

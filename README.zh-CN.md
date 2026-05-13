@@ -88,6 +88,33 @@ pnpm lint         # ESLint 检查
 pnpm typecheck    # TypeScript 类型检查
 ```
 
+## CLI：静态文档生成
+
+从 OpenAPI spec 生成静态文档站点，适用于 CI/CD 流水线和部署到 GitHub Pages / Cloudflare Pages。
+
+```bash
+npx apilot build --spec openapi.json --out ./docs
+npx apilot build --spec openapi.yaml --out ./docs --title "My API" --single-file
+```
+
+| 参数 | 说明 |
+|------|------|
+| `--spec, -s` | OpenAPI/AsyncAPI spec 文件路径（JSON 或 YAML） |
+| `--out, -o` | 输出目录（默认 `./apilot-dist`） |
+| `--title, -t` | 自定义页面标题 |
+| `--single-file` | 输出单个自包含 HTML 文件 |
+| `--lang` | 默认语言（`en`、`zh_CN`、`zh_HK`、`zh_TW`、`ja`、`ko`） |
+
+### GitHub Actions 示例
+
+```yaml
+- run: npx apilot build --spec openapi.json --out docs/ --title "My API"
+- uses: peaceiris/actions-gh-pages@v4
+  with:
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+    publish_dir: ./docs
+```
+
 ## FastAPI 集成
 
 参见 [openapi-advance-python](https://github.com/Yuerchu/openapi-advance-python)，一行代码替换 FastAPI 内置的 Swagger UI：

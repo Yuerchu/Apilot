@@ -1,3 +1,5 @@
 node_modules/
 dist/
 _old/
+cli/template/
+cli/index.mjs

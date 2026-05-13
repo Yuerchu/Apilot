@@ -88,6 +88,33 @@ pnpm lint         # ESLint
 pnpm typecheck    # TypeScript type check
 ```
 
+## CLI: Static Docs Generation
+
+Generate a static documentation site from an OpenAPI spec — ideal for CI/CD pipelines and deployment to GitHub Pages / Cloudflare Pages.
+
+```bash
+npx apilot build --spec openapi.json --out ./docs
+npx apilot build --spec openapi.yaml --out ./docs --title "My API" --single-file
+```
+
+| Option | Description |
+|--------|-------------|
+| `--spec, -s` | Path to OpenAPI/AsyncAPI spec file (JSON or YAML) |
+| `--out, -o` | Output directory (default: `./apilot-dist`) |
+| `--title, -t` | Custom page title |
+| `--single-file` | Output a single self-contained HTML file |
+| `--lang` | Default language (`en`, `zh_CN`, `zh_HK`, `zh_TW`, `ja`, `ko`) |
+
+### GitHub Actions Example
+
+```yaml
+- run: npx apilot build --spec openapi.json --out docs/ --title "My API"
+- uses: peaceiris/actions-gh-pages@v4
+  with:
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+    publish_dir: ./docs
+```
+
 ## FastAPI Integration
 
 See [openapi-advance-python](https://github.com/Yuerchu/openapi-advance-python) for the Python package that replaces FastAPI's built-in Swagger UI:

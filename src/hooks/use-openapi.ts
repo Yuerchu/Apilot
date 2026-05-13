@@ -226,6 +226,22 @@ export function useOpenAPI() {
     }
   }, [dispatch, processOpenAPISpec, processAsyncAPISpec])
 
+  const loadFromSpec = useCallback(async (rawSpec: OpenAPISpec, title?: string) => {
+    dispatch({ type: "SET_LOADING", loading: true })
+    dispatch({ type: "SET_ERROR", error: null })
+    try {
+      if ((rawSpec as Record<string, unknown>).asyncapi) {
+        await processAsyncAPISpec(JSON.stringify(rawSpec), "")
+      } else {
+        await processOpenAPISpec(rawSpec, "")
+      }
+      if (title) document.title = title
+    } catch (e) {
+      dispatch({ type: "SET_ERROR", error: getErrorMessage(e) })
+      dispatch({ type: "SET_LOADING", loading: false })
+    }
+  }, [dispatch, processOpenAPISpec, processAsyncAPISpec])
+
   const loadFromFile = useCallback((file: File) => {
     dispatch({ type: "SET_LOADING", loading: true })
     dispatch({ type: "SET_ERROR", error: null })
@@ -302,6 +318,7 @@ export function useOpenAPI() {
     loading: state.loading,
     error: state.error,
     loadFromUrl,
+    loadFromSpec,
     loadFromFile,
     getServers,
     getOAuth2TokenUrl,

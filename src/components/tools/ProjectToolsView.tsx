@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Loader2, Stethoscope, GitCompare, Upload } from "lucide-react"
+import { Loader2, Stethoscope, GitCompare, Upload, ChevronDown, ChevronRight, Globe, FileUp, FileText } from "lucide-react"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import type {
   OpenAPIDiagnosticCode,
@@ -18,7 +18,23 @@ import type { OpenAPISpec } from "@/lib/openapi/types"
 import { getErrorMessage } from "@/lib/openapi/parser"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Collapsible, CollapsibleTrigger, AnimatedCollapsibleContent } from "@/components/ui/collapsible"
+import { Toggle } from "@/components/ui/toggle"
+import { useEnvironments } from "@/hooks/use-environments"
+import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { cn } from "@/lib/utils"
+import { MultiEnvDiffView } from "./MultiEnvDiffView"
 import OpenAPIDiagnosticsWorker from "./openapi-diagnostics.worker.ts?worker&inline"
 import OpenAPIDiffWorker from "./openapi-diff.worker.ts?worker&inline"
 
@@ -188,6 +204,145 @@ function DiffChangeRow({ change }: { change: OpenAPIDiffChange }) {
   )
 }
 
+function EndpointDiffGroup({ operation, changes }: { operation: string; changes: OpenAPIDiffChange[] }) {
+  const severityCounts = useMemo(() => {
+    const counts: Record<OpenAPIDiffSeverity, number> = { breaking: 0, changed: 0, "non-breaking": 0 }
+    for (const c of changes) counts[c.severity]++
+    return counts
+  }, [changes])
+
+  return (
+    <Collapsible>
+      <CollapsibleTrigger className="flex w-full items-center gap-2 rounded-lg border bg-card px-3 py-2 text-left hover:bg-accent/50 transition-colors group/trigger">
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]/trigger:rotate-90" />
+        <span className="min-w-0 truncate font-mono text-sm font-medium">{operation}</span>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          {severityCounts.breaking > 0 && (
+            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">{severityCounts.breaking}</Badge>
+          )}
+          {severityCounts.changed > 0 && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{severityCounts.changed}</Badge>
+          )}
+          {severityCounts["non-breaking"] > 0 && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0">{severityCounts["non-breaking"]}</Badge>
+          )}
+        </div>
+      </CollapsibleTrigger>
+      <AnimatedCollapsibleContent>
+        <div className="flex flex-col gap-1.5 pl-6 pt-1.5">
+          {changes.map(change => (
+            <DiffChangeRow key={change.id} change={change} />
+          ))}
+        </div>
+      </AnimatedCollapsibleContent>
+    </Collapsible>
+  )
+}
+
+const SEVERITY_OPTIONS: OpenAPIDiffSeverity[] = ["breaking", "changed", "non-breaking"]
+
+export function GroupedDiffResult({ diff }: { diff: OpenAPIDiffResult }) {
+  const { t } = useTranslation()
+  const [severityFilter, setSeverityFilter] = useState<Set<OpenAPIDiffSeverity>>(new Set(SEVERITY_OPTIONS))
+
+  const grouped = useMemo(() => {
+    const filtered = diff.changes.filter(c => severityFilter.has(c.severity))
+    const map = new Map<string, OpenAPIDiffChange[]>()
+    for (const change of filtered) {
+      const key = change.operation
+      const arr = map.get(key)
+      if (arr) arr.push(change)
+      else map.set(key, [change])
+    }
+    return map
+  }, [diff.changes, severityFilter])
+
+  const toggleSeverity = (severity: OpenAPIDiffSeverity) => {
+    setSeverityFilter(prev => {
+      const next = new Set(prev)
+      if (next.has(severity)) {
+        if (next.size > 1) next.delete(severity)
+      } else {
+        next.add(severity)
+      }
+      return next
+    })
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <CountTile label={t("tools.diffSeverity.breaking")} value={diff.counts.breaking} />
+        <CountTile label={t("tools.diffKinds.endpoint-added")} value={diff.byKind["endpoint-added"]} />
+        <CountTile label={t("tools.diffKinds.endpoint-removed")} value={diff.byKind["endpoint-removed"]} />
+        <CountTile
+          label={t("tools.schemaChanges")}
+          value={diff.byKind["request-schema-changed"] + diff.byKind["response-schema-changed"]}
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {SEVERITY_OPTIONS.map(severity => (
+          <Toggle
+            key={severity}
+            size="sm"
+            variant="outline"
+            pressed={severityFilter.has(severity)}
+            onPressedChange={() => toggleSeverity(severity)}
+          >
+            <Badge variant={getDiffBadgeVariant(severity)} className="pointer-events-none">
+              {getDiffSeverityLabel(t, severity)}
+            </Badge>
+            <span className="tabular-nums text-xs">{diff.counts[severity]}</span>
+          </Toggle>
+        ))}
+        <div className="flex-1" />
+        {DIFF_KIND_ORDER.map(kind => (
+          <Badge key={kind} variant="outline">
+            {getDiffKindLabel(t, kind)}
+            <span className="tabular-nums">{diff.byKind[kind]}</span>
+          </Badge>
+        ))}
+      </div>
+
+      {grouped.size === 0 ? (
+        <Empty className="rounded-lg border bg-card">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <GitCompare />
+            </EmptyMedia>
+            <EmptyTitle>{t("tools.noDiffChanges")}</EmptyTitle>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {[...grouped.entries()].map(([operation, changes]) => (
+            <EndpointDiffGroup key={operation} operation={operation} changes={changes} />
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
+export function getEnvSpecUrl(specUrl: string | undefined, envBaseUrl: string): string | null {
+  if (!specUrl) return null
+  try {
+    const parsed = new URL(specUrl)
+    const envBase = new URL(envBaseUrl)
+    parsed.protocol = envBase.protocol
+    parsed.hostname = envBase.hostname
+    parsed.port = envBase.port
+    const envPath = envBase.pathname.replace(/\/+$/, "")
+    if (envPath && envPath !== "/") {
+      parsed.pathname = envPath + parsed.pathname
+    }
+    return parsed.toString()
+  } catch {
+    return null
+  }
+}
+
 export function OpenAPIDiagnosticsView({ spec, sourceSpec }: OpenAPIToolViewProps) {
   const { t } = useTranslation()
   const diagnosticsWorkerRef = useRef<Worker | null>(null)
@@ -306,6 +461,12 @@ export function OpenAPIDiffView({ spec }: OpenAPIDiffViewProps) {
   const [diffError, setDiffError] = useState<string | null>(null)
   const [diff, setDiff] = useState<OpenAPIDiffResult | null>(null)
   const [diffComputing, setDiffComputing] = useState(false)
+  const [urlInputSlot, setUrlInputSlot] = useState<DiffSlotName | null>(null)
+  const [urlBefore, setUrlBefore] = useState("")
+  const [urlAfter, setUrlAfter] = useState("")
+
+  const { environments } = useEnvironments()
+  const { state: { specUrl } } = useOpenAPIContext()
 
   const startDiffCompute = useCallback(() => {
     const worker = diffWorkerRef.current
@@ -417,148 +578,191 @@ export function OpenAPIDiffView({ spec }: OpenAPIDiffViewProps) {
     })
   }
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto pb-4">
-      <div className="grid gap-2 md:grid-cols-2">
-        <div className="rounded-lg border bg-card p-3">
-          <div className="text-sm font-medium">{t("tools.diffBefore")}</div>
-          <div className="mt-1 truncate text-xs text-muted-foreground">{before?.name || t("tools.noDiffFile")}</div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <input
-              ref={beforeInputRef}
-              type="file"
-              accept=".json,.yaml,.yml"
-              className="hidden"
-              onChange={event => {
-                void loadSlotFile("before", event.target.files?.[0])
-                event.target.value = ""
-              }}
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={loadingSlot === "before"}
-              onClick={() => beforeInputRef.current?.click()}
-            >
-              {loadingSlot === "before" && <Loader2 data-icon="inline-start" className="animate-spin" />}
-              {t("tools.chooseFile")}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={loadingSlot === "before" || !spec}
-              onClick={() => setCurrentSpecForSlot("before")}
-            >
-              {t("tools.useCurrentSpec")}
-            </Button>
-          </div>
-        </div>
+  const loadSlotFromUrl = async (slot: DiffSlotName, url: string, displayName?: string) => {
+    const worker = diffWorkerRef.current
+    if (!worker || !url.trim()) return
+    setDiffError(null)
+    setDiff(null)
+    setDiffComputing(false)
+    setLoadingSlot(slot)
+    readySlotsRef.current[slot] = false
+    const name = displayName || url
+    if (slot === "before") setBefore({ name })
+    else setAfter({ name })
+    const requestId = ++requestIdRef.current
+    pendingSlotRequestsRef.current[slot] = requestId
+    try {
+      const response = await fetch(url)
+      if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`)
+      const text = await response.text()
+      worker.postMessage({ type: "parse-slot", requestId, slot, name, text })
+    } catch (error) {
+      pendingSlotRequestsRef.current[slot] = null
+      readySlotsRef.current[slot] = false
+      setLoadingSlot(null)
+      if (slot === "before") setBefore(null)
+      else setAfter(null)
+      setDiffError(getErrorMessage(error))
+    }
+  }
 
-        <div className="rounded-lg border bg-card p-3">
-          <div className="text-sm font-medium">{t("tools.diffAfter")}</div>
-          <div className="mt-1 truncate text-xs text-muted-foreground">{after?.name || t("tools.noDiffFile")}</div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <input
-              ref={afterInputRef}
-              type="file"
-              accept=".json,.yaml,.yml"
-              className="hidden"
-              onChange={event => {
-                void loadSlotFile("after", event.target.files?.[0])
-                event.target.value = ""
-              }}
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={loadingSlot === "after"}
-              onClick={() => afterInputRef.current?.click()}
-            >
-              {loadingSlot === "after" && <Loader2 data-icon="inline-start" className="animate-spin" />}
-              {t("tools.chooseFile")}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={loadingSlot === "after" || !spec}
-              onClick={() => setCurrentSpecForSlot("after")}
-            >
-              {t("tools.useCurrentSpec")}
-            </Button>
-          </div>
+  const computeEnvSpecUrl = (envBaseUrl: string) => getEnvSpecUrl(specUrl, envBaseUrl)
+
+  const renderSlotPanel = (slot: DiffSlotName) => {
+    const slotState = slot === "before" ? before : after
+    const inputRef = slot === "before" ? beforeInputRef : afterInputRef
+    const slotUrl = slot === "before" ? urlBefore : urlAfter
+    const setSlotUrl = slot === "before" ? setUrlBefore : setUrlAfter
+    const isLoading = loadingSlot === slot
+    const showUrlInput = urlInputSlot === slot
+
+    return (
+      <div className="rounded-lg border bg-card p-3">
+        <div className="text-sm font-medium">{t(slot === "before" ? "tools.diffBefore" : "tools.diffAfter")}</div>
+        <div className="mt-1 truncate text-xs text-muted-foreground">{slotState?.name || t("tools.noDiffFile")}</div>
+        <div className="mt-3 flex flex-col gap-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".json,.yaml,.yml"
+            className="hidden"
+            onChange={event => {
+              void loadSlotFile(slot, event.target.files?.[0])
+              event.target.value = ""
+            }}
+          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button type="button" size="sm" variant="outline" disabled={isLoading}>
+                {isLoading && <Loader2 data-icon="inline-start" className="animate-spin" />}
+                {t("tools.selectSource")}
+                <ChevronDown className="ml-1 size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => { setUrlInputSlot(null); inputRef.current?.click() }}>
+                  <FileUp className="size-4" />
+                  {t("tools.chooseFile")}
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={!spec} onClick={() => { setUrlInputSlot(null); setCurrentSpecForSlot(slot) }}>
+                  <FileText className="size-4" />
+                  {t("tools.useCurrentSpec")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setUrlInputSlot(prev => prev === slot ? null : slot)}>
+                  <Globe className="size-4" />
+                  {t("tools.enterUrl")}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              {specUrl && environments.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>{t("tools.fromEnvironment")}</DropdownMenuLabel>
+                  <DropdownMenuGroup>
+                    {environments.map(env => {
+                      const envUrl = computeEnvSpecUrl(env.baseUrl)
+                      return (
+                        <DropdownMenuItem
+                          key={env.id}
+                          disabled={!envUrl}
+                          onClick={() => {
+                            if (envUrl) {
+                              setUrlInputSlot(null)
+                              void loadSlotFromUrl(slot, envUrl, `${env.name} (${env.baseUrl})`)
+                            }
+                          }}
+                        >
+                          <div className="flex min-w-0 flex-col">
+                            <span className="truncate text-sm">{env.name}</span>
+                            <span className="truncate text-xs text-muted-foreground">{env.baseUrl}</span>
+                          </div>
+                        </DropdownMenuItem>
+                      )
+                    })}
+                  </DropdownMenuGroup>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {showUrlInput && (
+            <div className="flex gap-2">
+              <Input
+                className="h-8 text-xs"
+                placeholder={t("tools.urlPlaceholder")}
+                value={slotUrl}
+                onChange={e => setSlotUrl(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && slotUrl.trim()) {
+                    setUrlInputSlot(null)
+                    void loadSlotFromUrl(slot, slotUrl.trim())
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isLoading || !slotUrl.trim()}
+                onClick={() => {
+                  setUrlInputSlot(null)
+                  void loadSlotFromUrl(slot, slotUrl.trim())
+                }}
+              >
+                {t("tools.fetchUrl")}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
+    )
+  }
 
-      {diffError && (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-          {diffError}
+  return (
+    <Tabs defaultValue="pair" className="flex min-h-0 flex-1 flex-col">
+      <TabsList variant="line">
+        <TabsTrigger value="pair">{t("tools.pairDiff")}</TabsTrigger>
+        <TabsTrigger value="multi">{t("tools.multiEnvDiff")}</TabsTrigger>
+      </TabsList>
+      <TabsContent value="pair" className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto pb-4">
+        <div className="grid gap-2 md:grid-cols-2">
+          {renderSlotPanel("before")}
+          {renderSlotPanel("after")}
         </div>
-      )}
 
-      {diff ? (
-        <>
-          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-            <CountTile label={t("tools.diffSeverity.breaking")} value={diff.counts.breaking} />
-            <CountTile label={t("tools.diffKinds.endpoint-added")} value={diff.byKind["endpoint-added"]} />
-            <CountTile label={t("tools.diffKinds.endpoint-removed")} value={diff.byKind["endpoint-removed"]} />
-            <CountTile
-              label={t("tools.schemaChanges")}
-              value={diff.byKind["request-schema-changed"] + diff.byKind["response-schema-changed"]}
-            />
+        {diffError && (
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            {diffError}
           </div>
+        )}
 
-          <div className="flex flex-wrap gap-2">
-            {DIFF_KIND_ORDER.map(kind => (
-              <Badge key={kind} variant="outline">
-                {getDiffKindLabel(t, kind)}
-                <span className="tabular-nums">{diff.byKind[kind]}</span>
-              </Badge>
-            ))}
+        {diff ? (
+          <GroupedDiffResult diff={diff} />
+        ) : (
+          <div className={cn((loadingSlot || diffComputing) && "opacity-70")}>
+            {diffComputing ? (
+              <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+                <LoadingMessage>{t("tools.computingDiff")}</LoadingMessage>
+              </div>
+            ) : loadingSlot ? (
+              <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
+                <LoadingMessage>{t("tools.loadingDiffFile")}</LoadingMessage>
+              </div>
+            ) : (
+              <Empty className="rounded-lg border bg-card">
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <Upload />
+                  </EmptyMedia>
+                  <EmptyTitle>{t("tools.diffNeedsFiles")}</EmptyTitle>
+                </EmptyHeader>
+              </Empty>
+            )}
           </div>
-
-          {diff.changes.length === 0 ? (
-            <Empty className="rounded-lg border bg-card">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <GitCompare />
-                </EmptyMedia>
-                <EmptyTitle>{t("tools.noDiffChanges")}</EmptyTitle>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {diff.changes.map(change => (
-                <DiffChangeRow key={change.id} change={change} />
-              ))}
-            </div>
-          )}
-        </>
-      ) : (
-        <div className={cn((loadingSlot || diffComputing) && "opacity-70")}>
-          {diffComputing ? (
-            <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
-              <LoadingMessage>{t("tools.computingDiff")}</LoadingMessage>
-            </div>
-          ) : loadingSlot ? (
-            <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">
-              <LoadingMessage>{t("tools.loadingDiffFile")}</LoadingMessage>
-            </div>
-          ) : (
-            <Empty className="rounded-lg border bg-card">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <Upload />
-                </EmptyMedia>
-                <EmptyTitle>{t("tools.diffNeedsFiles")}</EmptyTitle>
-              </EmptyHeader>
-            </Empty>
-          )}
-        </div>
-      )}
-    </div>
+        )}
+      </TabsContent>
+      <TabsContent value="multi" className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto pb-4">
+        <MultiEnvDiffView spec={spec} />
+      </TabsContent>
+    </Tabs>
   )
 }

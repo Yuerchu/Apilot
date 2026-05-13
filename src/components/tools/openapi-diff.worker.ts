@@ -23,6 +23,19 @@ type WorkerRequest =
       type: "compute-diff"
       requestId: number
     }
+  | {
+      type: "store-spec"
+      requestId: number
+      key: string
+      name: string
+      spec: OpenAPISpec
+    }
+  | {
+      type: "compute-pair-diff"
+      requestId: number
+      fromKey: string
+      toKey: string
+    }
 
 type WorkerResponse =
   | {
@@ -34,6 +47,18 @@ type WorkerResponse =
   | {
       type: "diff-ready"
       requestId: number
+      result: OpenAPIDiffResult
+    }
+  | {
+      type: "spec-stored"
+      requestId: number
+      key: string
+    }
+  | {
+      type: "pair-diff-ready"
+      requestId: number
+      fromKey: string
+      toKey: string
       result: OpenAPIDiffResult
     }
   | {
@@ -52,6 +77,8 @@ const slots: Record<DiffSlotName, StoredDiffSpec | null> = {
   before: null,
   after: null,
 }
+
+const namedSpecs = new Map<string, StoredDiffSpec>()
 
 function postMessageToMain(message: WorkerResponse) {
   globalThis.postMessage(message)
@@ -92,6 +119,35 @@ globalThis.addEventListener("message", event => {
           requestId: request.requestId,
           slot: request.slot,
           name: request.name,
+        })
+        return
+      }
+
+      if (request.type === "store-spec") {
+        namedSpecs.set(request.key, {
+          name: request.name,
+          spec: normalizeParsedSpec(request.spec),
+        })
+        postMessageToMain({
+          type: "spec-stored",
+          requestId: request.requestId,
+          key: request.key,
+        })
+        return
+      }
+
+      if (request.type === "compute-pair-diff") {
+        const from = namedSpecs.get(request.fromKey)
+        const to = namedSpecs.get(request.toKey)
+        if (!from || !to) {
+          throw new Error(`Missing spec: ${!from ? request.fromKey : request.toKey}`)
+        }
+        postMessageToMain({
+          type: "pair-diff-ready",
+          requestId: request.requestId,
+          fromKey: request.fromKey,
+          toKey: request.toKey,
+          result: diffOpenAPISpecs(from.spec, to.spec),
         })
         return
       }
