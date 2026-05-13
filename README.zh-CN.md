@@ -93,8 +93,8 @@ pnpm typecheck    # TypeScript 类型检查
 从 OpenAPI spec 生成静态文档站点，适用于 CI/CD 流水线和部署到 GitHub Pages / Cloudflare Pages。
 
 ```bash
-npx apilot build --spec openapi.json --out ./docs
-npx apilot build --spec openapi.yaml --out ./docs --title "My API" --single-file
+npx @yuerchu/apilot build --spec openapi.json --out ./docs
+npx @yuerchu/apilot build --spec openapi.yaml --out ./docs --title "My API" --single-file
 ```
 
 | 参数 | 说明 |
@@ -108,7 +108,7 @@ npx apilot build --spec openapi.yaml --out ./docs --title "My API" --single-file
 ### GitHub Actions 示例
 
 ```yaml
-- run: npx apilot build --spec openapi.json --out docs/ --title "My API"
+- run: npx @yuerchu/apilot build --spec openapi.json --out docs/ --title "My API"
 - uses: peaceiris/actions-gh-pages@v4
   with:
     github_token: ${{ secrets.GITHUB_TOKEN }}

@@ -122,7 +122,7 @@ if (values.help) {
 }
 
 if (!values.spec) {
-  fatal("--spec is required. Run 'apilot build --help' for usage.")
+  fatal("--spec is required. Run 'npx @yuerchu/apilot build --help' for usage.")
 }
 
 const specPath = resolve(values.spec as string)

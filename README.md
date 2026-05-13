@@ -93,8 +93,8 @@ pnpm typecheck    # TypeScript type check
 Generate a static documentation site from an OpenAPI spec — ideal for CI/CD pipelines and deployment to GitHub Pages / Cloudflare Pages.
 
 ```bash
-npx apilot build --spec openapi.json --out ./docs
-npx apilot build --spec openapi.yaml --out ./docs --title "My API" --single-file
+npx @yuerchu/apilot build --spec openapi.json --out ./docs
+npx @yuerchu/apilot build --spec openapi.yaml --out ./docs --title "My API" --single-file
 ```
 
 | Option | Description |
@@ -108,7 +108,7 @@ npx apilot build --spec openapi.yaml --out ./docs --title "My API" --single-file
 ### GitHub Actions Example
 
 ```yaml
-- run: npx apilot build --spec openapi.json --out docs/ --title "My API"
+- run: npx @yuerchu/apilot build --spec openapi.json --out docs/ --title "My API"
 - uses: peaceiris/actions-gh-pages@v4
   with:
     github_token: ${{ secrets.GITHUB_TOKEN }}
