@@ -21,7 +21,8 @@ import {
   resolveServerUrl,
 } from "@/lib/openapi/parser"
 import { detectSpecType, parseAsyncAPIDocument } from "@/lib/asyncapi/parser"
-import { putSpecFromDocument } from "@/lib/db"
+import { getEnvironmentRuntimes, getSpecSettings, putSpecFromDocument } from "@/lib/db"
+import { computeSpecId } from "@/lib/spec-id"
 
 function extractRoutes(spec: OpenAPISpec, sourceSpec: OpenAPISpec): {
   routes: ParsedRoute[]
@@ -141,7 +142,16 @@ export function useOpenAPI() {
     await putSpecFromDocument(spec, url, url ? "url" : "file")
     await yieldToUI()
     const { routes, allTags, modelRouteMap } = extractRoutes(spec, sourceSpec)
-    const baseUrl = baseUrlOverride?.trim() || detectBaseUrl(spec, url)
+    let baseUrl = baseUrlOverride?.trim() || detectBaseUrl(spec, url)
+    const sid = computeSpecId(spec, url)
+    if (sid) {
+      const settings = await getSpecSettings(sid)
+      if (settings?.activeEnvId) {
+        const envs = await getEnvironmentRuntimes(sid)
+        const active = envs.find(e => e.id === settings.activeEnvId)
+        if (active) baseUrl = active.baseUrl
+      }
+    }
     dispatch({ type: "SET_ROUTES", routes, allTags, modelRouteMap })
     dispatch({ type: "SET_BASE_URL", url: baseUrl })
     dispatch({ type: "SET_LOADING", loading: false })

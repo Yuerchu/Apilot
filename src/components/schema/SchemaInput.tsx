@@ -1,12 +1,15 @@
 import { useTranslation } from "react-i18next"
 import { Dices, X, ChevronDown } from "lucide-react"
+import { REGEXP_ONLY_DIGITS } from "input-otp"
 import type { SchemaObject } from "@/lib/openapi"
 import { resolveEffectiveSchema, getTypeStr, generateExample } from "@/lib/openapi"
 import { getRandomVariants, generateWithVariant } from "@/lib/openapi/generate-example"
 import { cn } from "@/lib/utils"
 import { Input } from "@/components/ui/input"
+import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from "@/components/ui/input-otp"
 import { DateTimePicker } from "@/components/ui/date-time-picker"
 import { Button } from "@/components/ui/button"
+import { PhoneInput } from "@/components/schema/PhoneInput"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +23,45 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+
+function detectOtpLength(schema: SchemaObject): number | null {
+  const ps = resolveEffectiveSchema(schema)
+  const type = Array.isArray(ps.type) ? ps.type[0] : ps.type
+
+  if (type === "string" || !type) {
+    if (!ps.pattern) return null
+    const exact = ps.pattern.match(/^\^(?:\\d|\[0-9\])\{(\d+)\}\$$/)
+    if (exact) {
+      const len = parseInt(exact[1]!, 10)
+      return len <= 8 ? len : null
+    }
+    const range = ps.pattern.match(/^\^(?:\\d|\[0-9\])\{(\d+),(\d+)\}\$$/)
+    if (range) {
+      const max = parseInt(range[2]!, 10)
+      return max <= 8 ? max : null
+    }
+    return null
+  }
+
+  if (type === "integer") {
+    const max = ps.maximum
+    if (max === undefined || max < 0) return null
+    const str = (max + 1).toString()
+    if (/^10+$/.test(str)) {
+      const digits = str.length - 1
+      if (digits >= 2 && digits <= 8) return digits
+    }
+    return null
+  }
+
+  return null
+}
+
+function isPhoneFormat(schema: SchemaObject): boolean {
+  const ps = resolveEffectiveSchema(schema)
+  const fmt = ps.format
+  return fmt === "phone" || fmt === "telephone" || fmt === "mobile" || fmt === "e164" || fmt === "e.164"
+}
 
 export interface SchemaInputProps {
   schema: SchemaObject
@@ -190,6 +232,54 @@ export function SchemaInput({
         <div className="flex-1">
           <DateTimePicker value={value} onChange={onChange} mode="date" />
         </div>
+        <RandomButton schema={schema} onChange={onChange} />
+        {isNullable && value && <NullButton onChange={onChange} />}
+      </div>
+    )
+  }
+
+  // Phone format → specialized phone input with country picker
+  if (isPhoneFormat(schema)) {
+    return (
+      <PhoneInput
+        schema={schema}
+        value={value}
+        onChange={onChange}
+        onBlur={onBlur}
+        nullable={isNullable}
+        errorClass={errorClass}
+      />
+    )
+  }
+
+  // OTP-like field (short digit-only pattern or integer code range)
+  const otpLen = detectOtpLength(schema)
+  if (otpLen) {
+    const groups: number[][] = []
+    if (otpLen <= 4) {
+      groups.push(Array.from({ length: otpLen }, (_, i) => i))
+    } else {
+      const half = Math.ceil(otpLen / 2)
+      groups.push(Array.from({ length: half }, (_, i) => i))
+      groups.push(Array.from({ length: otpLen - half }, (_, i) => i + half))
+    }
+    return (
+      <div className="flex items-center gap-1">
+        <InputOTP
+          maxLength={otpLen}
+          value={value}
+          onChange={onChange}
+          pattern={REGEXP_ONLY_DIGITS}
+        >
+          {groups.map((slots, gi) => (
+            <span key={gi} className="contents">
+              {gi > 0 && <InputOTPSeparator />}
+              <InputOTPGroup>
+                {slots.map(i => <InputOTPSlot key={i} index={i} />)}
+              </InputOTPGroup>
+            </span>
+          ))}
+        </InputOTP>
         <RandomButton schema={schema} onChange={onChange} />
         {isNullable && value && <NullButton onChange={onChange} />}
       </div>

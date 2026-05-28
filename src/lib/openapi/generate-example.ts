@@ -3,6 +3,26 @@ import { resolveEffectiveSchema } from "./resolve-schema"
 import { sample } from "openapi-sampler"
 import { faker } from "@faker-js/faker/locale/en"
 import RandExp from "randexp"
+import { getCountryCallingCode, getExampleNumber, type CountryCode } from "libphonenumber-js"
+import phoneExamples from "libphonenumber-js/mobile/examples"
+
+const E164_COUNTRIES: CountryCode[] = ["US", "GB", "CN", "JP", "KR", "DE", "FR", "IN", "AU", "BR"]
+
+function randomE164(): string {
+  const country = faker.helpers.arrayElement(E164_COUNTRIES)
+  return generatePhoneForCountry(country)
+}
+
+export function generateNationalForCountry(country: CountryCode): string {
+  const example = getExampleNumber(country, phoneExamples)
+  const nationalLen = example ? example.nationalNumber.length : 10
+  return faker.string.numeric({ length: nationalLen })
+}
+
+export function generatePhoneForCountry(country: CountryCode): string {
+  const callingCode = getCountryCallingCode(country)
+  return `+${callingCode}${generateNationalForCountry(country)}`
+}
 
 function fakerForSchema(schema: SchemaObject): unknown {
   const type = Array.isArray(schema.type) ? schema.type[0] : schema.type
@@ -63,9 +83,14 @@ function fakerForSchema(schema: SchemaObject): unknown {
       case "byte": return btoa(faker.string.alphanumeric(12))
       case "binary": return faker.string.alphanumeric(16)
       case "password": return faker.internet.password()
+      case "e164":
+      case "e.164": return randomE164()
       case "phone":
       case "telephone":
-      case "mobile": return faker.phone.number()
+      case "mobile": {
+        const c = faker.helpers.arrayElement(E164_COUNTRIES)
+        return generateNationalForCountry(c)
+      }
     }
 
     // 3. Plain string with length constraints
@@ -185,8 +210,8 @@ export function generateWithVariant(rawSchema: SchemaObject, variantId: string):
   switch (variantId) {
     // Phone
     case "phone-international": return faker.phone.number({ style: "international" })
-    case "phone-e164": return `+${faker.helpers.arrayElement(["1", "44", "86", "81", "82", "49"])}${faker.string.numeric({ length: { min: 8, max: 11 } })}`
-    case "phone-digits": return faker.string.numeric({ length: { min: 10, max: 11 } })
+    case "phone-e164": return randomE164()
+    case "phone-digits": return generateNationalForCountry("CN")
     case "phone-cn": {
       const n = faker.string.numeric(11)
       return `${n.slice(0, 3)}-${n.slice(3, 7)}-${n.slice(7)}`
