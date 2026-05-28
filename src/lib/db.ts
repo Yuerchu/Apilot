@@ -110,7 +110,7 @@ export interface LegacySettingsSnapshot {
 
 const DB_NAME = "apilot"
 const DB_VERSION = 6
-const MAX_BODY_SIZE = 100 * 1024
+const MAX_BODY_SIZE = 2 * 1024 * 1024
 
 const LEGACY_LS_KEYS = {
   url: "oa_specUrl",
