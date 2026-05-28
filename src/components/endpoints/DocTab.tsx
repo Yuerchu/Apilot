@@ -1,21 +1,17 @@
 import { useMemo, memo } from "react"
 import { useTranslation } from "react-i18next"
 import { Database } from "lucide-react"
-import type { ParsedRoute, SchemaObject } from "@/lib/openapi/types"
+import type { ParsedRoute, SchemaObject, Parameter } from "@/lib/openapi/types"
 import { getTypeStr } from "@/lib/openapi/type-str"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { SchemaTree } from "@/components/schema/SchemaTree"
 import { Markdown } from "@/components/ui/markdown"
 import { Badge } from "@/components/ui/badge"
 import type { MainView } from "@/lib/openapi/types"
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table"
+import { AgGridReact } from "ag-grid-react"
+import type { ColDef } from "ag-grid-community"
+import type { CustomCellRendererProps } from "ag-grid-react"
+import { useAgGridTheme } from "./ResponseAgGrid"
 
 interface DocTabProps {
   route: ParsedRoute
@@ -73,38 +69,7 @@ export const DocTab = memo(function DocTab({ route }: DocTabProps) {
       {route.parameters?.length > 0 && (
         <div>
           <h4 className="text-sm font-semibold text-primary mb-2">{t("doc.parameters")}</h4>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-xs">{t("doc.name")}</TableHead>
-                <TableHead className="text-xs">{t("doc.in")}</TableHead>
-                <TableHead className="text-xs">{t("doc.type")}</TableHead>
-                <TableHead className="text-xs">{t("doc.description")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {route.parameters.map((p, i) => {
-                const ptype = p.schema ? getTypeStr(p.schema) : (p.type || "string")
-                return (
-                  <TableRow key={`${p.name}-${i}`}>
-                    <TableCell className="text-sm font-semibold">
-                      {p.name}
-                      {p.required && <span className="text-destructive ml-0.5">*</span>}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{p.in}</TableCell>
-                    <TableCell className="text-sm">
-                      <code className="text-xs bg-muted px-1 py-0.5 rounded">{ptype}</code>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {p.description && (
-                        <Markdown className="text-xs">{p.description}</Markdown>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+          <ParametersGrid parameters={route.parameters} />
         </div>
       )}
 
@@ -157,6 +122,80 @@ export const DocTab = memo(function DocTab({ route }: DocTabProps) {
     </div>
   )
 })
+
+interface ParamRow {
+  name: string
+  required: boolean
+  in: string
+  type: string
+  description: string
+}
+
+function ParamNameRenderer(props: CustomCellRendererProps<ParamRow>) {
+  const row = props.data
+  if (!row) return null
+  return (
+    <div className="py-0.5">
+      <span className="font-semibold font-mono">
+        {row.name}
+        {row.required && <span className="text-destructive ml-0.5">*</span>}
+      </span>
+      {row.description && (
+        <div className="mt-0.5">
+          <Markdown className="text-[11px] text-muted-foreground/60 leading-tight">{row.description}</Markdown>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ParamTypeRenderer(props: CustomCellRendererProps<ParamRow>) {
+  const row = props.data
+  if (!row) return null
+  return <code className="text-xs bg-muted px-1 py-0.5 rounded">{row.type}</code>
+}
+
+const paramDefaultColDef: ColDef = {
+  resizable: true,
+  sortable: true,
+  suppressMovable: true,
+  autoHeaderHeight: true,
+}
+
+function ParametersGrid({ parameters }: { parameters: Parameter[] }) {
+  const { t } = useTranslation()
+  const theme = useAgGridTheme()
+
+  const rowData = useMemo<ParamRow[]>(() =>
+    parameters.map(p => ({
+      name: p.name,
+      required: p.required ?? false,
+      in: p.in,
+      type: p.schema ? getTypeStr(p.schema) : (p.type || "string"),
+      description: p.description ?? "",
+    })),
+    [parameters],
+  )
+
+  const columnDefs = useMemo<ColDef<ParamRow>[]>(() => [
+    { headerName: t("doc.name"), field: "name", cellRenderer: ParamNameRenderer, flex: 2, minWidth: 150, autoHeight: true, wrapText: true },
+    { headerName: t("doc.in"), field: "in", minWidth: 70, maxWidth: 90 },
+    { headerName: t("doc.type"), field: "type", cellRenderer: ParamTypeRenderer, minWidth: 100, flex: 1 },
+  ], [t])
+
+  return (
+    <AgGridReact<ParamRow>
+      theme={theme}
+      rowData={rowData}
+      columnDefs={columnDefs}
+      defaultColDef={paramDefaultColDef}
+      domLayout="autoHeight"
+      suppressCellFocus
+      suppressMovableColumns
+      headerHeight={32}
+    />
+  )
+}
 
 function ReferencedModels({ models }: { models: string[] }) {
   const { t } = useTranslation()
