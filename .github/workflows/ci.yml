@@ -39,6 +39,8 @@ jobs:
 
       - name: Build
         run: pnpm build
+        env:
+          VITE_AG_GRID_LICENSE: ${{ secrets.VITE_AG_GRID_LICENSE }}
 
       - name: Attest build provenance
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

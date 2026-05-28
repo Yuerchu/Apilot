@@ -14,6 +14,8 @@ export const agGridDarkTheme = themeQuartz.withPart(colorSchemeDarkWarm).withPar
   backgroundColor: "transparent",
   headerBackgroundColor: "oklch(0.269 0 0 / 0.3)",
   rowHoverColor: "oklch(0.269 0 0 / 0.3)",
+  menuBackgroundColor: "#1c1c1c",
+  popupShadow: { radius: 12, spread: 2, color: "oklch(0 0 0 / 0.4)" },
 })
 
 export const agGridLightTheme = themeQuartz.withPart(colorSchemeLight).withParams({
@@ -21,4 +23,6 @@ export const agGridLightTheme = themeQuartz.withPart(colorSchemeLight).withParam
   backgroundColor: "transparent",
   headerBackgroundColor: "oklch(0.269 0 0 / 0.05)",
   rowHoverColor: "oklch(0.269 0 0 / 0.05)",
+  menuBackgroundColor: "#ffffff",
+  popupShadow: { radius: 12, spread: 2, color: "oklch(0 0 0 / 0.15)" },
 })

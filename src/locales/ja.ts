@@ -233,6 +233,8 @@ export default {
     quickFilter: "検索...",
     exportCsv: "CSV エクスポート",
     csvExported: "CSV をエクスポートしました",
+    exportExcel: "Excel エクスポート",
+    excelExported: "Excel をエクスポートしました",
   },
   schema: {
     field: "フィールド",

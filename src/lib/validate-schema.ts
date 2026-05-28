@@ -2,7 +2,7 @@ import Ajv from "ajv"
 import addFormats from "ajv-formats"
 import type { SchemaObject } from "@/lib/openapi/types"
 
-const ajv = new Ajv({ allErrors: true, strict: false, coerceTypes: true })
+const ajv = new Ajv({ allErrors: true, strict: false, coerceTypes: true, formats: { phone: true } })
 addFormats(ajv)
 
 export interface SchemaValidationError {

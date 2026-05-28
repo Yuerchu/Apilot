@@ -233,6 +233,8 @@ export default {
     quickFilter: "搜尋...",
     exportCsv: "匯出 CSV",
     csvExported: "已匯出 CSV",
+    exportExcel: "匯出 Excel",
+    excelExported: "已匯出 Excel",
   },
   schema: {
     field: "Field",

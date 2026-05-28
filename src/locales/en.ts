@@ -233,6 +233,8 @@ export default {
     quickFilter: "Search...",
     exportCsv: "Export CSV",
     csvExported: "CSV exported",
+    exportExcel: "Export Excel",
+    excelExported: "Excel exported",
   },
   schema: {
     field: "Field",

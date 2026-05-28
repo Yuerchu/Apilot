@@ -4,3 +4,4 @@ _old/
 cli/template/
 cli/index.mjs
 .playwright-mcp/
+.env*.local

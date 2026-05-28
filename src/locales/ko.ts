@@ -233,6 +233,8 @@ export default {
     quickFilter: "검색...",
     exportCsv: "CSV 내보내기",
     csvExported: "CSV를 내보냈습니다",
+    exportExcel: "Excel 내보내기",
+    excelExported: "Excel을 내보냈습니다",
   },
   schema: {
     field: "필드",

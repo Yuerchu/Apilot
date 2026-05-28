@@ -3,46 +3,25 @@ import { useTheme } from "next-themes"
 import { useTranslation } from "react-i18next"
 import { AgGridReact } from "ag-grid-react"
 import {
-  AllCommunityModule,
-  ModuleRegistry,
   type ColDef,
-  type SizeColumnsToContentStrategy,
+  type DefaultMenuItem,
 } from "ag-grid-community"
-import type { CustomHeaderProps, CustomCellRendererProps } from "ag-grid-react"
-import { ChevronRight, ChevronDown, Search, Download } from "lucide-react"
+import type { CustomCellRendererProps } from "ag-grid-react"
+import { ChevronRight, ChevronDown, Search, Download, FileSpreadsheet } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { agGridDarkTheme, agGridLightTheme } from "./ag-grid-theme"
+import { useAgGridEnterprise } from "./use-ag-grid-enterprise"
+import "./ag-grid-modules"
 import type { FieldMeta } from "./ResponseTableView"
 import { collectColumns } from "./ResponseTableView"
 import { toast } from "sonner"
-
-ModuleRegistry.registerModules([AllCommunityModule])
 
 export function useAgGridTheme() {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme !== "light"
   return useMemo(() => isDark ? agGridDarkTheme : agGridLightTheme, [isDark])
-}
-
-function FieldHeader(props: CustomHeaderProps & { meta?: FieldMeta | undefined }) {
-  const { displayName, meta } = props
-  return (
-    <div className="py-1 leading-tight">
-      <div className="font-mono text-xs font-medium">{displayName}</div>
-      {meta?.description && (
-        <div className="text-[10px] text-muted-foreground/60 mt-0.5 leading-tight whitespace-normal">
-          {meta.description}
-        </div>
-      )}
-      {meta?.type && (
-        <Badge variant="outline" className="mt-0.5 font-mono text-[9px] h-3.5 px-1 font-normal">
-          {meta.type}
-        </Badge>
-      )}
-    </div>
-  )
 }
 
 function formatScalar(value: unknown): string {
@@ -96,16 +75,9 @@ export function ValueCellRenderer(props: CustomCellRendererProps) {
   )
 }
 
-const autoSizeStrategy: SizeColumnsToContentStrategy = { type: "fitCellContents" }
-
-const defaultColDef: ColDef = {
-  resizable: true,
-  sortable: true,
-  filter: true,
-  minWidth: 80,
-  wrapText: true,
-  autoHeight: true,
-  autoHeaderHeight: true,
+const autoSizeStrategy = {
+  type: "fitCellContents" as const,
+  skipHeader: false,
 }
 
 interface ResponseAgGridProps {
@@ -117,8 +89,21 @@ interface ResponseAgGridProps {
 export function ResponseAgGrid({ items, fieldMap, maxHeight = 400 }: ResponseAgGridProps) {
   const { t } = useTranslation()
   const theme = useAgGridTheme()
+  const enterprise = useAgGridEnterprise()
   const gridRef = useRef<AgGridReact>(null)
   const [quickFilter, setQuickFilter] = useState("")
+
+  const useAutoHeight = items.length <= 20
+
+  const defaultColDef = useMemo<ColDef>(() => ({
+    resizable: true,
+    sortable: true,
+    filter: enterprise ? "agSetColumnFilter" : true,
+    minWidth: 80,
+    autoHeight: useAutoHeight,
+    autoHeaderHeight: true,
+    cellDataType: false,
+  }), [enterprise, useAutoHeight])
 
   const columnDefs = useMemo<ColDef[]>(() => {
     const cols = collectColumns(items)
@@ -127,19 +112,36 @@ export function ResponseAgGrid({ items, fieldMap, maxHeight = 400 }: ResponseAgG
       return {
         field: key,
         headerName: key,
-        headerComponent: FieldHeader,
-        headerComponentParams: { meta },
+        ...(meta?.description ? { headerTooltip: meta.description } : {}),
         cellRenderer: ValueCellRenderer,
       }
     })
   }, [items, fieldMap])
 
-  const useAutoHeight = items.length <= 20
-
   const exportCsv = useCallback(() => {
     gridRef.current?.api.exportDataAsCsv()
     toast.success(t("response.csvExported"))
   }, [t])
+
+  const exportExcel = useCallback(() => {
+    gridRef.current?.api.exportDataAsExcel()
+    toast.success(t("response.excelExported"))
+  }, [t])
+
+  const sideBar = useMemo(() => {
+    if (!enterprise) return undefined
+    return {
+      toolPanels: [
+        { id: "columns", labelDefault: "Columns", labelKey: "columns", iconKey: "columns", toolPanel: "agColumnsToolPanel" },
+        { id: "filters", labelDefault: "Filters", labelKey: "filters", iconKey: "filter", toolPanel: "agFiltersToolPanel" },
+      ],
+      defaultToolPanel: "",
+    }
+  }, [enterprise])
+
+  const contextMenuItems = useCallback((): DefaultMenuItem[] =>
+    ["copy", "copyWithHeaders", "separator", "csvExport", "excelExport"],
+  [])
 
   const statusBar = useMemo(() => ({
     statusPanels: [
@@ -164,9 +166,16 @@ export function ResponseAgGrid({ items, fieldMap, maxHeight = 400 }: ResponseAgG
           <Download className="size-3" />
           CSV
         </Button>
+        {enterprise && (
+          <Button variant="ghost" size="xs" onClick={exportExcel} title={t("response.exportExcel")}>
+            <FileSpreadsheet className="size-3" />
+            XLSX
+          </Button>
+        )}
       </div>
       <div style={useAutoHeight ? undefined : { height: maxHeight }}>
         <AgGridReact
+          key={enterprise ? "e" : "c"}
           ref={gridRef}
           theme={theme}
           rowData={items}
@@ -176,10 +185,16 @@ export function ResponseAgGrid({ items, fieldMap, maxHeight = 400 }: ResponseAgG
           domLayout={useAutoHeight ? "autoHeight" : "normal"}
           overlayNoRowsTemplate={t("response.tableNoRows")}
           quickFilterText={quickFilter}
-          rowSelection="multiple"
+          rowSelection={{ mode: "multiRow" }}
+          suppressColumnVirtualisation
           suppressCellFocus
           enableCellTextSelection
-          statusBar={statusBar}
+          enableBrowserTooltips
+          {...(enterprise ? {
+            statusBar,
+            sideBar: sideBar!,
+            getContextMenuItems: contextMenuItems,
+          } : {})}
         />
       </div>
     </div>
@@ -254,6 +269,7 @@ const kvDefaultColDef: ColDef = {
   sortable: false,
   autoHeight: true,
   autoHeaderHeight: true,
+  cellDataType: false,
 }
 
 export function ResponseKeyValueGrid({
@@ -267,6 +283,7 @@ export function ResponseKeyValueGrid({
 }) {
   const { t } = useTranslation()
   const theme = useAgGridTheme()
+  const enterprise = useAgGridEnterprise()
 
   const { rowData, nestedGrids } = useMemo(() => {
     const rows: KeyValueRow[] = []
@@ -299,11 +316,43 @@ export function ResponseKeyValueGrid({
     return { rowData: rows, nestedGrids: nested }
   }, [data, fieldMap])
 
+  const isRowMaster = useCallback((row: KeyValueRow) => {
+    return enterprise && row._isArray && (row._arrayItems?.length ?? 0) > 0
+  }, [enterprise])
+
+  const detailCellRendererParams = useCallback((masterRow: { data: KeyValueRow }) => {
+    if (!enterprise) return {}
+    const items = masterRow.data._arrayItems ?? []
+    const fm = masterRow.data._arrayFieldMap ?? new Map<string, FieldMeta>()
+    const cols = collectColumns(items)
+    return {
+      detailGridOptions: {
+        columnDefs: cols.map(key => {
+          const meta = fm.get(key)
+          return {
+            field: key,
+            headerName: key,
+            ...(meta?.description ? { headerTooltip: meta.description } : {}),
+            cellRenderer: ValueCellRenderer,
+          } as ColDef
+        }),
+        defaultColDef: { resizable: true, sortable: true, filter: true, cellDataType: false, autoHeight: true },
+        enableBrowserTooltips: true,
+      },
+      getDetailRowData: (params: { successCallback: (data: Record<string, unknown>[]) => void }) => {
+        params.successCallback(items)
+      },
+    }
+  }, [enterprise])
+
   const columnDefs = useMemo<ColDef<KeyValueRow>[]>(() => [
     {
       headerName: t("response.tableField"),
       field: "_field",
-      cellRenderer: FieldCellRenderer,
+      cellRenderer: enterprise ? "agGroupCellRenderer" : FieldCellRenderer,
+      cellRendererParams: enterprise ? {
+        innerRenderer: FieldCellRenderer,
+      } : undefined,
       minWidth: 200,
       maxWidth: 400,
       flex: 2,
@@ -314,11 +363,12 @@ export function ResponseKeyValueGrid({
       cellRenderer: KvValueCellRenderer,
       flex: 3,
     },
-  ], [t])
+  ], [t, enterprise])
 
   return (
     <div>
       <AgGridReact<KeyValueRow>
+        key={enterprise ? "e" : "c"}
         theme={theme}
         rowData={rowData}
         columnDefs={columnDefs}
@@ -327,8 +377,12 @@ export function ResponseKeyValueGrid({
         overlayNoRowsTemplate={t("response.tableNoRows")}
         suppressCellFocus
         headerHeight={32}
+        masterDetail={enterprise}
+        isRowMaster={isRowMaster}
+        detailCellRendererParams={detailCellRendererParams}
+        detailRowAutoHeight
       />
-      {nestedGrids.map(({ key, items, fieldMap: fm }) => (
+      {!enterprise && nestedGrids.map(({ key, items, fieldMap: fm }) => (
         <ResponseAgGrid key={key} items={items} fieldMap={fm} maxHeight={maxHeight} />
       ))}
     </div>

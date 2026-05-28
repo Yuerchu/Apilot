@@ -1,4 +1,4 @@
-import { defineConfig } from "vite"
+import { defineConfig, loadEnv } from "vite"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { VitePWA } from "vite-plugin-pwa"
@@ -14,7 +14,11 @@ function git(cmd: string): string {
   }
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), "VITE_")
+  const agGridLicense = process.env.VITE_AG_GRID_LICENSE || env.VITE_AG_GRID_LICENSE || ""
+
+  return {
   plugins: [
     react(),
     tailwindcss(),
@@ -56,11 +60,14 @@ export default defineConfig({
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     __CI__: JSON.stringify(process.env.CI === "true"),
     __CI_RUN_NUMBER__: JSON.stringify(process.env.GITHUB_RUN_NUMBER ?? ""),
+    __AG_GRID_ENTERPRISE__: JSON.stringify(!!agGridLicense),
+    __AG_GRID_LICENSE_KEY__: JSON.stringify(agGridLicense),
   },
   build: {
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes("ag-grid-enterprise")) return "ag-grid-enterprise"
           if (id.includes("ag-grid")) return "ag-grid"
           if (id.includes("@asyncapi") || id.includes("@stoplight") || id.includes("nimma")) return "asyncapi"
           if (id.includes("@codemirror") || id.includes("@lezer")) return "codemirror"
@@ -80,4 +87,4 @@ export default defineConfig({
       path: "path-browserify",
     },
   },
-})
+}})
