@@ -1,10 +1,10 @@
-import { memo } from "react"
+import { memo, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Trash2, History } from "lucide-react"
 import { formatDistanceToNow, type Locale } from "date-fns"
 import { zhCN, zhTW, ja, ko, enUS } from "date-fns/locale"
 import i18n from "@/lib/i18n"
-import type { ParsedRoute } from "@/lib/openapi/types"
+import type { ParsedRoute, SchemaObject } from "@/lib/openapi/types"
 import { getParsedRouteKey } from "@/lib/openapi/route-key"
 import { useHistory } from "@/hooks/use-history"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,9 @@ import { Badge } from "@/components/ui/badge"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { cn } from "@/lib/utils"
+import { Braces, TableProperties } from "lucide-react"
 import { CodeViewer } from "@/components/editor/CodeViewer"
+import { ResponseTableView } from "./ResponseTableView"
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -35,8 +37,63 @@ function statusColor(status: number): string {
   return "bg-method-delete/20 text-method-delete border-method-delete/30"
 }
 
+function JsonOrTable({ body, schema, maxHeight }: { body: string; schema?: SchemaObject | undefined; maxHeight: string }) {
+  const { t } = useTranslation()
+  const [view, setView] = useState<"table" | "json">("table")
+  const parsed = useMemo(() => {
+    try { return JSON.parse(body) } catch { return null }
+  }, [body])
+  const isJson = parsed !== null && typeof parsed === "object"
+
+  if (!isJson) {
+    return <CodeViewer code={body} language="shell" maxHeight={maxHeight} />
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-1 px-3 py-1 border-b bg-muted/20">
+        <Button
+          variant={view === "table" ? "secondary" : "ghost"}
+          size="xs"
+          onClick={() => setView("table")}
+        >
+          <TableProperties className="size-3" />
+          {t("response.tableView")}
+        </Button>
+        <Button
+          variant={view === "json" ? "secondary" : "ghost"}
+          size="xs"
+          onClick={() => setView("json")}
+        >
+          <Braces className="size-3" />
+          JSON
+        </Button>
+      </div>
+      {view === "table" ? (
+        <ResponseTableView data={parsed} schema={schema} />
+      ) : (
+        <CodeViewer code={body} language="json" maxHeight={maxHeight} />
+      )}
+    </div>
+  )
+}
+
 interface HistoryTabProps {
   route: ParsedRoute
+}
+
+function getResponseSchema(route: ParsedRoute, status: number): SchemaObject | undefined {
+  const statusKey = String(status)
+  const respDef = route.responses[statusKey] || route.responses["default"]
+  if (!respDef?.content) return undefined
+  const mediaType = Object.values(respDef.content)[0]
+  return mediaType?.schema as SchemaObject | undefined
+}
+
+function getRequestBodySchema(route: ParsedRoute): SchemaObject | undefined {
+  if (!route.requestBody?.content) return undefined
+  const mediaType = Object.values(route.requestBody.content)[0]
+  return mediaType?.schema as SchemaObject | undefined
 }
 
 export const HistoryTab = memo(function HistoryTab({ route }: HistoryTabProps) {
@@ -44,6 +101,7 @@ export const HistoryTab = memo(function HistoryTab({ route }: HistoryTabProps) {
   const routeKey = getParsedRouteKey(route)
   const { entries, clearEntries, envFilter, setEnvFilter } = useHistory(routeKey)
   const locale = DATE_LOCALES[i18n.language] ?? enUS
+  const requestBodySchema = useMemo(() => getRequestBodySchema(route), [route])
 
   return (
     <div className="flex flex-col gap-2">
@@ -111,14 +169,14 @@ export const HistoryTab = memo(function HistoryTab({ route }: HistoryTabProps) {
                   <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground bg-muted/30">
                     {t("history.request")}
                   </div>
-                  <CodeViewer code={entry.requestBody} language="json" maxHeight="120px" />
+                  <JsonOrTable body={entry.requestBody} schema={requestBodySchema} maxHeight="120px" />
                 </div>
               )}
               <div>
                 <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground bg-muted/30">
                   {t("history.response")}
                 </div>
-                <CodeViewer code={entry.response.body || ""} language="json" maxHeight="200px" />
+                <JsonOrTable body={entry.response.body || ""} schema={getResponseSchema(route, entry.response.status)} maxHeight="200px" />
               </div>
             </div>
           </AnimatedCollapsibleContent>
