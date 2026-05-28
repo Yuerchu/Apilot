@@ -5,8 +5,14 @@ import { AgGridReact } from "ag-grid-react"
 import {
   type ColDef,
   type DefaultMenuItem,
+  type LocaleText,
 } from "ag-grid-community"
 import type { CustomCellRendererProps } from "ag-grid-react"
+import { AG_GRID_LOCALE_CN } from "@ag-grid-community/locale"
+import { AG_GRID_LOCALE_HK } from "@ag-grid-community/locale"
+import { AG_GRID_LOCALE_TW } from "@ag-grid-community/locale"
+import { AG_GRID_LOCALE_JP } from "@ag-grid-community/locale"
+import { AG_GRID_LOCALE_KR } from "@ag-grid-community/locale"
 import { ChevronRight, ChevronDown, Search, Download, FileSpreadsheet } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,6 +23,19 @@ import "./ag-grid-modules"
 import type { FieldMeta } from "./ResponseTableView"
 import { collectColumns } from "./ResponseTableView"
 import { toast } from "sonner"
+
+const AG_GRID_LOCALES: Record<string, LocaleText> = {
+  zh_CN: AG_GRID_LOCALE_CN,
+  zh_HK: AG_GRID_LOCALE_HK,
+  zh_TW: AG_GRID_LOCALE_TW,
+  ja: AG_GRID_LOCALE_JP,
+  ko: AG_GRID_LOCALE_KR,
+}
+
+function useAgGridLocale(): LocaleText | undefined {
+  const { i18n } = useTranslation()
+  return AG_GRID_LOCALES[i18n.language]
+}
 
 export function useAgGridTheme() {
   const { resolvedTheme } = useTheme()
@@ -89,6 +108,7 @@ interface ResponseAgGridProps {
 export function ResponseAgGrid({ items, fieldMap, maxHeight = 400 }: ResponseAgGridProps) {
   const { t } = useTranslation()
   const theme = useAgGridTheme()
+  const localeText = useAgGridLocale()
   const enterprise = useAgGridEnterprise()
   const gridRef = useRef<AgGridReact>(null)
   const [quickFilter, setQuickFilter] = useState("")
@@ -190,6 +210,7 @@ export function ResponseAgGrid({ items, fieldMap, maxHeight = 400 }: ResponseAgG
           suppressCellFocus
           enableCellTextSelection
           enableBrowserTooltips
+          {...(localeText ? { localeText } : {})}
           {...(enterprise ? {
             statusBar,
             sideBar: sideBar!,
@@ -283,7 +304,7 @@ export function ResponseKeyValueGrid({
 }) {
   const { t } = useTranslation()
   const theme = useAgGridTheme()
-  const enterprise = useAgGridEnterprise()
+  const localeText = useAgGridLocale()
 
   const { rowData, nestedGrids } = useMemo(() => {
     const rows: KeyValueRow[] = []
@@ -316,43 +337,11 @@ export function ResponseKeyValueGrid({
     return { rowData: rows, nestedGrids: nested }
   }, [data, fieldMap])
 
-  const isRowMaster = useCallback((row: KeyValueRow) => {
-    return enterprise && row._isArray && (row._arrayItems?.length ?? 0) > 0
-  }, [enterprise])
-
-  const detailCellRendererParams = useCallback((masterRow: { data: KeyValueRow }) => {
-    if (!enterprise) return {}
-    const items = masterRow.data._arrayItems ?? []
-    const fm = masterRow.data._arrayFieldMap ?? new Map<string, FieldMeta>()
-    const cols = collectColumns(items)
-    return {
-      detailGridOptions: {
-        columnDefs: cols.map(key => {
-          const meta = fm.get(key)
-          return {
-            field: key,
-            headerName: key,
-            ...(meta?.description ? { headerTooltip: meta.description } : {}),
-            cellRenderer: ValueCellRenderer,
-          } as ColDef
-        }),
-        defaultColDef: { resizable: true, sortable: true, filter: true, cellDataType: false, autoHeight: true },
-        enableBrowserTooltips: true,
-      },
-      getDetailRowData: (params: { successCallback: (data: Record<string, unknown>[]) => void }) => {
-        params.successCallback(items)
-      },
-    }
-  }, [enterprise])
-
   const columnDefs = useMemo<ColDef<KeyValueRow>[]>(() => [
     {
       headerName: t("response.tableField"),
       field: "_field",
-      cellRenderer: enterprise ? "agGroupCellRenderer" : FieldCellRenderer,
-      cellRendererParams: enterprise ? {
-        innerRenderer: FieldCellRenderer,
-      } : undefined,
+      cellRenderer: FieldCellRenderer,
       minWidth: 200,
       maxWidth: 400,
       flex: 2,
@@ -363,13 +352,13 @@ export function ResponseKeyValueGrid({
       cellRenderer: KvValueCellRenderer,
       flex: 3,
     },
-  ], [t, enterprise])
+  ], [t])
 
   return (
     <div>
       <AgGridReact<KeyValueRow>
-        key={enterprise ? "e" : "c"}
         theme={theme}
+        {...(localeText ? { localeText } : {})}
         rowData={rowData}
         columnDefs={columnDefs}
         defaultColDef={kvDefaultColDef}
@@ -377,12 +366,8 @@ export function ResponseKeyValueGrid({
         overlayNoRowsTemplate={t("response.tableNoRows")}
         suppressCellFocus
         headerHeight={32}
-        masterDetail={enterprise}
-        isRowMaster={isRowMaster}
-        detailCellRendererParams={detailCellRendererParams}
-        detailRowAutoHeight
       />
-      {!enterprise && nestedGrids.map(({ key, items, fieldMap: fm }) => (
+      {nestedGrids.map(({ key, items, fieldMap: fm }) => (
         <ResponseAgGrid key={key} items={items} fieldMap={fm} maxHeight={maxHeight} />
       ))}
     </div>
