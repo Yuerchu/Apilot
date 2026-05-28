@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, memo } from "react"
 import { useTranslation } from "react-i18next"
-import { Copy, ChevronDown, ChevronRight, Key } from "lucide-react"
+import { Copy, ChevronDown, ChevronRight, Key, Braces, TableProperties } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -17,6 +17,7 @@ import { CodeViewer } from "@/components/editor/CodeViewer"
 import type { RequestResponse, ParsedRoute } from "@/lib/openapi/types"
 import { validateWithSchema } from "@/lib/validate-schema"
 import type { SchemaObject } from "@/lib/openapi/types"
+import { ResponseTableView } from "./ResponseTableView"
 import { toast } from "sonner"
 
 interface ResponsePanelProps {
@@ -56,6 +57,7 @@ function statusColorClass(status: number): string {
 export const ResponsePanel = memo(function ResponsePanel({ response, route, onApplyToken }: ResponsePanelProps) {
   const { t } = useTranslation()
   const [headersOpen, setHeadersOpen] = useState(false)
+  const [bodyView, setBodyView] = useState<"json" | "table">("table")
   const [snippetLang, setSnippetLang] = useState("shell-curl")
   const snippetKey = useMemo(() => JSON.stringify({
     lang: snippetLang,
@@ -105,16 +107,19 @@ export const ResponsePanel = memo(function ResponsePanel({ response, route, onAp
     return { isJson, jsonObj, tokenButtons }
   }, [response.body, response.status])
 
-  const schemaErrors = useMemo(() => {
-    if (!route || !isJson || !jsonObj || response.status === 0) return []
+  const responseSchema = useMemo(() => {
+    if (!route || response.status === 0) return undefined
     const statusKey = String(response.status)
     const respDef = route.responses[statusKey] || route.responses["default"]
-    if (!respDef?.content) return []
+    if (!respDef?.content) return undefined
     const mediaType = Object.values(respDef.content)[0]
-    const schema = mediaType?.schema as SchemaObject | undefined
-    if (!schema) return []
-    return validateWithSchema(schema, jsonObj)
-  }, [route, isJson, jsonObj, response.status, response.body]) // eslint-disable-line react-hooks/exhaustive-deps
+    return mediaType?.schema as SchemaObject | undefined
+  }, [route, response.status])
+
+  const schemaErrors = useMemo(() => {
+    if (!isJson || !jsonObj || !responseSchema) return []
+    return validateWithSchema(responseSchema, jsonObj)
+  }, [isJson, jsonObj, responseSchema])
 
 
   const copyBody = useCallback(() => {
@@ -198,11 +203,37 @@ export const ResponsePanel = memo(function ResponsePanel({ response, route, onAp
         )}
 
         <div className="border-t">
-          <CodeViewer
-            code={response.body}
-            language={isJson ? "json" : "shell"}
-            maxHeight="400px"
-          />
+          {isJson && (
+            <div className="flex items-center gap-1 px-3 py-1 border-b bg-muted/20">
+              <Button
+                variant={bodyView === "table" ? "secondary" : "ghost"}
+                size="xs"
+                onClick={() => setBodyView("table")}
+                title={t("response.tableView")}
+              >
+                <TableProperties className="size-3" />
+                {t("response.tableView")}
+              </Button>
+              <Button
+                variant={bodyView === "json" ? "secondary" : "ghost"}
+                size="xs"
+                onClick={() => setBodyView("json")}
+                title="JSON"
+              >
+                <Braces className="size-3" />
+                JSON
+              </Button>
+            </div>
+          )}
+          {bodyView === "table" && isJson && jsonObj ? (
+            <ResponseTableView data={jsonObj} schema={responseSchema} />
+          ) : (
+            <CodeViewer
+              code={response.body}
+              language={isJson ? "json" : "shell"}
+              maxHeight="400px"
+            />
+          )}
         </div>
 
         {schemaErrors.length > 0 && (

@@ -61,6 +61,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes("ag-grid")) return "ag-grid"
           if (id.includes("@asyncapi") || id.includes("@stoplight") || id.includes("nimma")) return "asyncapi"
           if (id.includes("@codemirror") || id.includes("@lezer")) return "codemirror"
           if (id.includes("@xyflow") || id.includes("@dagrejs")) return "graph"
