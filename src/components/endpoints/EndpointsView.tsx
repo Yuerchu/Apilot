@@ -116,13 +116,18 @@ export function EndpointsView() {
   const virtualizer = useVirtualizer({
     count: virtualRows.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: (i) => virtualRows[i]?.type === "group" ? 36 : 44,
+    estimateSize: (i) => {
+      const row = virtualRows[i]
+      if (!row) return 54
+      if (row.type === "group") return 36
+      return (row.route.summary || row.route.description) ? 64 : 46
+    },
     overscan: 15,
   })
 
   useEffect(() => {
     if (activeRouteRowIndex < 0) return
-    virtualizer.scrollToIndex(activeRouteRowIndex, { align: "center" })
+    virtualizer.scrollToIndex(activeRouteRowIndex, { align: "auto" })
   }, [activeRouteRowIndex, virtualizer])
 
   return (
@@ -147,7 +152,7 @@ export function EndpointsView() {
       {/* Virtualized route list */}
       <div
         ref={parentRef}
-        className="overflow-auto flex-1 min-h-0"
+        className="overflow-auto flex-1 min-h-0 [contain:layout_paint]"
       >
         <div
           style={{

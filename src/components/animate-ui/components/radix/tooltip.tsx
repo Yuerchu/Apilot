@@ -55,13 +55,13 @@ function TooltipContent({
       <TooltipContentPrimitive
         sideOffset={sideOffset}
         className={cn(
-          'bg-primary text-primary-foreground z-50 w-fit origin-(--radix-tooltip-content-transform-origin) rounded-md px-3 py-1.5 text-xs text-balance',
+          'bg-foreground text-background z-50 w-fit origin-(--radix-tooltip-content-transform-origin) rounded-md px-3 py-1.5 text-xs text-balance',
           className,
         )}
         {...props}
       >
         {children}
-        <TooltipArrowPrimitive className="bg-primary fill-primary z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px]" />
+        <TooltipArrowPrimitive className="bg-foreground fill-foreground z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px]" />
       </TooltipContentPrimitive>
     </TooltipPortalPrimitive>
   );

@@ -9,6 +9,7 @@ import { SchemaTree } from "@/components/schema/SchemaTree"
 import { CopyButton } from "@/components/animate-ui/components/buttons/copy"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
 import { PathTemplate } from "@/components/endpoints/PathTemplate"
 import {
   Collapsible,
@@ -77,14 +78,12 @@ export const ModelCard = memo(function ModelCard({
       <ContextMenuTrigger asChild>
         <div>
           <Collapsible open={open} onOpenChange={handleToggle}>
-            <div
-              className={cn(
-                "rounded-lg border bg-card transition-colors",
-                selected && "border-primary/50 bg-primary/5",
-              )}
-            >
+            <Card className={cn(
+              "gap-0 py-0 transition-colors",
+              selected && "border-primary/50 bg-primary/5",
+            )}>
               <CollapsibleTrigger asChild>
-                <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors">
+                <div className="flex items-center gap-2 px-3 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors rounded-t-xl">
                   <Checkbox
                     checked={selected}
                     onCheckedChange={(v) => onSelectChange(!!v)}
@@ -115,12 +114,12 @@ export const ModelCard = memo(function ModelCard({
                 </div>
               </CollapsibleTrigger>
               <AnimatedCollapsibleContent>
-                <div className="px-3 pt-3 pb-3 space-y-3">
+                <CardContent className="px-3 pt-3 pb-3 space-y-3">
                   {open && <SchemaTree schema={schema} />}
                   <UsedByEndpoints modelName={name} />
-                </div>
+                </CardContent>
               </AnimatedCollapsibleContent>
-            </div>
+            </Card>
           </Collapsible>
         </div>
       </ContextMenuTrigger>
