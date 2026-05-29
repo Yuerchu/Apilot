@@ -6,6 +6,7 @@ import {
   type ColDef,
   type DefaultMenuItem,
   type LocaleText,
+  type RowSelectionOptions,
 } from "ag-grid-community"
 import type { CustomCellRendererProps } from "ag-grid-react"
 import { AG_GRID_LOCALE_CN } from "@ag-grid-community/locale"
@@ -99,6 +100,8 @@ const autoSizeStrategy = {
   skipHeader: false,
 }
 
+const rowSelectionOptions: RowSelectionOptions = { mode: "multiRow" }
+
 interface ResponseAgGridProps {
   items: Record<string, unknown>[]
   fieldMap: Map<string, FieldMeta>
@@ -155,7 +158,6 @@ export function ResponseAgGrid({ items, fieldMap, maxHeight = 400 }: ResponseAgG
         { id: "columns", labelDefault: "Columns", labelKey: "columns", iconKey: "columns", toolPanel: "agColumnsToolPanel" },
         { id: "filters", labelDefault: "Filters", labelKey: "filters", iconKey: "filter", toolPanel: "agFiltersToolPanel" },
       ],
-      defaultToolPanel: "",
     }
   }, [enterprise])
 
@@ -205,10 +207,11 @@ export function ResponseAgGrid({ items, fieldMap, maxHeight = 400 }: ResponseAgG
           domLayout={useAutoHeight ? "autoHeight" : "normal"}
           overlayNoRowsTemplate={t("response.tableNoRows")}
           quickFilterText={quickFilter}
-          rowSelection={{ mode: "multiRow" }}
+          rowSelection={rowSelectionOptions}
           suppressColumnVirtualisation
           suppressCellFocus
           enableCellTextSelection
+          ensureDomOrder
           enableBrowserTooltips
           {...(localeText ? { localeText } : {})}
           {...(enterprise ? {

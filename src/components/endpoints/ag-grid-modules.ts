@@ -1,6 +1,25 @@
-import { AllCommunityModule, ModuleRegistry } from "ag-grid-community"
+import {
+  ModuleRegistry,
+  ClientSideRowModelModule,
+  QuickFilterModule,
+  TextFilterModule,
+  NumberFilterModule,
+  CsvExportModule,
+  RowSelectionModule,
+  TooltipModule,
+  ValidationModule,
+} from "ag-grid-community"
 
-ModuleRegistry.registerModules([AllCommunityModule])
+ModuleRegistry.registerModules([
+  ClientSideRowModelModule,
+  QuickFilterModule,
+  TextFilterModule,
+  NumberFilterModule,
+  CsvExportModule,
+  RowSelectionModule,
+  TooltipModule,
+  ...(import.meta.env.DEV ? [ValidationModule] : []),
+])
 
 let _loaded = false
 let _promise: Promise<void> | null = null
@@ -13,9 +32,24 @@ export function loadEnterprise(): Promise<void> {
   if (!__AG_GRID_ENTERPRISE__) return Promise.resolve()
   if (_promise) return _promise
   _promise = (async () => {
-    const { AllEnterpriseModule, LicenseManager } = await import("ag-grid-enterprise")
+    const {
+      LicenseManager,
+      SetFilterModule,
+      ColumnsToolPanelModule,
+      FiltersToolPanelModule,
+      StatusBarModule,
+      ContextMenuModule,
+      ExcelExportModule,
+    } = await import("ag-grid-enterprise")
     LicenseManager.setLicenseKey(__AG_GRID_LICENSE_KEY__)
-    ModuleRegistry.registerModules([AllEnterpriseModule])
+    ModuleRegistry.registerModules([
+      SetFilterModule,
+      ColumnsToolPanelModule,
+      FiltersToolPanelModule,
+      StatusBarModule,
+      ContextMenuModule,
+      ExcelExportModule,
+    ])
     _loaded = true
   })()
   return _promise
