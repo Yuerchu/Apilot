@@ -54,7 +54,7 @@ function formatScalar(value: unknown): string {
 
 export function ValueCellRenderer(props: CustomCellRendererProps) {
   const [open, setOpen] = useState(false)
-  const { value, api } = props
+  const { value } = props
 
   if (value === null || value === undefined) {
     return <span className="text-muted-foreground">{String(value)}</span>
@@ -71,10 +71,7 @@ export function ValueCellRenderer(props: CustomCellRendererProps) {
     return <span className="text-muted-foreground">{oneLine}</span>
   }
 
-  const toggle = () => {
-    setOpen(prev => !prev)
-    setTimeout(() => api.resetRowHeights(), 0)
-  }
+  const toggle = () => setOpen(prev => !prev)
 
   return (
     <div className="min-w-0">

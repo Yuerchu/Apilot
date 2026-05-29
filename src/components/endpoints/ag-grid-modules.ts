@@ -7,6 +7,9 @@ import {
   CsvExportModule,
   RowSelectionModule,
   TooltipModule,
+  LocaleModule,
+  RowAutoHeightModule,
+  ColumnAutoSizeModule,
   ValidationModule,
 } from "ag-grid-community"
 
@@ -18,6 +21,9 @@ ModuleRegistry.registerModules([
   CsvExportModule,
   RowSelectionModule,
   TooltipModule,
+  LocaleModule,
+  RowAutoHeightModule,
+  ColumnAutoSizeModule,
   ...(import.meta.env.DEV ? [ValidationModule] : []),
 ])
 
