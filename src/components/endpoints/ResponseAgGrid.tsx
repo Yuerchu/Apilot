@@ -6,6 +6,7 @@ import {
   type ColDef,
   type DefaultMenuItem,
   type LocaleText,
+  type RowSelectionOptions,
 } from "ag-grid-community"
 import type { CustomCellRendererProps } from "ag-grid-react"
 import { AG_GRID_LOCALE_CN } from "@ag-grid-community/locale"
@@ -53,7 +54,7 @@ function formatScalar(value: unknown): string {
 
 export function ValueCellRenderer(props: CustomCellRendererProps) {
   const [open, setOpen] = useState(false)
-  const { value, api } = props
+  const { value } = props
 
   if (value === null || value === undefined) {
     return <span className="text-muted-foreground">{String(value)}</span>
@@ -70,10 +71,7 @@ export function ValueCellRenderer(props: CustomCellRendererProps) {
     return <span className="text-muted-foreground">{oneLine}</span>
   }
 
-  const toggle = () => {
-    setOpen(prev => !prev)
-    setTimeout(() => api.resetRowHeights(), 0)
-  }
+  const toggle = () => setOpen(prev => !prev)
 
   return (
     <div className="min-w-0">
@@ -98,6 +96,8 @@ const autoSizeStrategy = {
   type: "fitCellContents" as const,
   skipHeader: false,
 }
+
+const rowSelectionOptions: RowSelectionOptions = { mode: "multiRow" }
 
 interface ResponseAgGridProps {
   items: Record<string, unknown>[]
@@ -155,7 +155,6 @@ export function ResponseAgGrid({ items, fieldMap, maxHeight = 400 }: ResponseAgG
         { id: "columns", labelDefault: "Columns", labelKey: "columns", iconKey: "columns", toolPanel: "agColumnsToolPanel" },
         { id: "filters", labelDefault: "Filters", labelKey: "filters", iconKey: "filter", toolPanel: "agFiltersToolPanel" },
       ],
-      defaultToolPanel: "",
     }
   }, [enterprise])
 
@@ -205,10 +204,11 @@ export function ResponseAgGrid({ items, fieldMap, maxHeight = 400 }: ResponseAgG
           domLayout={useAutoHeight ? "autoHeight" : "normal"}
           overlayNoRowsTemplate={t("response.tableNoRows")}
           quickFilterText={quickFilter}
-          rowSelection={{ mode: "multiRow" }}
+          rowSelection={rowSelectionOptions}
           suppressColumnVirtualisation
           suppressCellFocus
           enableCellTextSelection
+          ensureDomOrder
           enableBrowserTooltips
           {...(localeText ? { localeText } : {})}
           {...(enterprise ? {

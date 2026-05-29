@@ -5,7 +5,7 @@ const sharedParams = {
   wrapperBorderRadius: 0,
   fontSize: 12,
   headerFontSize: 11,
-  cellVerticalPaddingScale: 0.6,
+  rowVerticalPaddingScale: 0.6,
   fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
 }
 
