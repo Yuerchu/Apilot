@@ -174,8 +174,8 @@ function TooltipContent({
       onPointerDownOutside={onPointerDownOutside}
     >
       <motion.div
-        key="popover-content"
-        data-slot="popover-content"
+        key="tooltip-content"
+        data-slot="tooltip-content"
         initial={{ opacity: 0, scale: 0.5 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.5 }}

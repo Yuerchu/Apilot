@@ -11,6 +11,7 @@ import { useMultiEnvStatus } from "@/hooks/use-multi-env-status"
 import { Checkbox } from "@/components/ui/checkbox"
 import { CopyButton } from "@/components/animate-ui/components/buttons/copy"
 import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import {
   Collapsible,
@@ -78,87 +79,84 @@ export const RouteCard = memo(function RouteCard({ route, index, isFavorite, onT
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div>
-          <Collapsible
-            open={isOpen}
-            onOpenChange={handleOpenChange}
-            className={cn(
-              "rounded-lg border transition-colors",
-              isSelected ? "border-primary/50 bg-primary/5" : "border-border bg-card"
-            )}
-          >
-            <CollapsibleTrigger asChild>
-              <div className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-accent/30 transition-colors rounded-t-lg">
-                <div onClick={e => e.stopPropagation()}>
-                  <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={handleCheckChange}
-                    size="sm"
-                    className="size-4"
-                  />
-                </div>
-
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-[10px] font-bold uppercase tracking-wider border px-1.5 py-0 min-w-[52px] justify-center shrink-0",
-                    METHOD_COLORS[route.method] || "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {route.method}
-                </Badge>
-
-                {/* Path + description stacked */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <PathTemplate path={route.path} />
-                    {route.security?.length > 0 && route.security.some(s => Object.keys(s).length > 0) && (
-                      <span title={t("endpoints.authRequired")}><Lock className="size-3 text-muted-foreground shrink-0" /></span>
-                    )}
-                    <EnvPresenceDots routeKey={routeKey} />
+          <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
+            <Card className={cn(
+              "gap-0 py-0 transition-colors",
+              isSelected && "border-primary/50 bg-primary/5",
+            )}>
+              <CollapsibleTrigger asChild>
+                <div className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-accent/30 transition-colors rounded-t-xl">
+                  <div onClick={e => e.stopPropagation()}>
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={handleCheckChange}
+                      size="sm"
+                      className="size-4"
+                    />
                   </div>
-                  {summary && (
-                    <div className="text-xs text-muted-foreground truncate mt-0.5">
-                      {summary}
-                    </div>
-                  )}
-                </div>
 
-                <div className="flex items-center gap-1 shrink-0">
-                  {onToggleFavorite && (
-                    <button
-                      type="button"
-                      className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-0.5"
-                      onClick={e => { e.stopPropagation(); onToggleFavorite(routeKey) }}
-                      title={isFavorite ? t("favorites.remove") : t("favorites.add")}
-                    >
-                      <Star size={14} animateOnTap className={cn(isFavorite && "fill-amber-400 text-amber-400")} />
-                    </button>
-                  )}
-
-                  <CopyButton
-                    variant="ghost"
-                    size="xs"
-                    content={copyText}
-                    onClick={e => e.stopPropagation()}
-                    onCopiedChange={(copied) => { if (copied) toast.success(t("toast.copied")) }}
-                    className="shrink-0"
-                  />
-
-                  <ChevronDown
+                  <Badge
+                    variant="outline"
                     className={cn(
-                      "size-4 text-muted-foreground transition-transform shrink-0",
-                      isOpen && "rotate-180"
+                      "text-[10px] font-bold uppercase tracking-wider border px-1.5 py-0 min-w-[52px] justify-center shrink-0",
+                      METHOD_COLORS[route.method] || "bg-muted text-muted-foreground"
                     )}
-                  />
-                </div>
-              </div>
-            </CollapsibleTrigger>
+                  >
+                    {route.method}
+                  </Badge>
 
-            <AnimatedCollapsibleContent>
-              <div className="px-3 pb-3 border-t">
-                {isOpen && <RouteDetail route={route} index={index} />}
-              </div>
-            </AnimatedCollapsibleContent>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <PathTemplate path={route.path} />
+                      {route.security?.length > 0 && route.security.some(s => Object.keys(s).length > 0) && (
+                        <span title={t("endpoints.authRequired")}><Lock className="size-3 text-muted-foreground shrink-0" /></span>
+                      )}
+                      <EnvPresenceDots routeKey={routeKey} />
+                    </div>
+                    {summary && (
+                      <div className="text-xs text-muted-foreground truncate mt-0.5">
+                        {summary}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    {onToggleFavorite && (
+                      <button
+                        type="button"
+                        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                        onClick={e => { e.stopPropagation(); onToggleFavorite(routeKey) }}
+                        title={isFavorite ? t("favorites.remove") : t("favorites.add")}
+                      >
+                        <Star size={14} animateOnTap className={cn(isFavorite && "fill-amber-400 text-amber-400")} />
+                      </button>
+                    )}
+
+                    <CopyButton
+                      variant="ghost"
+                      size="xs"
+                      content={copyText}
+                      onClick={e => e.stopPropagation()}
+                      onCopiedChange={(copied) => { if (copied) toast.success(t("toast.copied")) }}
+                      className="shrink-0"
+                    />
+
+                    <ChevronDown
+                      className={cn(
+                        "size-4 text-muted-foreground transition-transform shrink-0",
+                        isOpen && "rotate-180"
+                      )}
+                    />
+                  </div>
+                </div>
+              </CollapsibleTrigger>
+
+              <AnimatedCollapsibleContent>
+                <CardContent className="px-3 pb-3 border-t">
+                  {isOpen && <RouteDetail route={route} index={index} />}
+                </CardContent>
+              </AnimatedCollapsibleContent>
+            </Card>
           </Collapsible>
         </div>
       </ContextMenuTrigger>

@@ -105,11 +105,9 @@ function TabsContent({
       <TabsPrimitive.Content asChild forceMount={forceMount} value={value}>
         <motion.div
           data-slot="tabs-content"
-          layout
-          layoutDependency={value}
-          initial={{ opacity: 0, filter: 'blur(4px)' }}
-          animate={{ opacity: 1, filter: 'blur(0px)' }}
-          exit={{ opacity: 0, filter: 'blur(4px)' }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           transition={transition}
           {...props}
         />

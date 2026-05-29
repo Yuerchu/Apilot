@@ -10,11 +10,11 @@ import { cn } from '@/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 const checkboxVariants = cva(
-  'peer shrink-0 flex items-center justify-center outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 disabled:cursor-not-allowed disabled:opacity-50 transition-colors duration-500 focus-visible:ring-offset-2 [&[data-state=checked],&[data-state=indeterminate]]:bg-primary [&[data-state=checked],&[data-state=indeterminate]]:text-primary-foreground',
+  'peer shrink-0 flex items-center justify-center outline-none shadow-xs transition-shadow focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 disabled:cursor-not-allowed disabled:opacity-50 [&[data-state=checked],&[data-state=indeterminate]]:border-primary [&[data-state=checked],&[data-state=indeterminate]]:bg-primary [&[data-state=checked],&[data-state=indeterminate]]:text-primary-foreground dark:[&[data-state=checked],&[data-state=indeterminate]]:bg-primary',
   {
     variants: {
       variant: {
-        default: 'bg-background border',
+        default: 'bg-background border border-input dark:bg-input/30',
         accent: 'bg-input',
       },
       size: {

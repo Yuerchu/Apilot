@@ -29,13 +29,17 @@ export function FavoritesView() {
   const virtualizer = useVirtualizer({
     count: favoriteRoutes.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 44,
+    estimateSize: (i) => {
+      const item = favoriteRoutes[i]
+      if (!item) return 54
+      return (item.route.summary || item.route.description) ? 64 : 46
+    },
     overscan: 15,
   })
 
   useEffect(() => {
     if (activeRouteRowIndex < 0) return
-    virtualizer.scrollToIndex(activeRouteRowIndex, { align: "center" })
+    virtualizer.scrollToIndex(activeRouteRowIndex, { align: "auto" })
   }, [activeRouteRowIndex, virtualizer])
 
   if (favoriteRoutes.length === 0) {
@@ -63,7 +67,7 @@ export function FavoritesView() {
 
       <div
         ref={parentRef}
-        className="overflow-auto flex-1 min-h-0"
+        className="overflow-auto flex-1 min-h-0 [contain:layout_paint]"
       >
         <div
           style={{
