@@ -11,6 +11,7 @@ import type { ConsoleResource } from "@/lib/console/types"
 import type { Parameter } from "@/lib/openapi/types"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ConsoleActionButton } from "./ConsoleActionButton"
+import { ConsoleFilterBar } from "./ConsoleFilterBar"
 import { toast } from "sonner"
 
 const PAGE_SIZES = [20, 50, 100]
@@ -53,6 +54,7 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
   const [totalCount, setTotalCount] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [pagination, setPagination] = useState<PaginationState>({ offset: 0, limit: 100 })
+  const [filters, setFilters] = useState<Record<string, string>>({})
 
   const listOp = resource.operations.list
   const listParams = listOp?.route.parameters ?? []
@@ -62,6 +64,13 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
     [listParams],
   )
   const hasPagination = !!(offsetParam || limitParam)
+
+  const excludedFilterParams = useMemo(() => {
+    const s = new Set<string>()
+    if (offsetParam) s.add(offsetParam)
+    if (limitParam) s.add(limitParam)
+    return s
+  }, [offsetParam, limitParam])
 
   const defaultLimit = useMemo(() => {
     if (!limitParam) return 100
@@ -73,7 +82,7 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
   const fetchList = useCallback(async () => {
     if (!listOp) return
     setError(null)
-    const params: Record<string, string> = {}
+    const params: Record<string, string> = { ...filters }
     if (hasPagination) {
       if (offsetParam) {
         params[offsetParam] = isPageBased
@@ -96,7 +105,7 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
         setError(`${result.status} ${result.statusText}`)
       }
     }
-  }, [resource, sendRequest, listOp, hasPagination, offsetParam, limitParam, isPageBased, pagination])
+  }, [resource, sendRequest, listOp, hasPagination, offsetParam, limitParam, isPageBased, pagination, filters])
 
   const extractTotalCount = (parsed: unknown) => {
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
@@ -192,6 +201,18 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
           <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
       </div>
+
+      {/* Filters */}
+      {listParams.length > 0 && (
+        <ConsoleFilterBar
+          params={listParams}
+          excludeParams={excludedFilterParams}
+          onSearch={newFilters => {
+            setFilters(newFilters)
+            setPagination(prev => ({ ...prev, offset: 0 }))
+          }}
+        />
+      )}
 
       {/* Error */}
       {error && (
