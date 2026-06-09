@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -12,6 +13,7 @@ import { toast } from "sonner"
 type FormOutput = Record<string, unknown> | unknown[]
 
 export function ConsoleActionButton({ action }: { action: ResourceAction }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const auth = useAuthContext()
   const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
@@ -52,9 +54,7 @@ export function ConsoleActionButton({ action }: { action: ResourceAction }) {
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{action.label}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{action.label}</DialogTitle></DialogHeader>
           <p className="text-xs text-muted-foreground font-mono">
             {action.route.method.toUpperCase()} {action.route.path}
           </p>
@@ -62,9 +62,9 @@ export function ConsoleActionButton({ action }: { action: ResourceAction }) {
             <SchemaForm schema={schema} value={formData} onChange={handleChange} />
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setOpen(false)}>{t("console.cancel")}</Button>
             <Button onClick={execute} disabled={loading}>
-              {loading ? "Running..." : "Execute"}
+              {loading ? t("console.running") : t("console.execute")}
             </Button>
           </DialogFooter>
         </DialogContent>

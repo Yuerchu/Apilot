@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { SchemaForm } from "@/components/schema/SchemaForm"
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function ConsoleFormDialog({ resource, mode, initialData, onSuccess }: Props) {
+  const { t } = useTranslation()
   const { dispatch } = useConsoleContext()
   const auth = useAuthContext()
   const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
@@ -42,22 +44,25 @@ export function ConsoleFormDialog({ resource, mode, initialData, onSuccess }: Pr
 
     const result = await sendRequest(operation.route, params, body, "application/json")
     if (result && result.status >= 200 && result.status < 300) {
-      toast.success(mode === "create" ? "Created" : "Updated")
+      toast.success(mode === "create" ? t("console.created") : t("console.updated"))
       onSuccess()
       close()
     } else {
-      toast.error(`${mode === "create" ? "Create" : "Update"} failed: ${result?.status} ${result?.statusText}`)
+      const key = mode === "create" ? "console.createFailed" : "console.updateFailed"
+      toast.error(t(key, { status: `${result?.status} ${result?.statusText}` }))
     }
   }
+
+  const title = mode === "create"
+    ? `${t("console.create")} ${resource.displayName}`
+    : `${t("console.edit")} ${resource.displayName}`
 
   if (!schema) {
     return (
       <Dialog open onOpenChange={() => close()}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{mode === "create" ? "Create" : "Edit"} {resource.displayName}</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">No schema available for this operation.</p>
+          <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">{t("console.noSchema")}</p>
         </DialogContent>
       </Dialog>
     )
@@ -66,9 +71,7 @@ export function ConsoleFormDialog({ resource, mode, initialData, onSuccess }: Pr
   return (
     <Dialog open onOpenChange={() => close()}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{mode === "create" ? "Create" : "Edit"} {resource.displayName}</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
         <SchemaForm
           schema={schema}
           value={formData}
@@ -76,9 +79,9 @@ export function ConsoleFormDialog({ resource, mode, initialData, onSuccess }: Pr
           defaultExcludeOptional={mode === "edit"}
         />
         <DialogFooter>
-          <Button variant="outline" onClick={close}>Cancel</Button>
+          <Button variant="outline" onClick={close}>{t("console.cancel")}</Button>
           <Button onClick={handleSubmit} disabled={loading}>
-            {loading ? "Saving..." : (mode === "create" ? "Create" : "Save")}
+            {loading ? t("console.saving") : (mode === "create" ? t("console.create") : t("console.save"))}
           </Button>
         </DialogFooter>
       </DialogContent>

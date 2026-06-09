@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import { useTranslation } from "react-i18next"
 import { Search, RotateCcw, ChevronsUpDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +25,7 @@ export function ConsoleFilterBar({ params, excludeParams, onSearch }: ConsoleFil
     return true
   })
 
+  const { t } = useTranslation()
   const [values, setValues] = useState<Record<string, string>>({})
   const [expanded, setExpanded] = useState(false)
 
@@ -68,11 +70,11 @@ export function ConsoleFilterBar({ params, excludeParams, onSearch }: ConsoleFil
         <div className="flex items-center gap-1.5 ml-auto">
           <Button size="sm" onClick={handleSearch}>
             <Search className="size-3.5 mr-1" />
-            Search
+            {t("console.search")}
           </Button>
           <Button size="sm" variant="outline" onClick={handleReset} disabled={activeCount === 0}>
             <RotateCcw className="size-3.5 mr-1" />
-            Reset
+            {t("console.reset")}
           </Button>
           {hasMore && (
             <Button size="sm" variant="ghost" onClick={() => setExpanded(!expanded)}>
@@ -94,6 +96,7 @@ export function ConsoleFilterBar({ params, excludeParams, onSearch }: ConsoleFil
 }
 
 function FilterField({ param, value, onChange }: { param: Parameter; value: string; onChange: (v: string) => void }) {
+  const { t } = useTranslation()
   const schema = param.schema ? resolveEffectiveSchema(param.schema) : null
   const enumValues = param.enum ?? schema?.enum ?? null
   const type = param.type ?? schema?.type ?? "string"
@@ -113,7 +116,7 @@ function FilterField({ param, value, onChange }: { param: Parameter; value: stri
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={EMPTY_SENTINEL}>
-              <span className="text-muted-foreground">All</span>
+              <span className="text-muted-foreground">{t("console.all")}</span>
             </SelectItem>
             {enumValues.map(v => (
               <SelectItem key={String(v)} value={String(v)}>{String(v)}</SelectItem>
@@ -135,7 +138,7 @@ function FilterField({ param, value, onChange }: { param: Parameter; value: stri
             <SelectValue placeholder={param.name} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={EMPTY_SENTINEL}><span className="text-muted-foreground">All</span></SelectItem>
+            <SelectItem value={EMPTY_SENTINEL}><span className="text-muted-foreground">{t("console.all")}</span></SelectItem>
             <SelectItem value="true">true</SelectItem>
             <SelectItem value="false">false</SelectItem>
           </SelectContent>

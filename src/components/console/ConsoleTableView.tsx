@@ -76,6 +76,7 @@ function ActionCellRenderer(props: CustomCellRendererProps & {
   onEdit?: (row: Record<string, unknown>) => void
   onDelete?: (row: Record<string, unknown>) => void
 }) {
+  const { t } = useTranslation()
   const row = props.data as Record<string, unknown> | undefined
   if (!row) return null
   return (
@@ -87,7 +88,7 @@ function ActionCellRenderer(props: CustomCellRendererProps & {
           className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[11px] text-blue-500 hover:text-blue-400 transition-colors"
         >
           <Pencil className="size-3" />
-          Edit
+          {t("console.edit")}
         </button>
       )}
       {props.hasDelete && (
@@ -97,7 +98,7 @@ function ActionCellRenderer(props: CustomCellRendererProps & {
           className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[11px] text-red-500 hover:text-red-400 transition-colors"
         >
           <Trash2 className="size-3" />
-          Delete
+          {t("console.delete")}
         </button>
       )}
     </span>

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { Plus, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -23,16 +24,16 @@ interface PaginationState {
 
 const OFFSET_NAMES = new Set(["offset", "skip", "start", "from", "page", "pagenum", "page_num", "page_number", "pagenumber", "current", "current_page"])
 const LIMIT_NAMES = new Set(["limit", "size", "pagesize", "page_size", "per_page", "perpage", "count", "take", "rows", "max_results", "maxresults"])
+const SORT_NAMES = new Set(["desc", "asc", "order", "order_by", "orderby", "sort", "sort_by", "sortby", "sort_order", "direction"])
 
-function detectPaginationParams(params: Parameter[]): { offsetParam: string | null; limitParam: string | null; isPageBased: boolean } {
+function detectPaginationParams(params: Parameter[]): { offsetParam: string | null; limitParam: string | null; isPageBased: boolean; sortParams: Set<string> } {
   let offsetParam: string | null = null
   let limitParam: string | null = null
   let isPageBased = false
+  const sortParams = new Set<string>()
 
   for (const p of params) {
     if (p.in !== "query") continue
-    const t = p.type ?? p.schema?.type
-    if (t !== "integer" && t !== "number") continue
     const n = p.name.toLowerCase()
     if (!offsetParam && OFFSET_NAMES.has(n)) {
       offsetParam = p.name
@@ -41,12 +42,16 @@ function detectPaginationParams(params: Parameter[]): { offsetParam: string | nu
     if (!limitParam && LIMIT_NAMES.has(n)) {
       limitParam = p.name
     }
+    if (SORT_NAMES.has(n)) {
+      sortParams.add(p.name)
+    }
   }
 
-  return { offsetParam, limitParam, isPageBased }
+  return { offsetParam, limitParam, isPageBased, sortParams }
 }
 
 export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
+  const { t } = useTranslation()
   const { dispatch } = useConsoleContext()
   const auth = useAuthContext()
   const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
@@ -59,7 +64,7 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
   const listOp = resource.operations.list
   const listParams = listOp?.route.parameters ?? []
 
-  const { offsetParam, limitParam, isPageBased } = useMemo(
+  const { offsetParam, limitParam, isPageBased, sortParams } = useMemo(
     () => detectPaginationParams(listParams),
     [listParams],
   )
@@ -69,8 +74,9 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
     const s = new Set<string>()
     if (offsetParam) s.add(offsetParam)
     if (limitParam) s.add(limitParam)
+    for (const sp of sortParams) s.add(sp)
     return s
-  }, [offsetParam, limitParam])
+  }, [offsetParam, limitParam, sortParams])
 
   const defaultLimit = useMemo(() => {
     if (!limitParam) return 100
@@ -147,10 +153,10 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
     const params: Record<string, string> = { [resource.idParam]: id }
     const result = await sendRequest(deleteOp.route, params, "", "application/json")
     if (result && result.status >= 200 && result.status < 300) {
-      toast.success(`Deleted ${id}`)
+      toast.success(t("console.deleted", { id }))
       fetchList()
     } else {
-      toast.error(`Delete failed: ${result?.status} ${result?.statusText}`)
+      toast.error(t("console.deleteFailed", { status: `${result?.status} ${result?.statusText}` }))
     }
   }, [resource, sendRequest, fetchList])
 
@@ -193,7 +199,7 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
         {hasCreate && (
           <Button size="sm" onClick={() => dispatch({ type: "SET_SUB_VIEW", view: "create" })}>
             <Plus className="size-4 mr-1.5" />
-            Create
+            {t("console.create")}
           </Button>
         )}
         <div className="flex-1" />
@@ -250,7 +256,7 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
         <div className="flex items-center gap-3 py-1 text-sm shrink-0">
           {totalCount !== null && (
             <span className="text-xs text-muted-foreground">
-              {totalCount} items
+              {t("console.items", { count: totalCount })}
             </span>
           )}
           <div className="flex-1" />
@@ -263,7 +269,7 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
             </SelectTrigger>
             <SelectContent>
               {PAGE_SIZES.map(s => (
-                <SelectItem key={s} value={String(s)}>{s} / page</SelectItem>
+                <SelectItem key={s} value={String(s)}>{t("console.perPage", { count: s })}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -292,7 +298,7 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
       {/* Empty */}
       {!loading && data === null && !error && !resource.operations.list && (
         <div className="text-sm text-muted-foreground text-center py-8">
-          This resource has no list endpoint.
+          {t("console.noListEndpoint")}
         </div>
       )}
     </div>
