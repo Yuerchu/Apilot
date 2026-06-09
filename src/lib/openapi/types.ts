@@ -208,7 +208,7 @@ export interface ModelRouteMap {
 export type AuthType = "none" | "bearer" | "basic" | "apikey" | "oauth2"
 
 export type SpecType = "openapi" | "asyncapi" | null
-export type MainView = "endpoints" | "favorites" | "models" | "diagnostics" | "diff" | "channels"
+export type MainView = "endpoints" | "favorites" | "models" | "diagnostics" | "diff" | "channels" | "console"
 export type EndpointDetailTab = "doc" | "try" | "history"
 export type ChannelDetailTab = "doc" | "test" | "history"
 export type ModelViewMode = "list" | "graph"

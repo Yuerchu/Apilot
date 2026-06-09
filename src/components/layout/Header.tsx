@@ -23,6 +23,7 @@ const VIEW_I18N: Record<string, string> = {
   diagnostics: "sidebar.diagnostics",
   diff: "sidebar.diff",
   tools: "sidebar.tools",
+  console: "sidebar.console",
 }
 
 export function Header() {

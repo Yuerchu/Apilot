@@ -22,6 +22,7 @@ export default {
     diagnostics: "Diagnostics",
     diff: "Diff",
     endpointCount: "{{count}} endpoints",
+    console: "Console",
     channels: "WebSocket Channels",
     channelCount: "{{count}} channels",
     modelCount: "{{count}} models",

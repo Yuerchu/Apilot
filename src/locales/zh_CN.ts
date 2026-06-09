@@ -22,6 +22,7 @@ export default {
     diagnostics: "诊断",
     diff: "差异对比",
     endpointCount: "{{count}} 个端点",
+    console: "控制台",
     channels: "WebSocket 通道",
     channelCount: "{{count}} 个通道",
     modelCount: "{{count}} 个模型",

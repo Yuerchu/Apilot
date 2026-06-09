@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react"
 import { useOpenAPIContext, type UrlState } from "@/contexts/OpenAPIContext"
 import type { EndpointDetailTab, MainView, ModelViewMode, SchemaViewerSource } from "@/lib/openapi/types"
 
-const MAIN_VIEWS = new Set<MainView>(["endpoints", "favorites", "models", "diagnostics", "diff", "channels"])
+const MAIN_VIEWS = new Set<MainView>(["endpoints", "favorites", "models", "diagnostics", "diff", "channels", "console"])
 const ENDPOINT_DETAIL_TABS = new Set<EndpointDetailTab>(["doc", "try"])
 const MODEL_VIEW_MODES = new Set<ModelViewMode>(["list", "graph"])
 const SCHEMA_SOURCES = new Set<SchemaViewerSource>(["openapi", "external"])

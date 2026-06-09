@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 import {
-  Route, Database, GitCompare, Stethoscope, Star, Radio,
+  Route, Database, GitCompare, Stethoscope, Star, Radio, Table2, ChevronRight,
 } from "lucide-react"
 import {
   Sidebar,
@@ -12,10 +12,15 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from "@/components/animate-ui/components/radix/sidebar"
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible"
 import { Badge } from "@/components/ui/badge"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { useAsyncAPIContext } from "@/contexts/AsyncAPIContext"
+import { useConsoleContext } from "@/contexts/ConsoleContext"
 import { useFavorites } from "@/hooks/use-favorites"
 import type { MainView } from "@/lib/openapi/types"
 import { APP_VERSION, GITHUB_URL, getBuildLabel } from "@/lib/app-info"
@@ -27,12 +32,19 @@ export function AppSidebar() {
   const { state, setMainView } = useOpenAPIContext()
   const { state: asyncState } = useAsyncAPIContext()
   const { favorites } = useFavorites()
+  const { state: consoleState, dispatch: consoleDispatch, groups } = useConsoleContext()
 
   const schemas = state.spec?.components?.schemas || state.spec?.definitions || {}
   const specLoaded = !!state.spec
   const asyncSpecLoaded = !!asyncState.spec
   const isAsyncAPI = state.specType === "asyncapi"
   const hasSchemas = Object.keys(schemas).length > 0
+  const hasConsoleResources = groups.some(g => g.resources.length > 0)
+
+  const handleConsoleResource = (resourceName: string) => {
+    setMainView("console" as MainView)
+    consoleDispatch({ type: "SET_ACTIVE_RESOURCE", name: resourceName })
+  }
 
   return (
     <Sidebar variant="inset">
@@ -128,6 +140,47 @@ export function AppSidebar() {
             )}
           </SidebarMenu>
         </SidebarGroup>
+
+        {specLoaded && !isAsyncAPI && hasConsoleResources && (
+          <SidebarGroup>
+            <SidebarGroupLabel>
+              {t("sidebar.console")}
+              <Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0">Beta</Badge>
+            </SidebarGroupLabel>
+            <SidebarMenu>
+              {groups.map(group => (
+                <Collapsible key={group.label} asChild defaultOpen={false} className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton tooltip={group.label}>
+                        <Table2 className="size-4" />
+                        <span className="truncate">{group.label}</span>
+                        <Badge variant="secondary" className="ml-auto text-[9px] mr-1">
+                          {group.resources.length}
+                        </Badge>
+                        <ChevronRight className="size-3.5 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {group.resources.map(resource => (
+                          <SidebarMenuSubItem key={resource.basePath}>
+                            <SidebarMenuSubButton
+                              isActive={state.mainView === "console" && consoleState.activeResourceName === resource.name}
+                              onClick={() => handleConsoleResource(resource.name)}
+                            >
+                              <span className="truncate">{resource.displayName}</span>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border">
