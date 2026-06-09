@@ -24,8 +24,12 @@ function getResourceName(collectionPath: string): string {
   return [...parts].reverse().find(s => !s.startsWith("{")) ?? parts[parts.length - 1] ?? collectionPath
 }
 
+function isPathLikeTag(tag: string): boolean {
+  return tag.includes("/") || tag.includes("{")
+}
+
 function getDisplayName(name: string, tag: string | null): string {
-  if (tag) return tag
+  if (tag && !isPathLikeTag(tag)) return tag
   return name.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
 }
 

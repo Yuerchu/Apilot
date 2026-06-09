@@ -2,7 +2,8 @@ import { useCallback, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { AgGridReact } from "ag-grid-react"
 import type { ColDef, DefaultMenuItem, RowSelectionOptions } from "ag-grid-community"
-import { Search, Download, FileSpreadsheet } from "lucide-react"
+import type { CustomCellRendererProps } from "ag-grid-react"
+import { Search, Download, FileSpreadsheet, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useAgGridTheme, ValueCellRenderer } from "@/components/endpoints/ResponseAgGrid"
@@ -33,9 +34,13 @@ const autoSizeStrategy = { type: "fitCellContents" as const, skipHeader: false }
 interface ConsoleTableViewProps {
   data: unknown
   schema?: SchemaObject | undefined
+  hasEdit?: boolean
+  hasDelete?: boolean
+  onEdit?: (row: Record<string, unknown>) => void
+  onDelete?: (row: Record<string, unknown>) => void
 }
 
-export function ConsoleTableView({ data, schema }: ConsoleTableViewProps) {
+export function ConsoleTableView({ data, schema, hasEdit, hasDelete, onEdit, onDelete }: ConsoleTableViewProps) {
   const items = useMemo(() => {
     if (Array.isArray(data)) return data.filter(r => r && typeof r === "object") as Record<string, unknown>[]
     return []
@@ -53,16 +58,70 @@ export function ConsoleTableView({ data, schema }: ConsoleTableViewProps) {
 
   if (items.length === 0) return null
 
-  return <ConsoleAgGrid items={items} fieldMap={fieldMap} />
+  return (
+    <ConsoleAgGrid
+      items={items}
+      fieldMap={fieldMap}
+      hasEdit={hasEdit}
+      hasDelete={hasDelete}
+      onEdit={onEdit}
+      onDelete={onDelete}
+    />
+  )
 }
 
-function ConsoleAgGrid({ items, fieldMap }: { items: Record<string, unknown>[]; fieldMap: Map<string, FieldMeta> }) {
+function ActionCellRenderer(props: CustomCellRendererProps & {
+  hasEdit?: boolean
+  hasDelete?: boolean
+  onEdit?: (row: Record<string, unknown>) => void
+  onDelete?: (row: Record<string, unknown>) => void
+}) {
+  const row = props.data as Record<string, unknown> | undefined
+  if (!row) return null
+  return (
+    <span className="inline-flex items-center gap-1 h-full">
+      {props.hasEdit && (
+        <button
+          type="button"
+          onClick={() => props.onEdit?.(row)}
+          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[11px] text-blue-500 hover:text-blue-400 transition-colors"
+        >
+          <Pencil className="size-3" />
+          Edit
+        </button>
+      )}
+      {props.hasDelete && (
+        <button
+          type="button"
+          onClick={() => props.onDelete?.(row)}
+          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[11px] text-red-500 hover:text-red-400 transition-colors"
+        >
+          <Trash2 className="size-3" />
+          Delete
+        </button>
+      )}
+    </span>
+  )
+}
+
+interface ConsoleAgGridProps {
+  items: Record<string, unknown>[]
+  fieldMap: Map<string, FieldMeta>
+  hasEdit?: boolean | undefined
+  hasDelete?: boolean | undefined
+  onEdit?: ((row: Record<string, unknown>) => void) | undefined
+  onDelete?: ((row: Record<string, unknown>) => void) | undefined
+}
+
+function ConsoleAgGrid({ items, fieldMap, hasEdit, hasDelete, onEdit, onDelete }: ConsoleAgGridProps) {
   const { t, i18n } = useTranslation()
   const theme = useAgGridTheme()
   const localeText = AG_GRID_LOCALES[i18n.language]
   const enterprise = useAgGridEnterprise()
   const gridRef = useRef<AgGridReact>(null)
   const [quickFilter, setQuickFilter] = useState("")
+
+  const hasActions = hasEdit || hasDelete
 
   const defaultColDef = useMemo<ColDef>(() => ({
     resizable: true,
@@ -75,7 +134,7 @@ function ConsoleAgGrid({ items, fieldMap }: { items: Record<string, unknown>[]; 
 
   const columnDefs = useMemo<ColDef[]>(() => {
     const cols = collectColumns(items)
-    return cols.map(key => {
+    const dataCols: ColDef[] = cols.map(key => {
       const meta = fieldMap.get(key)
       const label = meta?.description || key
       return {
@@ -85,7 +144,23 @@ function ConsoleAgGrid({ items, fieldMap }: { items: Record<string, unknown>[]; 
         cellRenderer: ValueCellRenderer,
       }
     })
-  }, [items, fieldMap])
+
+    if (hasActions) {
+      dataCols.push({
+        headerName: t("console.actions", "Actions"),
+        field: "__actions",
+        sortable: false,
+        filter: false,
+        resizable: false,
+        pinned: "right",
+        width: (hasEdit ? 70 : 0) + (hasDelete ? 70 : 0) + 16,
+        cellRenderer: ActionCellRenderer,
+        cellRendererParams: { hasEdit, hasDelete, onEdit, onDelete },
+      })
+    }
+
+    return dataCols
+  }, [items, fieldMap, hasActions, hasEdit, hasDelete, onEdit, onDelete, t])
 
   const exportCsv = useCallback(() => {
     gridRef.current?.api.exportDataAsCsv()
