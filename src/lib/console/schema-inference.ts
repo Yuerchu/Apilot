@@ -16,7 +16,7 @@ export function getRequestBodySchema(route: ParsedRoute): SchemaObject | null {
 }
 
 function getResponseSchema(responses: Record<string, ResponseObject>): SchemaObject | null {
-  const ok = responses["200"] ?? responses["201"] ?? responses["2XX"]
+  const ok = responses["200"] ?? responses["201"] ?? responses["2XX"] ?? responses["2xx"] ?? responses["default"]
   if (!ok) return null
   if (ok.content) {
     const json = ok.content["application/json"]

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { X, Undo2, Redo2, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -88,6 +88,10 @@ export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
   const [selectedField, setSelectedField] = useState<string | null>(null)
   const [history, setHistory] = useState<Array<{ columns: ColumnConfig[]; createFields: FormFieldConfig[]; updateFields: FormFieldConfig[] }>>([])
   const [redoStack, setRedoStack] = useState<typeof history>([])
+
+  useEffect(() => { setColumns(initialColumns) }, [initialColumns])
+  useEffect(() => { setCreateFields(initialCreateFields) }, [initialCreateFields])
+  useEffect(() => { setUpdateFields(initialUpdateFields) }, [initialUpdateFields])
 
   const pushHistory = useCallback(() => {
     setHistory(prev => [...prev, { columns, createFields, updateFields }])

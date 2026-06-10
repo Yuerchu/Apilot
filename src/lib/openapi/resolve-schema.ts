@@ -3,12 +3,32 @@ import type { SchemaObject } from './types'
 export function resolveEffectiveSchema(schema: SchemaObject | undefined | null): SchemaObject & { _nullable: boolean } {
   if (!schema || typeof schema !== 'object') return { ...(schema || {}), _nullable: false } as SchemaObject & { _nullable: boolean };
   let s: SchemaObject = schema;
-  // Merge allOf into a flat object
+  // Merge allOf into a flat object (deep-merge properties and concatenate required)
   if (s.allOf) {
     const merged: SchemaObject = {};
-    for (const part of s.allOf) Object.assign(merged, part);
+    for (const part of s.allOf) {
+      if (!part || typeof part !== 'object') continue;
+      const { properties, required, ...rest } = part as SchemaObject & { required?: string[] };
+      Object.assign(merged, rest);
+      if (properties) {
+        merged.properties = { ...(merged.properties || {}), ...properties };
+      }
+      if (required) {
+        merged.required = [...((merged as { required?: string[] }).required || []), ...required];
+      }
+    }
     for (const [k, v] of Object.entries(s)) {
-      if (k !== 'allOf') merged[k] = v;
+      if (k === 'allOf') continue;
+      if (k === 'properties') {
+        merged.properties = { ...(merged.properties || {}), ...(v as Record<string, SchemaObject>) };
+      } else if (k === 'required') {
+        merged.required = [...((merged as { required?: string[] }).required || []), ...(v as string[])];
+      } else {
+        merged[k] = v;
+      }
+    }
+    if ((merged as { required?: string[] }).required) {
+      (merged as { required: string[] }).required = [...new Set((merged as { required: string[] }).required)];
     }
     s = merged;
   }

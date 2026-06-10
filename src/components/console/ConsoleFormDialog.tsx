@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -7,6 +7,8 @@ import { useRequest } from "@/hooks/use-request"
 import { useAuthContext } from "@/contexts/AuthContext"
 import { useConsoleContext } from "@/contexts/ConsoleContext"
 import type { ConsoleResource } from "@/lib/console/types"
+import type { FormFieldConfig } from "@/lib/console/types"
+import type { SchemaObject } from "@/lib/openapi/types"
 import { toast } from "sonner"
 
 type FormOutput = Record<string, unknown> | unknown[]
@@ -18,14 +20,41 @@ interface Props {
   onSuccess: () => void
 }
 
+function applyFieldLayout(schema: SchemaObject, fieldConfigs: FormFieldConfig[] | undefined): SchemaObject {
+  if (!fieldConfigs || fieldConfigs.length === 0 || !schema.properties) return schema
+  const configMap = new Map(fieldConfigs.map(f => [f.field, f]))
+  const visibleFields = fieldConfigs
+    .filter(f => f.visible)
+    .sort((a, b) => a.order - b.order)
+    .map(f => f.field)
+    .filter(f => f in schema.properties!)
+
+  const newFields = Object.keys(schema.properties).filter(f => !configMap.has(f))
+
+  const orderedKeys = [...visibleFields, ...newFields]
+  const newProperties: Record<string, SchemaObject> = {}
+  for (const key of orderedKeys) {
+    if (schema.properties[key]) {
+      newProperties[key] = schema.properties[key]
+    }
+  }
+
+  return { ...schema, properties: newProperties }
+}
+
 export function ConsoleFormDialog({ resource, mode, initialData, onSuccess }: Props) {
   const { t } = useTranslation()
-  const { dispatch } = useConsoleContext()
+  const { dispatch, activeLayout } = useConsoleContext()
   const auth = useAuthContext()
   const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
   const [formData, setFormData] = useState<FormOutput>(initialData ?? {})
 
-  const schema = mode === "create" ? resource.createSchema : resource.updateSchema
+  const rawSchema = mode === "create" ? resource.createSchema : resource.updateSchema
+  const fieldConfigs = mode === "create" ? activeLayout?.createFields : activeLayout?.updateFields
+  const schema = useMemo(
+    () => rawSchema ? applyFieldLayout(rawSchema, fieldConfigs) : null,
+    [rawSchema, fieldConfigs],
+  )
   const operation = mode === "create" ? resource.operations.create : resource.operations.update
 
   const close = () => dispatch({ type: "SET_SUB_VIEW", view: "list" })
@@ -47,9 +76,9 @@ export function ConsoleFormDialog({ resource, mode, initialData, onSuccess }: Pr
       toast.success(mode === "create" ? t("console.created") : t("console.updated"))
       onSuccess()
       close()
-    } else {
+    } else if (result) {
       const key = mode === "create" ? "console.createFailed" : "console.updateFailed"
-      toast.error(t(key, { status: `${result?.status} ${result?.statusText}` }))
+      toast.error(t(key, { status: `${result.status} ${result.statusText}` }))
     }
   }
 

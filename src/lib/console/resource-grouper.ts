@@ -68,8 +68,9 @@ function identifyCollections(entries: RouteEntry[]): Set<string> {
     }
   }
 
-  // Pass 2: Paths with GET or POST that look like collections
-  for (const [path, methods] of methodsByPath) {
+  // Pass 2: Paths with GET or POST that look like collections (sorted for deterministic results)
+  const sortedPaths = [...methodsByPath.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  for (const [path, methods] of sortedPaths) {
     const segs = parseSegments(path)
     if (segs.length === 0 || segs.at(-1)!.isParam) continue
     if (collections.has(path)) continue

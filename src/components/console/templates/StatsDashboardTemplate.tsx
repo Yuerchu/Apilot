@@ -105,19 +105,22 @@ interface ChartDataPoint {
 }
 
 function categorizeFields(data: Record<string, unknown> | null): { statCards: StatCard[]; chartData: ChartDataPoint[] } {
-  if (!data) return { statCards: [], chartData: [] }
+  if (!data || Array.isArray(data)) return { statCards: [], chartData: [] }
   const statCards: StatCard[] = []
   const chartData: ChartDataPoint[] = []
 
   for (const [key, value] of Object.entries(data)) {
-    if (typeof value === "number" || typeof value === "bigint") {
+    if (typeof value === "number" && Number.isFinite(value)) {
       const label = key.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
       statCards.push({ key, label, value })
-      chartData.push({ label, value: Number(value) })
-    } else if (typeof value === "string" && !isNaN(Number(value)) && value.trim() !== "") {
-      const label = key.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
-      statCards.push({ key, label, value: Number(value) })
-      chartData.push({ label, value: Number(value) })
+      chartData.push({ label, value })
+    } else if (typeof value === "string" && value.trim() !== "") {
+      const num = Number(value)
+      if (Number.isFinite(num)) {
+        const label = key.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
+        statCards.push({ key, label, value: num })
+        chartData.push({ label, value: num })
+      }
     }
   }
 
