@@ -3,9 +3,9 @@ import { useTranslation } from "react-i18next"
 import { X, Undo2, Redo2, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-// import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
 import { useConsoleContext } from "@/contexts/ConsoleContext"
 import { saveLayout as persistLayout } from "@/lib/console/layout-config"
+import { useAgGridEnterprise } from "@/components/endpoints/use-ag-grid-enterprise"
 import { collectColumns, buildFieldMap, type FieldMeta } from "@/components/endpoints/ResponseTableView"
 import { buildJsonSchemaTree } from "@/lib/json-schema-tree"
 import type { ConsoleResource, ColumnConfig, FormFieldConfig, ResourceLayout } from "@/lib/console/types"
@@ -47,6 +47,7 @@ function getSchemaPropertyDescriptions(schema: SchemaObject | null): Record<stri
 export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
   const { t } = useTranslation()
   const { activeLayout, dispatch, specId } = useConsoleContext()
+  const enterprise = useAgGridEnterprise()
 
   const fieldMap = useMemo(() => {
     if (!resource.listItemSchema) return new Map<string, FieldMeta>()
@@ -77,7 +78,10 @@ export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
   const createSchemaProps = useMemo(() => getSchemaPropertyDescriptions(resource.createSchema), [resource.createSchema])
   const updateSchemaProps = useMemo(() => getSchemaPropertyDescriptions(resource.updateSchema), [resource.updateSchema])
 
-  const [activeTab, setActiveTab] = useState<ActiveTab>("columns")
+  const defaultTab: ActiveTab = enterprise
+    ? (resource.createSchema ? "create" : resource.updateSchema ? "update" : "components")
+    : "columns"
+  const [activeTab, setActiveTab] = useState<ActiveTab>(defaultTab)
   const [columns, setColumns] = useState<ColumnConfig[]>(initialColumns)
   const [createFields, setCreateFields] = useState<FormFieldConfig[]>(initialCreateFields)
   const [updateFields, setUpdateFields] = useState<FormFieldConfig[]>(initialUpdateFields)
@@ -213,20 +217,22 @@ export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
         <aside className="w-72 shrink-0 border-r overflow-y-auto flex flex-col">
           <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as ActiveTab); setSelectedField(null) }} className="h-full flex flex-col">
             <TabsList className="mx-2 mt-2 shrink-0 h-auto flex-wrap">
-              <TabsTrigger value="columns" className="text-xs">Columns</TabsTrigger>
+              {!enterprise && <TabsTrigger value="columns" className="text-xs">Columns</TabsTrigger>}
               {resource.createSchema && <TabsTrigger value="create" className="text-xs">{t("console.create")}</TabsTrigger>}
               {resource.updateSchema && <TabsTrigger value="update" className="text-xs">{t("console.edit")}</TabsTrigger>}
               <TabsTrigger value="components" className="text-xs">Components</TabsTrigger>
             </TabsList>
-            <TabsContent value="columns" className="flex-1 min-h-0 mt-0">
-              <ColumnSortableList
-                columns={columns}
-                fieldMap={fieldMap}
-                selectedField={selectedField}
-                onColumnsChange={handleColumnsChange}
-                onSelectField={setSelectedField}
-              />
-            </TabsContent>
+            {!enterprise && (
+              <TabsContent value="columns" className="flex-1 min-h-0 mt-0">
+                <ColumnSortableList
+                  columns={columns}
+                  fieldMap={fieldMap}
+                  selectedField={selectedField}
+                  onColumnsChange={handleColumnsChange}
+                  onSelectField={setSelectedField}
+                />
+              </TabsContent>
+            )}
             <TabsContent value="create" className="flex-1 min-h-0 mt-0">
               <FormFieldSortableList
                 fields={createFields}
