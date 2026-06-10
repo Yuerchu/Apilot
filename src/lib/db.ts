@@ -629,11 +629,19 @@ function stripSensitiveHeaders(headers: Record<string, string>): Record<string, 
 }
 
 export async function addHistoryEntry(entry: Omit<HistoryEntry, "id">): Promise<void> {
-  const db = await getDB()
-  const sanitized = truncateBody(entry.response)
-  sanitized.requestHeaders = stripSensitiveHeaders(sanitized.requestHeaders)
-  sanitized.curlCommand = sanitized.curlCommand.replace(/(Authorization|Cookie|X-API-Key):\s*[^'"]+/gi, "$1: ***")
-  await db.add("history", { ...entry, response: sanitized })
+  try {
+    const db = await getDB()
+    const sanitized = truncateBody(entry.response)
+    sanitized.requestHeaders = stripSensitiveHeaders(sanitized.requestHeaders)
+    sanitized.curlCommand = sanitized.curlCommand.replace(/(Authorization|Cookie|X-API-Key):\s*[^'"]+/gi, "$1: ***")
+    await db.add("history", { ...entry, response: sanitized })
+  } catch (err) {
+    if ((err as DOMException)?.name === "QuotaExceededError") {
+      console.warn("[apilot] Storage quota exceeded, history entry not saved")
+    } else {
+      throw err
+    }
+  }
 }
 
 export async function getHistory(

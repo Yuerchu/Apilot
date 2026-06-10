@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util"
 import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, cpSync, existsSync, readdirSync, statSync, rmSync } from "node:fs"
-import { resolve, dirname, join, extname, basename } from "node:path"
+import { resolve, dirname, join, extname } from "node:path"
 import { fileURLToPath } from "node:url"
 import YAML from "yaml"
 

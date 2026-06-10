@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import i18n from "@/lib/i18n"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { buildSnippet } from "@/lib/build-snippet"
@@ -25,6 +25,7 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
   const [loading, setLoading] = useState(false)
   const [response, setResponse] = useState<RequestResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   const validateRequest = useCallback((
     route: ParsedRoute,
@@ -94,6 +95,10 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
       return null
     }
 
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     setLoading(true)
     setError(null)
     setResponse(null)
@@ -160,6 +165,7 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
 
     const start = performance.now()
     try {
+      fetchOpts.signal = controller.signal
       const res = await fetch(url, fetchOpts)
       const elapsed = Math.round(performance.now() - start)
       const respHeaders: Record<string, string> = {}
@@ -198,6 +204,9 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
       setLoading(false)
       return result
     } catch (e) {
+      if ((e as Error).name === "AbortError") {
+        return null
+      }
       const elapsed = Math.round(performance.now() - start)
       const result: RequestResponse = {
         status: 0,
