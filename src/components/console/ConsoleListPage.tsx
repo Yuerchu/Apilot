@@ -84,6 +84,23 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
     return typeof d === "number" ? d : 100
   }, [limitParam, listParams])
 
+  const extractTotalCount = useCallback((parsed: unknown) => {
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const obj = parsed as Record<string, unknown>
+      for (const key of ["total", "count", "total_count", "totalCount", "totalItems"]) {
+        if (typeof obj[key] === "number") {
+          setTotalCount(obj[key] as number)
+          return
+        }
+      }
+    }
+    if (Array.isArray(parsed)) {
+      setTotalCount(parsed.length)
+      return
+    }
+    setTotalCount(null)
+  }, [])
+
   const fetchList = useCallback(async () => {
     if (!listOp) return
     setError(null)
@@ -110,23 +127,7 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
         setError(`${result.status} ${result.statusText}`)
       }
     }
-  }, [resource, sendRequest, listOp, hasPagination, offsetParam, limitParam, isPageBased, pagination, filters])
-
-  const extractTotalCount = (parsed: unknown) => {
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      const obj = parsed as Record<string, unknown>
-      for (const key of ["total", "count", "total_count", "totalCount", "totalItems"]) {
-        if (typeof obj[key] === "number") {
-          setTotalCount(obj[key] as number)
-          return
-        }
-      }
-    }
-    if (Array.isArray(parsed)) {
-      setTotalCount(parsed.length)
-    }
-    setTotalCount(null)
-  }
+  }, [resource, sendRequest, listOp, hasPagination, offsetParam, limitParam, isPageBased, pagination, filters, extractTotalCount])
 
   useEffect(() => {
     setPagination(prev => prev.limit === 100 && defaultLimit !== 100 ? { offset: 0, limit: defaultLimit } : prev)
@@ -149,15 +150,16 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
     if (!deleteOp || !resource.idParam) return
     const id = String(row[resource.idParam] ?? row["id"] ?? "")
     if (!id) return
+    if (!window.confirm(`${t("console.delete")} ${id}?`)) return
     const params: Record<string, string> = { [resource.idParam]: id }
     const result = await sendRequest(deleteOp.route, params, "", "application/json")
     if (result && result.status >= 200 && result.status < 300) {
       toast.success(t("console.deleted", { id }))
       fetchList()
-    } else {
-      toast.error(t("console.deleteFailed", { status: `${result?.status} ${result?.statusText}` }))
+    } else if (result) {
+      toast.error(t("console.deleteFailed", { status: `${result.status} ${result.statusText}` }))
     }
-  }, [resource, sendRequest, fetchList])
+  }, [resource, sendRequest, fetchList, t])
 
   const currentPage = Math.floor(pagination.offset / pagination.limit) + 1
   const totalPages = totalCount !== null ? Math.ceil(totalCount / pagination.limit) : null

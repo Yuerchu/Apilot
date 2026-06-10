@@ -17,8 +17,8 @@ const SEARCH_PATH_KEYWORDS = ["search", "query", "find", "lookup"]
 const PASSWORD_PATH_KEYWORDS = ["password", "change-password", "reset-password", "change_password"]
 
 function pathContains(basePath: string, keywords: string[]): boolean {
-  const lower = basePath.toLowerCase()
-  return keywords.some(k => lower.includes(k))
+  const segments = basePath.toLowerCase().split("/").filter(Boolean).filter(s => !s.startsWith("{"))
+  return keywords.some(k => segments.some(seg => seg === k || seg.endsWith(`-${k}`) || seg.startsWith(`${k}-`)))
 }
 
 function hasRequestBodyAction(resource: ConsoleResource): boolean {

@@ -7,7 +7,7 @@ import { loadLayouts } from "@/lib/console/layout-config"
 export type ConsoleSubView = "list" | "detail" | "create" | "edit"
 
 export interface ConsoleState {
-  activeResourceName: string | null
+  activeResourceKey: string | null
   activeActionIndex: number | null
   subView: ConsoleSubView
   activeItemId: string | null
@@ -16,8 +16,8 @@ export interface ConsoleState {
 }
 
 type ConsoleAction =
-  | { type: "SET_ACTIVE_RESOURCE"; name: string }
-  | { type: "SET_ACTIVE_ACTION"; name: string; actionIndex: number }
+  | { type: "SET_ACTIVE_RESOURCE"; key: string }
+  | { type: "SET_ACTIVE_ACTION"; key: string; actionIndex: number }
   | { type: "SET_SUB_VIEW"; view: ConsoleSubView; itemId?: string | null }
   | { type: "SET_BUILDER_MODE"; on: boolean }
   | { type: "SET_LAYOUT"; basePath: string; layout: ResourceLayout }
@@ -25,7 +25,7 @@ type ConsoleAction =
   | { type: "LOAD_LAYOUTS"; layouts: Record<string, ResourceLayout> }
 
 const initialState: ConsoleState = {
-  activeResourceName: null,
+  activeResourceKey: null,
   activeActionIndex: null,
   subView: "list",
   activeItemId: null,
@@ -36,9 +36,9 @@ const initialState: ConsoleState = {
 function reducer(state: ConsoleState, action: ConsoleAction): ConsoleState {
   switch (action.type) {
     case "SET_ACTIVE_RESOURCE":
-      return { ...state, activeResourceName: action.name, activeActionIndex: null, subView: "list", activeItemId: null }
+      return { ...state, activeResourceKey: action.key, activeActionIndex: null, subView: "list", activeItemId: null }
     case "SET_ACTIVE_ACTION":
-      return { ...state, activeResourceName: action.name, activeActionIndex: action.actionIndex, subView: "list", activeItemId: null }
+      return { ...state, activeResourceKey: action.key, activeActionIndex: action.actionIndex, subView: "list", activeItemId: null }
     case "SET_SUB_VIEW":
       return { ...state, subView: action.view, activeItemId: action.itemId ?? null }
     case "SET_BUILDER_MODE":
@@ -78,8 +78,8 @@ export function ConsoleProvider({ routes, specId, children }: { routes: ParsedRo
   const resources = useMemo(() => groupRoutes(routes), [routes])
   const groups = useMemo(() => groupResourcesByPrefix(resources), [resources])
   const activeResource = useMemo(
-    () => resources.find(r => r.name === state.activeResourceName) ?? null,
-    [resources, state.activeResourceName],
+    () => resources.find(r => r.basePath === state.activeResourceKey) ?? null,
+    [resources, state.activeResourceKey],
   )
   const activeAction = useMemo(
     () => {
@@ -102,8 +102,12 @@ export function ConsoleProvider({ routes, specId, children }: { routes: ParsedRo
     })
   }, [specId])
 
+  const contextValue = useMemo(() => ({
+    state, dispatch, resources, groups, activeResource, activeAction, activeLayout, specId,
+  }), [state, dispatch, resources, groups, activeResource, activeAction, activeLayout, specId])
+
   return (
-    <ConsoleCtx.Provider value={{ state, dispatch, resources, groups, activeResource, activeAction, activeLayout, specId }}>
+    <ConsoleCtx.Provider value={contextValue}>
       {children}
     </ConsoleCtx.Provider>
   )

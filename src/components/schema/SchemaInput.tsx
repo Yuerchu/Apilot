@@ -289,7 +289,8 @@ export function SchemaInput({
   // All other string types + random
   const inputType = ps.format === "email" ? "email"
     : (ps.format === "uri" || ps.format === "url") ? "url"
-      : "text"
+      : ps.format === "password" ? "password"
+        : "text"
   const placeholder = ps.format === "uuid" ? "UUID"
     : ps.format === "email" ? "user@example.com"
       : (ps.format === "uri" || ps.format === "url") ? "https://example.com"

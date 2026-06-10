@@ -58,7 +58,9 @@ export function ConsoleTableView({ data, schema, columnLayout, hasEdit, hasDelet
     }
   }, [schema])
 
-  if (items.length === 0) return null
+  if (items.length === 0) {
+    return <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">No data</div>
+  }
 
   return (
     <ConsoleAgGrid

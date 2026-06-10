@@ -54,15 +54,15 @@ export function FormFieldPropertyEditor({ field, onChange }: FormFieldPropertyEd
       <div className="space-y-1.5">
         <Label className="text-xs">Widget</Label>
         <Select
-          value={field.widgetType ?? ""}
-          onValueChange={v => update({ widgetType: v || undefined })}
+          value={field.widgetType ?? "__auto__"}
+          onValueChange={v => update({ widgetType: v === "__auto__" ? undefined : v })}
         >
           <SelectTrigger className="h-8 text-xs">
             <SelectValue placeholder="Auto" />
           </SelectTrigger>
           <SelectContent>
             {WIDGET_TYPES.map(w => (
-              <SelectItem key={w.value} value={w.value || "__auto__"}>
+              <SelectItem key={w.value || "__auto__"} value={w.value || "__auto__"}>
                 {w.label}
               </SelectItem>
             ))}
