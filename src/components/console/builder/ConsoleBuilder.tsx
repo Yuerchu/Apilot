@@ -3,8 +3,7 @@ import { useTranslation } from "react-i18next"
 import { X, Undo2, Redo2, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
-import { ScrollArea } from "@/components/ui/scroll-area"
+// import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
 import { useConsoleContext } from "@/contexts/ConsoleContext"
 import { saveLayout as persistLayout } from "@/lib/console/layout-config"
 import { collectColumns, buildFieldMap, type FieldMeta } from "@/components/endpoints/ResponseTableView"
@@ -209,10 +208,9 @@ export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
       </div>
 
       {/* Three-panel layout */}
-      <ResizablePanelGroup orientation="horizontal" className="flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0">
         {/* Left: Field list */}
-        <ResizablePanel defaultSize={25} minSize={18} maxSize={40}>
-          <div className="h-full min-w-0 overflow-hidden">
+        <aside className="w-72 shrink-0 border-r overflow-hidden flex flex-col">
           <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as ActiveTab); setSelectedField(null) }} className="h-full flex flex-col">
             <TabsList className="mx-2 mt-2 shrink-0 h-auto flex-wrap">
               <TabsTrigger value="columns" className="text-xs">Columns</TabsTrigger>
@@ -251,42 +249,31 @@ export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
               <ComponentLibrary />
             </TabsContent>
           </Tabs>
-          </div>
-        </ResizablePanel>
-
-        <ResizableHandle withHandle />
+        </aside>
 
         {/* Center: Preview */}
-        <ResizablePanel defaultSize={50} minSize={25}>
-          <div className="h-full min-w-0 overflow-auto p-4">
-            <ConsoleListPage resource={resource} />
-          </div>
-        </ResizablePanel>
-
-        <ResizableHandle withHandle />
+        <main className="flex-1 min-w-0 overflow-auto p-4">
+          <ConsoleListPage resource={resource} />
+        </main>
 
         {/* Right: Property editor */}
-        <ResizablePanel defaultSize={25} minSize={18} maxSize={40}>
-          <div className="h-full min-w-0 overflow-hidden">
-          <ScrollArea className="h-full">
-            {selectedColumn && (
-              <ColumnPropertyEditor column={selectedColumn} onChange={handleColumnPropertyChange} />
-            )}
-            {selectedCreateField && (
-              <FormFieldPropertyEditor field={selectedCreateField} onChange={handleCreateFieldPropertyChange} />
-            )}
-            {selectedUpdateField && (
-              <FormFieldPropertyEditor field={selectedUpdateField} onChange={handleUpdateFieldPropertyChange} />
-            )}
-            {!selectedColumn && !selectedCreateField && !selectedUpdateField && (
-              <div className="flex items-center justify-center h-32 text-xs text-muted-foreground">
-                {t("console.selectResource")}
-              </div>
-            )}
-          </ScrollArea>
-          </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+        <aside className="w-64 shrink-0 border-l overflow-auto">
+          {selectedColumn && (
+            <ColumnPropertyEditor column={selectedColumn} onChange={handleColumnPropertyChange} />
+          )}
+          {selectedCreateField && (
+            <FormFieldPropertyEditor field={selectedCreateField} onChange={handleCreateFieldPropertyChange} />
+          )}
+          {selectedUpdateField && (
+            <FormFieldPropertyEditor field={selectedUpdateField} onChange={handleUpdateFieldPropertyChange} />
+          )}
+          {!selectedColumn && !selectedCreateField && !selectedUpdateField && (
+            <div className="flex items-center justify-center h-32 text-xs text-muted-foreground">
+              {t("console.selectResource")}
+            </div>
+          )}
+        </aside>
+      </div>
     </div>
   )
 }
