@@ -11,7 +11,6 @@ import { useConsoleContext } from "@/contexts/ConsoleContext"
 import type { ConsoleResource } from "@/lib/console/types"
 import type { Parameter } from "@/lib/openapi/types"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ConsoleActionButton } from "./ConsoleActionButton"
 import { ConsoleFilterBar } from "./ConsoleFilterBar"
 import { toast } from "sonner"
 
@@ -184,14 +183,6 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
           </div>
           <p className="text-xs text-muted-foreground font-mono truncate">{resource.basePath}</p>
         </div>
-        {resource.actions.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] text-muted-foreground">Actions:</span>
-            {resource.actions.map((action, i) => (
-              <ConsoleActionButton key={i} action={action} />
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Toolbar */}

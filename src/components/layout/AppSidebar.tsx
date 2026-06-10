@@ -46,6 +46,11 @@ export function AppSidebar() {
     consoleDispatch({ type: "SET_ACTIVE_RESOURCE", name: resourceName })
   }
 
+  const handleConsoleAction = (resourceName: string, actionIndex: number) => {
+    setMainView("console" as MainView)
+    consoleDispatch({ type: "SET_ACTIVE_ACTION", name: resourceName, actionIndex })
+  }
+
   return (
     <Sidebar variant="inset">
       <SidebarHeader className="border-b border-sidebar-border">
@@ -166,11 +171,21 @@ export function AppSidebar() {
                         {group.resources.map(resource => (
                           <SidebarMenuSubItem key={resource.basePath}>
                             <SidebarMenuSubButton
-                              isActive={state.mainView === "console" && consoleState.activeResourceName === resource.name}
+                              isActive={state.mainView === "console" && consoleState.activeResourceName === resource.name && consoleState.activeActionIndex === null}
                               onClick={() => handleConsoleResource(resource.name)}
                             >
                               <span className="truncate">{resource.displayName}</span>
                             </SidebarMenuSubButton>
+                            {resource.actions.length > 0 && resource.actions.map((action, ai) => (
+                              <SidebarMenuSubButton
+                                key={ai}
+                                isActive={state.mainView === "console" && consoleState.activeResourceName === resource.name && consoleState.activeActionIndex === ai}
+                                onClick={() => handleConsoleAction(resource.name, ai)}
+                                className="pl-4"
+                              >
+                                <span className="truncate text-[11px]">{action.label}</span>
+                              </SidebarMenuSubButton>
+                            ))}
                           </SidebarMenuSubItem>
                         ))}
                       </SidebarMenuSub>

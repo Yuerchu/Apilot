@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useMemo, useEffect, type Dispatch, type ReactNode } from "react"
 import type { ParsedRoute } from "@/lib/openapi/types"
-import type { ConsoleResource, ConsoleResourceGroup, ResourceLayout } from "@/lib/console/types"
+import type { ConsoleResource, ConsoleResourceGroup, ResourceLayout, ResourceAction } from "@/lib/console/types"
 import { groupRoutes, groupResourcesByPrefix } from "@/lib/console/resource-grouper"
 import { loadLayouts } from "@/lib/console/layout-config"
 
@@ -8,6 +8,7 @@ export type ConsoleSubView = "list" | "detail" | "create" | "edit"
 
 export interface ConsoleState {
   activeResourceName: string | null
+  activeActionIndex: number | null
   subView: ConsoleSubView
   activeItemId: string | null
   builderMode: boolean
@@ -16,6 +17,7 @@ export interface ConsoleState {
 
 type ConsoleAction =
   | { type: "SET_ACTIVE_RESOURCE"; name: string }
+  | { type: "SET_ACTIVE_ACTION"; name: string; actionIndex: number }
   | { type: "SET_SUB_VIEW"; view: ConsoleSubView; itemId?: string | null }
   | { type: "SET_BUILDER_MODE"; on: boolean }
   | { type: "SET_LAYOUT"; basePath: string; layout: ResourceLayout }
@@ -24,6 +26,7 @@ type ConsoleAction =
 
 const initialState: ConsoleState = {
   activeResourceName: null,
+  activeActionIndex: null,
   subView: "list",
   activeItemId: null,
   builderMode: false,
@@ -33,7 +36,9 @@ const initialState: ConsoleState = {
 function reducer(state: ConsoleState, action: ConsoleAction): ConsoleState {
   switch (action.type) {
     case "SET_ACTIVE_RESOURCE":
-      return { ...state, activeResourceName: action.name, subView: "list", activeItemId: null }
+      return { ...state, activeResourceName: action.name, activeActionIndex: null, subView: "list", activeItemId: null }
+    case "SET_ACTIVE_ACTION":
+      return { ...state, activeResourceName: action.name, activeActionIndex: action.actionIndex, subView: "list", activeItemId: null }
     case "SET_SUB_VIEW":
       return { ...state, subView: action.view, activeItemId: action.itemId ?? null }
     case "SET_BUILDER_MODE":
@@ -60,6 +65,7 @@ interface ConsoleContextValue {
   resources: ConsoleResource[]
   groups: ConsoleResourceGroup[]
   activeResource: ConsoleResource | null
+  activeAction: ResourceAction | null
   activeLayout: ResourceLayout | null
   specId: string
 }
@@ -74,6 +80,13 @@ export function ConsoleProvider({ routes, specId, children }: { routes: ParsedRo
   const activeResource = useMemo(
     () => resources.find(r => r.name === state.activeResourceName) ?? null,
     [resources, state.activeResourceName],
+  )
+  const activeAction = useMemo(
+    () => {
+      if (state.activeActionIndex === null || !activeResource) return null
+      return activeResource.actions[state.activeActionIndex] ?? null
+    },
+    [activeResource, state.activeActionIndex],
   )
   const activeLayout = useMemo(
     () => (activeResource ? state.layouts[activeResource.basePath] ?? null : null),
@@ -90,7 +103,7 @@ export function ConsoleProvider({ routes, specId, children }: { routes: ParsedRo
   }, [specId])
 
   return (
-    <ConsoleCtx.Provider value={{ state, dispatch, resources, groups, activeResource, activeLayout, specId }}>
+    <ConsoleCtx.Provider value={{ state, dispatch, resources, groups, activeResource, activeAction, activeLayout, specId }}>
       {children}
     </ConsoleCtx.Provider>
   )

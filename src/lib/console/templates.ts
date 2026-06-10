@@ -1,4 +1,4 @@
-import type { ConsoleResource } from "./types"
+import type { ConsoleResource, ResourceAction } from "./types"
 import { getRequestBodySchema } from "./schema-inference"
 
 export interface PageTemplate {
@@ -158,6 +158,23 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     },
   },
 ]
+
+export function selectActionTemplate(action: ResourceAction): PageTemplate {
+  const method = action.route.method.toUpperCase()
+  const hasBody = !!getRequestBodySchema(action.route)
+  const path = action.route.path.toLowerCase()
+
+  if (pathContains(path, AUTH_PATH_KEYWORDS) && hasBody) return PAGE_TEMPLATES.find(t => t.id === "login-card")!
+  if (pathContains(path, PASSWORD_PATH_KEYWORDS)) return PAGE_TEMPLATES.find(t => t.id === "password-change")!
+  if (pathContains(path, UPLOAD_PATH_KEYWORDS) && (method === "POST" || method === "PUT")) return PAGE_TEMPLATES.find(t => t.id === "upload-dropzone")!
+  if (pathContains(path, STATS_PATH_KEYWORDS) && method === "GET") return PAGE_TEMPLATES.find(t => t.id === "stats-dashboard")!
+  if (pathContains(path, SEARCH_PATH_KEYWORDS) && method === "GET") return PAGE_TEMPLATES.find(t => t.id === "search-results")!
+
+  if (hasBody) return PAGE_TEMPLATES.find(t => t.id === "action-form")!
+  if (method === "GET") return PAGE_TEMPLATES.find(t => t.id === "detail-card")!
+
+  return PAGE_TEMPLATES.find(t => t.id === "action-form")!
+}
 
 export function selectBestTemplate(resource: ConsoleResource, overrideId?: string | undefined): PageTemplate {
   if (overrideId) {
