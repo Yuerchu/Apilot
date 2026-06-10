@@ -2,7 +2,7 @@ import type { ParsedRoute, SchemaObject, ResponseObject } from "@/lib/openapi/ty
 import type { PaginationConfig } from "./types"
 
 const PAGINATION_ITEMS_FIELDS = ["items", "data", "results", "records", "rows", "list", "content", "entries"]
-const PAGINATION_TOTAL_FIELDS = ["total", "count", "total_count", "totalCount", "totalItems", "total_items"]
+const PAGINATION_TOTAL_FIELDS = ["total", "count", "total_count", "totalcount", "totalitems", "total_items"]
 
 export function getRequestBodySchema(route: ParsedRoute): SchemaObject | null {
   const content = route.requestBody?.content

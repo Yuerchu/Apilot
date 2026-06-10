@@ -142,7 +142,7 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
   const hasDelete = !!resource.operations.delete
 
   const handleEdit = useCallback((row: Record<string, unknown>) => {
-    dispatch({ type: "SET_SUB_VIEW", view: "edit", itemId: String(row[resource.idParam ?? "id"] ?? "") })
+    dispatch({ type: "SET_SUB_VIEW", view: "edit", itemId: String(row[resource.idParam ?? "id"] ?? ""), row })
   }, [dispatch, resource.idParam])
 
   const handleDelete = useCallback(async (row: Record<string, unknown>) => {

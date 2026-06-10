@@ -11,6 +11,7 @@ export interface ConsoleState {
   activeActionIndex: number | null
   subView: ConsoleSubView
   activeItemId: string | null
+  editingRow: Record<string, unknown> | null
   builderMode: boolean
   layouts: Record<string, ResourceLayout>
 }
@@ -18,7 +19,7 @@ export interface ConsoleState {
 type ConsoleAction =
   | { type: "SET_ACTIVE_RESOURCE"; key: string }
   | { type: "SET_ACTIVE_ACTION"; key: string; actionIndex: number }
-  | { type: "SET_SUB_VIEW"; view: ConsoleSubView; itemId?: string | null }
+  | { type: "SET_SUB_VIEW"; view: ConsoleSubView; itemId?: string | null; row?: Record<string, unknown> | null }
   | { type: "SET_BUILDER_MODE"; on: boolean }
   | { type: "SET_LAYOUT"; basePath: string; layout: ResourceLayout }
   | { type: "RESET_LAYOUT"; basePath: string }
@@ -29,6 +30,7 @@ const initialState: ConsoleState = {
   activeActionIndex: null,
   subView: "list",
   activeItemId: null,
+  editingRow: null,
   builderMode: false,
   layouts: {},
 }
@@ -36,11 +38,11 @@ const initialState: ConsoleState = {
 function reducer(state: ConsoleState, action: ConsoleAction): ConsoleState {
   switch (action.type) {
     case "SET_ACTIVE_RESOURCE":
-      return { ...state, activeResourceKey: action.key, activeActionIndex: null, subView: "list", activeItemId: null }
+      return { ...state, activeResourceKey: action.key, activeActionIndex: null, subView: "list", activeItemId: null, editingRow: null }
     case "SET_ACTIVE_ACTION":
-      return { ...state, activeResourceKey: action.key, activeActionIndex: action.actionIndex, subView: "list", activeItemId: null }
+      return { ...state, activeResourceKey: action.key, activeActionIndex: action.actionIndex, subView: "list", activeItemId: null, editingRow: null }
     case "SET_SUB_VIEW":
-      return { ...state, subView: action.view, activeItemId: action.itemId ?? null }
+      return { ...state, subView: action.view, activeItemId: action.itemId ?? null, editingRow: action.row ?? null }
     case "SET_BUILDER_MODE":
       return { ...state, builderMode: action.on }
     case "SET_LAYOUT": {

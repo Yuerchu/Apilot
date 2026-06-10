@@ -37,6 +37,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     name: "console.template.loginCard",
     category: "auth",
     matchScore: (r) => {
+      if (r.operations.list || r.operations.read || r.operations.update) return 0
       if (!pathContains(r.basePath, AUTH_PATH_KEYWORDS)) return 0
       if (hasRequestBodyAction(r) || r.operations.create) return 0.95
       return 0.5
@@ -101,6 +102,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     name: "console.template.statsDashboard",
     category: "detail",
     matchScore: (r) => {
+      if (r.operations.list) return 0
       if (pathContains(r.basePath, STATS_PATH_KEYWORDS)) return 0.9
       return 0
     },
@@ -133,6 +135,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     name: "console.template.passwordChange",
     category: "auth",
     matchScore: (r) => {
+      if (r.operations.list) return 0
       if (pathContains(r.basePath, PASSWORD_PATH_KEYWORDS)) return 0.95
       return 0
     },

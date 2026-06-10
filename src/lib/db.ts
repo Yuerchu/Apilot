@@ -556,6 +556,7 @@ export async function deleteSpec(specId: string): Promise<void> {
     deleteAllFromIndex("favorites", "specId", specId),
     deleteAllFromIndex("history", "specId", specId),
     deleteWsHistoryForSpec(specId),
+    deleteAllFromIndex("consoleLayouts", "specId", specId),
     db.delete("specSettings", specId),
     db.delete("specs", specId),
   ])

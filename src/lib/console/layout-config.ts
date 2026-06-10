@@ -60,7 +60,8 @@ export function exportApilotConfig(layouts: Record<string, ResourceLayout>): Api
 export function importApilotConfig(json: unknown): ApilotConfig | null {
   if (!json || typeof json !== "object") return null
   const obj = json as Record<string, unknown>
-  if (obj.version !== 1 || typeof obj.resources !== "object") return null
+  if (obj.version !== 1) return null
+  if (!obj.resources || typeof obj.resources !== "object" || Array.isArray(obj.resources)) return null
   return obj as unknown as ApilotConfig
 }
 

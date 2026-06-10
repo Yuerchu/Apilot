@@ -167,7 +167,11 @@ export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
     }
     dispatch({ type: "SET_LAYOUT", basePath: resource.basePath, layout })
     dispatch({ type: "SET_BUILDER_MODE", on: false })
-    if (specId) persistLayout(specId, resource.basePath, layout)
+    if (specId) {
+      persistLayout(specId, resource.basePath, layout).catch(() => {
+        toast.error("Failed to persist layout")
+      })
+    }
     toast.success(t("console.updated"))
   }, [columns, createFields, updateFields, activeLayout, resource.basePath, dispatch, specId, t])
 
@@ -177,14 +181,19 @@ export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
 
   const handleExport = useCallback(() => {
     const layout: ResourceLayout = { columns, createFields, updateFields }
-    const blob = new Blob([JSON.stringify(layout, null, 2)], { type: "application/json" })
+    const config = {
+      $schema: "https://openapi.yxqi.cn/schemas/apilot-v1.json",
+      version: 1,
+      resources: { [resource.basePath]: layout },
+    }
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
-    a.download = `${resource.name}.apilot.json`
+    a.download = `${resource.name}.apilot`
     a.click()
     URL.revokeObjectURL(url)
-  }, [columns, createFields, updateFields, resource.name])
+  }, [columns, createFields, updateFields, resource.basePath, resource.name])
 
   return (
     <div className="flex flex-col h-full">

@@ -24,6 +24,7 @@ type StoreName =
   | "history"
   | "favorites"
   | "wsHistory"
+  | "consoleLayouts"
 
 type StoreRecord =
   | SpecRecord
@@ -116,6 +117,7 @@ class FakeDB {
     history: new Map(),
     favorites: new Map(),
     wsHistory: new Map(),
+    consoleLayouts: new Map(),
   }
 
   getAllFromIndex(storeName: string, indexName: string, query?: IDBValidKey): Promise<StoreRecord[]> {

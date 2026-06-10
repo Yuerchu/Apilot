@@ -6,7 +6,7 @@ import { getRequestBodySchema } from "@/lib/console/schema-inference"
 import { TEMPLATE_COMPONENTS } from "./templates"
 import { ConsoleFormDialog } from "./ConsoleFormDialog"
 import { ConsoleBuilder } from "./builder/ConsoleBuilder"
-import { ConsoleActionPage } from "./ConsoleActionPage"
+import { ActionListTemplate } from "./templates/ActionListTemplate"
 
 export function ConsoleResourcePage({ resource }: { resource: ConsoleResource }) {
   const { state, dispatch, activeAction, activeLayout } = useConsoleContext()
@@ -43,7 +43,7 @@ export function ConsoleResourcePage({ resource }: { resource: ConsoleResource })
       }
       return <ActionComponent key={`${resource.basePath}:action:${state.activeActionIndex}`} resource={actionResource} />
     }
-    return <ConsoleActionPage key={resource.basePath} resource={resource} />
+    return <ActionListTemplate key={resource.basePath} resource={resource} />
   }
 
   const template = selectBestTemplate(resource, activeLayout?.templateId)
@@ -57,7 +57,7 @@ export function ConsoleResourcePage({ resource }: { resource: ConsoleResource })
         <ConsoleFormDialog resource={resource} mode="create" onSuccess={handleFormSuccess} />
       )}
       {state.subView === "edit" && template.id === "crud-table" && (
-        <ConsoleFormDialog resource={resource} mode="edit" onSuccess={handleFormSuccess} />
+        <ConsoleFormDialog resource={resource} mode="edit" initialData={state.editingRow ?? undefined} onSuccess={handleFormSuccess} />
       )}
     </>
   )

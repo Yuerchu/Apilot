@@ -14,7 +14,7 @@ type FormOutput = Record<string, unknown> | unknown[]
 interface Props {
   resource: ConsoleResource
   mode: "create" | "edit"
-  initialData?: Record<string, unknown>
+  initialData?: Record<string, unknown> | undefined
   onSuccess: () => void
 }
 
