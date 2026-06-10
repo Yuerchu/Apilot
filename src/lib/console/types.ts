@@ -72,6 +72,7 @@ export interface ResourceLayout {
   createFields?: FormFieldConfig[] | undefined
   updateFields?: FormFieldConfig[] | undefined
   displayNameOverride?: string | undefined
+  templateId?: string | undefined
 }
 
 export interface PaginationConfig {

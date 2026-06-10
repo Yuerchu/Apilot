@@ -1,0 +1,121 @@
+import type { ConsoleResource } from "./types"
+import { getRequestBodySchema } from "./schema-inference"
+
+export interface PageTemplate {
+  id: string
+  name: string
+  category: "auth" | "crud" | "form" | "detail" | "action"
+  matchScore: (resource: ConsoleResource) => number
+}
+
+const AUTH_PATH_KEYWORDS = ["auth", "login", "signin", "sign-in", "token", "session", "oauth"]
+const REGISTER_PATH_KEYWORDS = ["register", "signup", "sign-up", "create-account"]
+
+function pathContains(basePath: string, keywords: string[]): boolean {
+  const lower = basePath.toLowerCase()
+  return keywords.some(k => lower.includes(k))
+}
+
+function hasRequestBodyAction(resource: ConsoleResource): boolean {
+  return resource.actions.some(a => !!getRequestBodySchema(a.route))
+}
+
+export const PAGE_TEMPLATES: PageTemplate[] = [
+  {
+    id: "crud-table",
+    name: "console.template.crudTable",
+    category: "crud",
+    matchScore: (r) => r.operations.list ? 1.0 : 0,
+  },
+  {
+    id: "login-card",
+    name: "console.template.loginCard",
+    category: "auth",
+    matchScore: (r) => {
+      if (!pathContains(r.basePath, AUTH_PATH_KEYWORDS)) return 0
+      if (hasRequestBodyAction(r) || r.operations.create) return 0.95
+      return 0.5
+    },
+  },
+  {
+    id: "register-form",
+    name: "console.template.registerForm",
+    category: "auth",
+    matchScore: (r) => {
+      if (!pathContains(r.basePath, REGISTER_PATH_KEYWORDS)) return 0
+      if (hasRequestBodyAction(r) || r.operations.create) return 0.95
+      return 0.4
+    },
+  },
+  {
+    id: "detail-card",
+    name: "console.template.detailCard",
+    category: "detail",
+    matchScore: (r) => {
+      if (r.operations.list) return 0
+      if (r.operations.read) return 0.85
+      return 0
+    },
+  },
+  {
+    id: "editor-split",
+    name: "console.template.editorSplit",
+    category: "detail",
+    matchScore: (r) => {
+      if (r.operations.list) return 0
+      if (r.operations.read && r.operations.update) return 0.9
+      return 0
+    },
+  },
+  {
+    id: "form-centered",
+    name: "console.template.formCentered",
+    category: "form",
+    matchScore: (r) => {
+      if (r.operations.list) return 0
+      if (r.operations.create && r.createSchema) return 0.8
+      if (r.actions.length === 1 && hasRequestBodyAction(r)) return 0.75
+      return 0
+    },
+  },
+  {
+    id: "action-form",
+    name: "console.template.actionForm",
+    category: "action",
+    matchScore: (r) => {
+      if (r.operations.list || r.operations.read) return 0
+      if (r.actions.length >= 1 && hasRequestBodyAction(r)) return 0.7
+      return 0
+    },
+  },
+  {
+    id: "action-list",
+    name: "console.template.actionList",
+    category: "action",
+    matchScore: (r) => {
+      if (r.operations.list || r.operations.read) return 0
+      if (r.actions.length > 0) return 0.5
+      return 0.1
+    },
+  },
+]
+
+export function selectBestTemplate(resource: ConsoleResource, overrideId?: string | undefined): PageTemplate {
+  if (overrideId) {
+    const found = PAGE_TEMPLATES.find(t => t.id === overrideId)
+    if (found) return found
+  }
+
+  let best = PAGE_TEMPLATES[PAGE_TEMPLATES.length - 1]!
+  let bestScore = -1
+
+  for (const tpl of PAGE_TEMPLATES) {
+    const score = tpl.matchScore(resource)
+    if (score > bestScore) {
+      bestScore = score
+      best = tpl
+    }
+  }
+
+  return best
+}
