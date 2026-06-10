@@ -313,8 +313,8 @@ export function MultiEnvDiffView({ spec }: { spec?: OpenAPISpec | undefined }) {
             <TableHeader>
               <TableRow>
                 <TableHead className="relative min-w-[80px]">
-                  <span className="absolute top-1 right-1.5 text-[10px] text-muted-foreground">{t("tools.matrixOldEnv")}</span>
-                  <span className="absolute bottom-1 left-1.5 text-[10px] text-muted-foreground">{t("tools.matrixNewEnv")}</span>
+                  <span className="absolute top-1 right-1.5 text-[10px] text-muted-foreground">{t("tools.matrixNewEnv")}</span>
+                  <span className="absolute bottom-1 left-1.5 text-[10px] text-muted-foreground">{t("tools.matrixOldEnv")}</span>
                   <svg className="absolute inset-0 size-full pointer-events-none" preserveAspectRatio="none">
                     <line x1="0" y1="0" x2="100%" y2="100%" stroke="currentColor" className="text-border" strokeWidth="1" />
                   </svg>

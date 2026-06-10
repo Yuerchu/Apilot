@@ -263,8 +263,9 @@ function KvValueCellRenderer(props: CustomCellRendererProps<KeyValueRow>) {
     return <span className="text-muted-foreground">{row._arrayItems.length} items</span>
   }
 
-  if (row._isObject) {
-    return null
+  if (row._isObject && row._objectData) {
+    const json = JSON.stringify(row._objectData)
+    return <span className="text-muted-foreground truncate block max-w-[300px]" title={json}>{json}</span>
   }
 
   const val = row._value

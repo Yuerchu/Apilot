@@ -618,9 +618,22 @@ export function clearLegacyBusinessLocalStorage(): void {
 
 // --- History ---
 
+const SENSITIVE_HEADERS = new Set(["authorization", "cookie", "x-api-key", "proxy-authorization"])
+
+function stripSensitiveHeaders(headers: Record<string, string>): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const [k, v] of Object.entries(headers)) {
+    result[k] = SENSITIVE_HEADERS.has(k.toLowerCase()) ? "***" : v
+  }
+  return result
+}
+
 export async function addHistoryEntry(entry: Omit<HistoryEntry, "id">): Promise<void> {
   const db = await getDB()
-  await db.add("history", { ...entry, response: truncateBody(entry.response) })
+  const sanitized = truncateBody(entry.response)
+  sanitized.requestHeaders = stripSensitiveHeaders(sanitized.requestHeaders)
+  sanitized.curlCommand = sanitized.curlCommand.replace(/(Authorization|Cookie|X-API-Key):\s*[^'"]+/gi, "$1: ***")
+  await db.add("history", { ...entry, response: sanitized })
 }
 
 export async function getHistory(

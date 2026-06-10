@@ -317,7 +317,7 @@ export function TryTab({ route, index: _index }: TryTabProps) {
 
   const currentSchema = route.requestBody?.content?.[selectedCt]?.schema as SchemaObject | undefined
   const resolvedBodySchema = currentSchema ? resolveEffectiveSchema(currentSchema) : undefined
-  const hasObjectSchema = currentSchema && (currentSchema.type === "object" || currentSchema.properties)
+  const hasObjectSchema = resolvedBodySchema && (resolvedBodySchema.type === "object" || resolvedBodySchema.properties)
   const hasArrayEnumSchema = resolvedBodySchema?.type === "array" && resolvedBodySchema.items
     && !!(resolveEffectiveSchema(resolvedBodySchema.items as SchemaObject).enum)
   const hasFormableSchema = hasObjectSchema || hasArrayEnumSchema

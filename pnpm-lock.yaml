@@ -8,55 +8,19 @@ importers:
 
   .:
     dependencies:
-      '@ag-grid-community/locale':
-        specifier: ^35.3.0
-        version: 35.3.0
-      '@base-ui/react':
-        specifier: ^1.5.0
-        version: 1.5.0(@date-fns/tz@1.5.0)(@types/react@19.2.15)(date-fns@4.3.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      '@dnd-kit/core':
-        specifier: ^6.3.1
-        version: 6.3.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      '@dnd-kit/sortable':
-        specifier: ^10.0.0
-        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)
-      '@dnd-kit/utilities':
-        specifier: ^3.2.2
-        version: 3.2.2(react@19.2.6)
-      ag-charts-community:
-        specifier: ^13.3.1
-        version: 13.3.1
-      ag-charts-react:
-        specifier: ^13.3.1
-        version: 13.3.1(react@19.2.6)
-      ag-grid-community:
-        specifier: ^35.3.0
-        version: 35.3.0
-      ag-grid-react:
-        specifier: ^35.3.0
-        version: 35.3.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      embla-carousel-react:
-        specifier: ^8.6.0
-        version: 8.6.0(react@19.2.6)
-      react-resizable-panels:
-        specifier: ^4
-        version: 4.11.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      recharts:
-        specifier: 3.8.0
-        version: 3.8.0(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react-is@16.13.1)(react@19.2.6)(redux@5.0.1)
-      vaul:
-        specifier: ^1.1.2
-        version: 1.1.2(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
-      zod:
-        specifier: ^4.4.3
-        version: 4.4.3
     devDependencies:
+      '@ag-grid-community/locale':
+        specifier: ^35.3.0
+        version: 35.3.1
       '@asyncapi/parser':
         specifier: ^3.6.0
         version: 3.6.0
+      '@base-ui/react':
+        specifier: ^1.5.0
+        version: 1.5.0(@date-fns/tz@1.5.0)(@types/react@19.2.15)(date-fns@4.3.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@codemirror/autocomplete':
         specifier: ^6.20.2
         version: 6.20.2
@@ -102,6 +66,15 @@ importers:
       '@dagrejs/dagre':
         specifier: ^3.0.0
         version: 3.0.0
+      '@dnd-kit/core':
+        specifier: ^6.3.1
+        version: 6.3.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      '@dnd-kit/sortable':
+        specifier: ^10.0.0
+        version: 10.0.0(@dnd-kit/core@6.3.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(react@19.2.6)
+      '@dnd-kit/utilities':
+        specifier: ^3.2.2
+        version: 3.2.2(react@19.2.6)
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.4.0(jiti@2.7.0))
@@ -159,9 +132,21 @@ importers:
       '@xyflow/react':
         specifier: ^12.10.2
         version: 12.10.2(@types/react@19.2.15)(immer@11.1.8)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      ag-charts-community:
+        specifier: ^13.3.1
+        version: 13.3.1
+      ag-charts-react:
+        specifier: ^13.3.1
+        version: 13.3.1(react@19.2.6)
+      ag-grid-community:
+        specifier: 35.3.0
+        version: 35.3.0
       ag-grid-enterprise:
         specifier: 35.3.0
         version: 35.3.0
+      ag-grid-react:
+        specifier: 35.3.0
+        version: 35.3.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       ajv:
         specifier: ^8.20.0
         version: 8.20.0
@@ -192,6 +177,9 @@ importers:
       dompurify:
         specifier: ^3.4.7
         version: 3.4.7
+      embla-carousel-react:
+        specifier: ^8.6.0
+        version: 8.6.0(react@19.2.6)
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0
@@ -264,9 +252,15 @@ importers:
       react-i18next:
         specifier: ^17.0.8
         version: 17.0.8(i18next@26.3.0(typescript@6.0.3))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(typescript@6.0.3)
+      react-resizable-panels:
+        specifier: ^4
+        version: 4.11.2(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       react-use-measure:
         specifier: ^2.1.7
         version: 2.1.7(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      recharts:
+        specifier: 3.8.0
+        version: 3.8.0(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react-is@16.13.1)(react@19.2.6)(redux@5.0.1)
       rollup-plugin-visualizer:
         specifier: ^7.0.1
         version: 7.0.1(rolldown@1.0.2)(rollup@2.80.0)
@@ -291,6 +285,9 @@ importers:
       typescript-eslint:
         specifier: ^8.60.0
         version: 8.60.0(eslint@10.4.0(jiti@2.7.0))(typescript@6.0.3)
+      vaul:
+        specifier: ^1.1.2
+        version: 1.1.2(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       vite:
         specifier: ^8.0.14
         version: 8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.48.0)(tsx@4.22.3)(yaml@2.9.0)
@@ -306,11 +303,14 @@ importers:
       workbox-window:
         specifier: ^7.4.1
         version: 7.4.1
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
 packages:
 
-  '@ag-grid-community/locale@35.3.0':
-    resolution: {integrity: sha512-PM1JLyvX3gdAYOKFXfsJODY1nf+AN/uEfGnNbSMgfA5QVkWY9ImdZln+E2odpfOckt2j+N/KQDxaNtFgZ0GrgQ==}
+  '@ag-grid-community/locale@35.3.1':
+    resolution: {integrity: sha512-h6mqWmIRpRZXQcMFqbq71SKm5XXyqnrJOQV9FB7c/7+pnjbbDhoz1UlI94OgENZM/r1Un6Za01YoIOIQEDBV7A==}
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -5794,7 +5794,7 @@ packages:
 
 snapshots:
 
-  '@ag-grid-community/locale@35.3.0': {}
+  '@ag-grid-community/locale@35.3.1': {}
 
   '@alloc/quick-lru@5.2.0': {}
 

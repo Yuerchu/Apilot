@@ -5,6 +5,20 @@
   "bin": {
     "apilot": "./cli/index.mjs"
   },
+  "keywords": [
+    "openapi",
+    "swagger",
+    "swagger-ui",
+    "swagger-ui-alternative",
+    "api-documentation",
+    "api-testing",
+    "openapi-viewer",
+    "redoc-alternative",
+    "developer-tools",
+    "rest-api",
+    "api-explorer",
+    "openapi3"
+  ],
   "files": [
     "cli/index.mjs",
     "cli/template/"
@@ -56,7 +70,10 @@
     "@vitejs/plugin-react": "^6.0.2",
     "@vitest/coverage-v8": "^4.1.7",
     "@xyflow/react": "^12.10.2",
+    "@ag-grid-community/locale": "^35.3.0",
+    "ag-grid-community": "35.3.0",
     "ag-grid-enterprise": "35.3.0",
+    "ag-grid-react": "35.3.0",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "api-smart-diff": "^1.0.6",
@@ -104,23 +121,20 @@
     "vite-plugin-pwa": "^1.3.0",
     "vite-plugin-singlefile": "^2.3.3",
     "vitest": "^4.1.7",
-    "workbox-window": "^7.4.1"
-  },
-  "dependencies": {
-    "@ag-grid-community/locale": "^35.3.0",
+    "workbox-window": "^7.4.1",
     "@base-ui/react": "^1.5.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "ag-charts-community": "^13.3.1",
     "ag-charts-react": "^13.3.1",
-    "ag-grid-community": "^35.3.0",
-    "ag-grid-react": "^35.3.0",
     "embla-carousel-react": "^8.6.0",
     "react-resizable-panels": "^4",
     "recharts": "3.8.0",
     "vaul": "^1.1.2",
-    "yaml": "^2.9.0",
     "zod": "^4.4.3"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0"
   }
 }
