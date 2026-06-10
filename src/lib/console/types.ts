@@ -2,6 +2,8 @@ import type { ParsedRoute, SchemaObject } from "@/lib/openapi/types"
 
 export type CrudOp = "list" | "create" | "read" | "update" | "delete"
 
+export type PageType = "table" | "detail" | "form" | "editor" | "action"
+
 export interface ResourceAction {
   route: ParsedRoute
   routeIndex: number
@@ -31,6 +33,7 @@ export interface ConsoleResource {
   basePath: string
   tag: string | null
   idParam: string | null
+  pageType: PageType
   operations: Partial<Record<CrudOp, ResourceAction>>
   actions: ResourceAction[]
   listItemSchema: SchemaObject | null

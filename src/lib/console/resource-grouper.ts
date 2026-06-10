@@ -1,5 +1,5 @@
 import type { ParsedRoute } from "@/lib/openapi/types"
-import type { ConsoleResource, ConsoleResourceGroup, CrudOp, DiagnosticHint, ResourceAction } from "./types"
+import type { ConsoleResource, ConsoleResourceGroup, CrudOp, DiagnosticHint, PageType, ResourceAction } from "./types"
 import { inferListItemSchema, inferDetailSchema, inferCreateSchema, inferUpdateSchema } from "./schema-inference"
 
 interface PathSegment {
@@ -239,10 +239,11 @@ export function groupRoutes(routes: ParsedRoute[]): ConsoleResource[] {
 
     const crudCount = Object.keys(rd.operations).length
     const confidence = Math.min(1, crudCount * 0.25 + (listItemSchema ? 0.15 : 0) + (rd.idParam ? 0.1 : 0))
+    const pageType = inferPageType(rd.operations, rd.actions)
 
     resources.push({
       name, displayName, basePath: collectionPath, tag: rd.tag, idParam: rd.idParam,
-      operations: rd.operations, actions: rd.actions,
+      pageType, operations: rd.operations, actions: rd.actions,
       listItemSchema, createSchema, updateSchema, detailSchema,
       confidence, hints, parent,
     })
@@ -269,6 +270,7 @@ export function groupRoutes(routes: ParsedRoute[]): ConsoleResource[] {
         basePath: entry.route.path,
         tag,
         idParam: null,
+        pageType: "action" as PageType,
         operations: {},
         actions: [makeAction(entry, null)],
         listItemSchema: null, createSchema: null, updateSchema: null, detailSchema: null,
@@ -285,6 +287,18 @@ export function groupRoutes(routes: ParsedRoute[]): ConsoleResource[] {
   }
 
   return resources.sort((a, b) => b.confidence - a.confidence || a.name.localeCompare(b.name))
+}
+
+function inferPageType(
+  operations: Partial<Record<CrudOp, ResourceAction>>,
+  _actions: ResourceAction[],
+): PageType {
+  const has = (op: CrudOp) => !!operations[op]
+  if (has("list")) return "table"
+  if (has("read") && has("update")) return "editor"
+  if (has("read")) return "detail"
+  if (has("create") && !has("list")) return "form"
+  return "action"
 }
 
 function makeAction(entry: RouteEntry, crudOp: CrudOp | null): ResourceAction {
