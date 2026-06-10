@@ -6,6 +6,11 @@ import { ActionFormTemplate } from "./ActionFormTemplate"
 import { ActionListTemplate } from "./ActionListTemplate"
 import { DetailCardTemplate } from "./DetailCardTemplate"
 import { EditorSplitTemplate } from "./EditorSplitTemplate"
+import { UploadTemplate } from "./UploadTemplate"
+import { StatsDashboardTemplate } from "./StatsDashboardTemplate"
+import { ConfigFormTemplate } from "./ConfigFormTemplate"
+import { SearchResultsTemplate } from "./SearchResultsTemplate"
+import { PasswordChangeTemplate } from "./PasswordChangeTemplate"
 
 export type TemplateComponent = React.ComponentType<{ resource: ConsoleResource }>
 
@@ -18,4 +23,9 @@ export const TEMPLATE_COMPONENTS: Record<string, TemplateComponent> = {
   "action-list": ActionListTemplate,
   "detail-card": DetailCardTemplate,
   "editor-split": EditorSplitTemplate,
+  "upload-dropzone": UploadTemplate,
+  "stats-dashboard": StatsDashboardTemplate,
+  "config-form": ConfigFormTemplate,
+  "search-results": SearchResultsTemplate,
+  "password-change": PasswordChangeTemplate,
 }

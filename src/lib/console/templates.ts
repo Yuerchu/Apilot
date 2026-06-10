@@ -10,6 +10,11 @@ export interface PageTemplate {
 
 const AUTH_PATH_KEYWORDS = ["auth", "login", "signin", "sign-in", "token", "session", "oauth"]
 const REGISTER_PATH_KEYWORDS = ["register", "signup", "sign-up", "create-account"]
+const UPLOAD_PATH_KEYWORDS = ["upload", "file", "attachment", "media", "image", "photo"]
+const STATS_PATH_KEYWORDS = ["stats", "statistics", "metrics", "dashboard", "analytics", "summary", "overview", "count"]
+const CONFIG_PATH_KEYWORDS = ["config", "settings", "preferences", "options", "profile"]
+const SEARCH_PATH_KEYWORDS = ["search", "query", "find", "lookup"]
+const PASSWORD_PATH_KEYWORDS = ["password", "change-password", "reset-password", "change_password"]
 
 function pathContains(basePath: string, keywords: string[]): boolean {
   const lower = basePath.toLowerCase()
@@ -75,6 +80,60 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
       if (r.operations.list) return 0
       if (r.operations.create && r.createSchema) return 0.8
       if (r.actions.length === 1 && hasRequestBodyAction(r)) return 0.75
+      return 0
+    },
+  },
+  {
+    id: "upload-dropzone",
+    name: "console.template.uploadDropzone",
+    category: "form",
+    matchScore: (r) => {
+      if (r.operations.list) return 0
+      if (pathContains(r.basePath, UPLOAD_PATH_KEYWORDS)) {
+        if (hasRequestBodyAction(r) || r.operations.create) return 0.9
+        return 0.6
+      }
+      return 0
+    },
+  },
+  {
+    id: "stats-dashboard",
+    name: "console.template.statsDashboard",
+    category: "detail",
+    matchScore: (r) => {
+      if (pathContains(r.basePath, STATS_PATH_KEYWORDS)) return 0.9
+      return 0
+    },
+  },
+  {
+    id: "config-form",
+    name: "console.template.configForm",
+    category: "form",
+    matchScore: (r) => {
+      if (r.operations.list) return 0
+      if (pathContains(r.basePath, CONFIG_PATH_KEYWORDS) && (r.operations.read || r.operations.update)) return 0.9
+      return 0
+    },
+  },
+  {
+    id: "search-results",
+    name: "console.template.searchResults",
+    category: "crud",
+    matchScore: (r) => {
+      if (pathContains(r.basePath, SEARCH_PATH_KEYWORDS)) return 0.85
+      const hasSearchParam = r.operations.list?.route.parameters.some(p =>
+        p.in === "query" && ["q", "query", "search", "keyword"].includes(p.name.toLowerCase())
+      )
+      if (hasSearchParam) return 0.7
+      return 0
+    },
+  },
+  {
+    id: "password-change",
+    name: "console.template.passwordChange",
+    category: "auth",
+    matchScore: (r) => {
+      if (pathContains(r.basePath, PASSWORD_PATH_KEYWORDS)) return 0.95
       return 0
     },
   },
