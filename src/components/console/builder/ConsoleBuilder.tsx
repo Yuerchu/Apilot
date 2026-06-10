@@ -211,7 +211,7 @@ export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
       {/* Three-panel layout */}
       <ResizablePanelGroup orientation="horizontal" className="flex-1 min-h-0">
         {/* Left: Field list */}
-        <ResizablePanel defaultSize={22} minSize={15} maxSize={35}>
+        <ResizablePanel defaultSize={25} minSize={18} maxSize={40}>
           <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as ActiveTab); setSelectedField(null) }} className="h-full flex flex-col">
             <TabsList className="mx-2 mt-2 shrink-0 h-auto flex-wrap">
               <TabsTrigger value="columns" className="text-xs">Columns</TabsTrigger>
@@ -255,7 +255,7 @@ export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
         <ResizableHandle withHandle />
 
         {/* Center: Preview */}
-        <ResizablePanel defaultSize={56} minSize={30}>
+        <ResizablePanel defaultSize={50} minSize={25}>
           <ScrollArea className="h-full">
             <div className="p-4">
               <ConsoleListPage resource={resource} />
@@ -266,7 +266,7 @@ export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
         <ResizableHandle withHandle />
 
         {/* Right: Property editor */}
-        <ResizablePanel defaultSize={22} minSize={15} maxSize={35}>
+        <ResizablePanel defaultSize={25} minSize={18} maxSize={40}>
           <ScrollArea className="h-full">
             {selectedColumn && (
               <ColumnPropertyEditor column={selectedColumn} onChange={handleColumnPropertyChange} />
