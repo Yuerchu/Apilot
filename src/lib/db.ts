@@ -392,6 +392,9 @@ function migrateHistoryToV6(transaction: UpgradeTransaction): void {
 export function getDB(): Promise<IDBPDatabase> {
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, DB_VERSION, {
+      blocked() {
+        console.warn("[apilot] Database upgrade blocked by another tab. Close other tabs and reload.")
+      },
       upgrade(db, oldVersion, _newVersion, transaction) {
         createStoresAndIndexes(db)
         ensureIndexesForExistingStores(transaction)
@@ -417,6 +420,9 @@ export function getDB(): Promise<IDBPDatabase> {
           migrateHistoryToV6(transaction)
         }
       },
+    }).catch(err => {
+      dbPromise = null
+      throw err
     })
   }
   return dbPromise
@@ -710,7 +716,13 @@ async function removeEnvVarsForEnvironment(envId: string): Promise<void> {
 }
 
 export function interpolateEnvVars(text: string, vars: Record<string, string>): string {
-  return text.replace(/\{\{(\w+)\}\}/g, (match, key) => vars[key] ?? match)
+  const isJson = text.trimStart().startsWith("{") || text.trimStart().startsWith("[")
+  return text.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    const val = vars[key]
+    if (val === undefined) return match
+    if (isJson) return val.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\r/g, "\\r").replace(/\t/g, "\\t")
+    return val
+  })
 }
 
 // --- Environments ---

@@ -141,7 +141,7 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
           fetchBody = form
         }
       } else if (body.trim()) {
-        headers["Content-Type"] = "application/json"
+        headers["Content-Type"] = contentType || "application/json"
         fetchBody = body
       }
     }

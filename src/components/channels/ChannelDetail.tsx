@@ -28,7 +28,7 @@ export function ChannelDetail({ channel }: { channel: ParsedChannel }) {
           <ChannelDocTab channel={channel} />
         </TabsContent>
         <TabsContent value="test" className="px-4 py-3 mt-0">
-          <ChannelTestTab channel={channel} />
+          <ChannelTestTab key={channel.address} channel={channel} />
         </TabsContent>
       </Tabs>
     </div>

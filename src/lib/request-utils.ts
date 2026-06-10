@@ -42,7 +42,12 @@ export function buildAuthHeaders(
     return { Authorization: `Bearer ${oauth2Token}` }
   }
   if (authType === "basic") {
-    return { Authorization: `Basic ${btoa(authUser + ":" + authToken)}` }
+    try {
+      const encoded = btoa(unescape(encodeURIComponent(authUser + ":" + authToken)))
+      return { Authorization: `Basic ${encoded}` }
+    } catch {
+      return { Authorization: `Basic ${btoa(authUser + ":" + authToken)}` }
+    }
   }
   if (authType === "apikey" && authToken) {
     const name = authKeyName || "X-API-Key"

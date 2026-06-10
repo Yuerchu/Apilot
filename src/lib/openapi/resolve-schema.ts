@@ -44,8 +44,8 @@ export function resolveEffectiveSchema(schema: SchemaObject | undefined | null):
   if (s.nullable) nullable = true;
   // Unwrap anyOf/oneOf nullable pattern: [SomeType, {type:"null"}] → SomeType + nullable
   for (const key of ['anyOf', 'oneOf'] as const) {
-    const variants = s[key] as SchemaObject[] | undefined;
-    if (!variants) continue;
+    const variants = (s[key] as SchemaObject[] | undefined)?.filter(x => x && typeof x === 'object');
+    if (!variants || variants.length === 0) continue;
     const nullVariants = variants.filter(x => x.type === 'null' || (Array.isArray(x.type) && x.type.length === 1 && x.type[0] === 'null'));
     const nonNullVariants = variants.filter(x => !nullVariants.includes(x));
     if (nullVariants.length > 0 && nonNullVariants.length === 1) {

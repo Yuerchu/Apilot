@@ -30,19 +30,23 @@ function fakerForSchema(schema: SchemaObject): unknown {
 
   // Integer
   if (type === "integer") {
-    const min = schema.exclusiveMinimum !== undefined ? schema.exclusiveMinimum + 1
-      : schema.minimum !== undefined ? schema.minimum : 0
-    const max = schema.exclusiveMaximum !== undefined ? schema.exclusiveMaximum - 1
-      : schema.maximum !== undefined ? schema.maximum : 9999
+    let min = schema.minimum !== undefined ? Number(schema.minimum) : 0
+    let max = schema.maximum !== undefined ? Number(schema.maximum) : 9999
+    if (typeof schema.exclusiveMinimum === "number") min = schema.exclusiveMinimum + 1
+    else if (schema.exclusiveMinimum === true && schema.minimum !== undefined) min = Number(schema.minimum) + 1
+    if (typeof schema.exclusiveMaximum === "number") max = schema.exclusiveMaximum - 1
+    else if (schema.exclusiveMaximum === true && schema.maximum !== undefined) max = Number(schema.maximum) - 1
     return faker.number.int({ min, max })
   }
 
   // Number / float
   if (type === "number") {
-    const min = schema.exclusiveMinimum !== undefined ? schema.exclusiveMinimum + 0.01
-      : schema.minimum !== undefined ? schema.minimum : 0
-    const max = schema.exclusiveMaximum !== undefined ? schema.exclusiveMaximum - 0.01
-      : schema.maximum !== undefined ? schema.maximum : 100
+    let min = schema.minimum !== undefined ? Number(schema.minimum) : 0
+    let max = schema.maximum !== undefined ? Number(schema.maximum) : 100
+    if (typeof schema.exclusiveMinimum === "number") min = schema.exclusiveMinimum + 0.01
+    else if (schema.exclusiveMinimum === true && schema.minimum !== undefined) min = Number(schema.minimum) + 0.01
+    if (typeof schema.exclusiveMaximum === "number") max = schema.exclusiveMaximum - 0.01
+    else if (schema.exclusiveMaximum === true && schema.maximum !== undefined) max = Number(schema.maximum) - 0.01
     return faker.number.float({ min, max, fractionDigits: 2 })
   }
 
