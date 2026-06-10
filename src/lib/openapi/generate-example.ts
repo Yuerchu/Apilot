@@ -107,8 +107,9 @@ function fakerForSchema(schema: SchemaObject): unknown {
   return undefined
 }
 
-function randomizeLeaves(value: unknown, rawSchema: SchemaObject): unknown {
+function randomizeLeaves(value: unknown, rawSchema: SchemaObject, depth: number = 0): unknown {
   if (value === null || value === undefined) return value
+  if (depth > 10) return value
 
   const schema = resolveEffectiveSchema(rawSchema)
 
@@ -128,7 +129,7 @@ function randomizeLeaves(value: unknown, rawSchema: SchemaObject): unknown {
 
   // Array
   if (Array.isArray(value) && schema.items) {
-    return value.map(item => randomizeLeaves(item, schema.items as SchemaObject))
+    return value.map(item => randomizeLeaves(item, schema.items as SchemaObject, depth + 1))
   }
 
   // Object
@@ -136,7 +137,7 @@ function randomizeLeaves(value: unknown, rawSchema: SchemaObject): unknown {
     const result: Record<string, unknown> = {}
     for (const [key, val] of Object.entries(value)) {
       const propSchema = schema.properties[key] as SchemaObject | undefined
-      result[key] = propSchema ? randomizeLeaves(val, propSchema) : val
+      result[key] = propSchema ? randomizeLeaves(val, propSchema, depth + 1) : val
     }
     return result
   }
@@ -243,9 +244,8 @@ export function generateWithVariant(rawSchema: SchemaObject, variantId: string):
   }
 }
 
-export function generateExample(schema: SchemaObject | null | undefined, _depth: number = 0): unknown {
+export function generateExample(schema: SchemaObject | null | undefined): unknown {
   if (!schema) return null
-  if (_depth > 10) return null
   if (schema._circular || schema._unresolved) return null
   try {
     const base = sample(schema as Record<string, unknown>)

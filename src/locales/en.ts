@@ -402,6 +402,7 @@ export default {
     fileReadFailed: "File read failed",
   },
   error: {
+    invalidUrl: "Invalid URL format",
     fetchCors: "Cannot access {{url}} — the request was likely blocked by CORS policy. Ensure the server allows cross-origin requests, or use a same-origin URL",
     fetchNetwork: "Cannot connect to {{url}} — check your network connection or verify the URL",
     fetchNetworkHttp: "Cannot connect to {{url}} — check your network. If the server uses HTTPS, use an https:// URL instead",

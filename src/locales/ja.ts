@@ -402,6 +402,7 @@ export default {
     fileReadFailed: "ファイルの読み取りに失敗しました",
   },
   error: {
+    invalidUrl: "無効なURL形式です",
     fetchCors: "{{url}} にアクセスできません。CORSポリシーによりリクエストがブロックされた可能性があります。サーバーのCORS設定を確認するか、同一オリジンのURLを使用してください",
     fetchNetwork: "{{url}} に接続できません。ネットワーク接続またはURLを確認してください",
     fetchNetworkHttp: "{{url}} に接続できません。サーバーがHTTPSの場合は https:// で始まるURLを使用してください",

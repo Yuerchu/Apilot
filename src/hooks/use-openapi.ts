@@ -187,6 +187,10 @@ export function useOpenAPI() {
 
   const loadFromUrl = useCallback(async (url: string, options?: { baseUrlOverride?: string; fetchAuth?: { username: string; password: string } }) => {
     if (!url.trim()) return
+    try { new URL(url) } catch {
+      dispatch({ type: "SET_ERROR", error: i18n.t("error.invalidUrl") })
+      return
+    }
     dispatch({ type: "SET_LOADING", loading: true })
     dispatch({ type: "SET_ERROR", error: null })
     try {
@@ -195,7 +199,7 @@ export function useOpenAPI() {
       const fetchInit: RequestInit = {}
       if (options?.fetchAuth) {
         const { username, password } = options.fetchAuth
-        fetchInit.headers = { Authorization: `Basic ${btoa(`${username}:${password}`)}` }
+        fetchInit.headers = { Authorization: `Basic ${btoa(unescape(encodeURIComponent(`${username}:${password}`)))}` }
       }
       try {
         response = await fetch(url, fetchInit)

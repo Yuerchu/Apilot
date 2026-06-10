@@ -37,6 +37,11 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const [search, setSearch] = useState("")
   const MAX_ITEMS = 100
 
+  const handleOpenChange = useCallback((next: boolean) => {
+    if (!next) setSearch("")
+    onOpenChange(next)
+  }, [onOpenChange])
+
   const navigate = useCallback((type: "endpoint" | "model", key: string) => {
     onOpenChange(false)
     if (type === "endpoint") {
@@ -52,7 +57,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   return (
     <CommandDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       title={t("search.placeholder")}
       description={t("search.hint")}
       showCloseButton={false}

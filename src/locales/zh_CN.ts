@@ -402,6 +402,7 @@ export default {
     fileReadFailed: "文件读取失败",
   },
   error: {
+    invalidUrl: "无效的 URL 格式",
     fetchCors: "无法访问 {{url}}，可能是跨域策略(CORS)阻止了请求。请确认目标服务器允许跨域访问，或使用同源地址",
     fetchNetwork: "无法连接到 {{url}}，请检查网络连接或确认地址是否正确",
     fetchNetworkHttp: "无法连接到 {{url}}，请检查网络连接。如果目标是 HTTPS 服务，请使用 https:// 开头的地址",

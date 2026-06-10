@@ -27,6 +27,8 @@ const sharedConfig: InlineConfig = {
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     __CI__: JSON.stringify(true),
     __CI_RUN_NUMBER__: JSON.stringify(""),
+    __AG_GRID_ENTERPRISE__: JSON.stringify(false),
+    __AG_GRID_LICENSE_KEY__: JSON.stringify(""),
   },
   base: "./",
   logLevel: "info",

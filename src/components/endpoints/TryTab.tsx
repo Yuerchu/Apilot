@@ -146,7 +146,8 @@ function FormDataFields({
                 />
               ) : (
                 <Input
-                  type="text"
+                  type={ep.format === "password" ? "password" : ep.format === "email" ? "email" : "text"}
+                  autoComplete={ep.format === "password" ? "off" : ep.format === "email" ? "email" : undefined}
                   className="h-8 text-sm"
                   value={values[key] || ""}
                   onChange={e => onChange(key, e.target.value)}
@@ -276,7 +277,7 @@ export function TryTab({ route, index: _index }: TryTabProps) {
     if (isFormType) {
       const formData: Record<string, string | File> = {}
       for (const [k, v] of Object.entries(fdValues)) {
-        if (v) formData[k] = typeof v === "string" ? interpolateEnvVars(v, varsMap) : v
+        if (v && v !== "__empty__" && v !== "__null__") formData[k] = typeof v === "string" ? interpolateEnvVars(v, varsMap) : v
       }
       for (const [k, v] of Object.entries(fdFiles)) {
         if (v) formData[k] = v
@@ -349,12 +350,12 @@ export function TryTab({ route, index: _index }: TryTabProps) {
 
     let bodyStr: string | null = null
     if (route.requestBody && !isFormType && bodyJson.trim()) {
-      headers["Content-Type"] = "application/json"
+      headers["Content-Type"] = selectedCt || "application/json"
       bodyStr = interpolateEnvVars(bodyJson, varsMap)
     }
 
     return { method: route.method.toUpperCase(), url, headers, bodyStr }
-  }, [ctxState.baseUrl, route, params, bodyJson, isFormType, getAuthHeaders, varsMap])
+  }, [ctxState.baseUrl, route, params, bodyJson, isFormType, selectedCt, getAuthHeaders, varsMap])
 
   useEffect(() => {
     let cancelled = false

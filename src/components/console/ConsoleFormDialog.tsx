@@ -30,16 +30,25 @@ function applyFieldLayout(schema: SchemaObject, fieldConfigs: FormFieldConfig[] 
     .filter(f => f in schema.properties!)
 
   const newFields = Object.keys(schema.properties).filter(f => !configMap.has(f))
+  const hiddenFields = new Set(
+    fieldConfigs.filter(f => !f.visible).map(f => f.field),
+  )
 
   const orderedKeys = [...visibleFields, ...newFields]
   const newProperties: Record<string, SchemaObject> = {}
   for (const key of orderedKeys) {
     if (schema.properties[key]) {
-      newProperties[key] = schema.properties[key]
+      const cfg = configMap.get(key)
+      const prop = schema.properties[key]
+      newProperties[key] = cfg?.label ? { ...prop, title: cfg.label } : prop
     }
   }
 
-  return { ...schema, properties: newProperties }
+  const result: SchemaObject = { ...schema, properties: newProperties }
+  if (schema.required) {
+    result.required = schema.required.filter(r => !hiddenFields.has(r))
+  }
+  return result
 }
 
 export function ConsoleFormDialog({ resource, mode, initialData, onSuccess }: Props) {

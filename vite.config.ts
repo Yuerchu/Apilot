@@ -29,8 +29,7 @@ export default defineConfig(({ mode }) => {
         globPatterns: ["**/*.{js,css,html,svg}"],
         runtimeCaching: [
           {
-            // Cache API spec fetches (network-first, fallback to cache for offline)
-            urlPattern: /\.(json|yaml|yml)$/i,
+            urlPattern: /(?:^|\/)(?:spec|openapi|swagger|asyncapi)[^/]*\.(json|ya?ml)$/i,
             handler: "NetworkFirst",
             options: {
               cacheName: "api-specs",

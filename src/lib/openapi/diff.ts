@@ -45,17 +45,18 @@ function getPathPart(diff: Diff, index: number): string | null {
   return typeof part === "string" ? part : null
 }
 
+const HTTP_METHODS = new Set(["get", "post", "put", "patch", "delete", "head", "options", "trace"])
+
 function getOperation(diff: Diff): string {
   const path = getPathPart(diff, 1)
   const method = getPathPart(diff, 2)
-  return path && method ? getOperationKey(method, path) : "OpenAPI"
+  return path && method && HTTP_METHODS.has(method.toLowerCase()) ? getOperationKey(method, path) : "OpenAPI"
 }
 
 function getKind(diff: Diff): OpenAPIDiffKind | null {
   const root = getPathPart(diff, 0)
   if (root !== "paths") return null
 
-  const HTTP_METHODS = new Set(["get", "post", "put", "patch", "delete", "head", "options", "trace"])
   const method = getPathPart(diff, 2)
   if (method && HTTP_METHODS.has(method.toLowerCase()) && diff.path.length === 3) {
     return diff.action === "add" ? "endpoint-added" : diff.action === "remove" ? "endpoint-removed" : null

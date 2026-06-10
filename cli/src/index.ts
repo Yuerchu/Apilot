@@ -167,73 +167,74 @@ mkdirSync(outDir, { recursive: true })
 
 // Build in a temp directory to avoid overwriting user files (especially assets/)
 const tmpDir = mkdtempSync(join(outDir, ".apilot-build-"))
-cpSync(templateDir, tmpDir, { recursive: true })
+try {
+  cpSync(templateDir, tmpDir, { recursive: true })
 
-const htmlPath = join(tmpDir, "index.html")
-let html = readFileSync(htmlPath, "utf8")
+  const htmlPath = join(tmpDir, "index.html")
+  let html = readFileSync(htmlPath, "utf8")
 
-const injections: string[] = []
+  const injections: string[] = []
 
-if (singleFile) {
-  // Inline all JS/CSS assets into the HTML
-  const assetsDir = join(outDir, "assets")
-  html = inlineAssets(html, assetsDir)
+  if (singleFile) {
+    // Inline all JS/CSS assets into the HTML (from tmpDir, not outDir)
+    const assetsDir = join(tmpDir, "assets")
+    html = inlineAssets(html, assetsDir)
 
-  // Embed the spec as JSON
-  const specJson = JSON.stringify(spec!).replace(/<\//g, "<\\/")
-  injections.push(`<script id="apilot-spec" type="application/json">${specJson}</script>`)
-  injections.push(`<script>window.__EMBEDDED_SPEC__=JSON.parse(document.getElementById("apilot-spec").textContent)</script>`)
+    // Embed the spec as JSON
+    const specJson = JSON.stringify(spec!).replace(/<\//g, "<\\/")
+    injections.push(`<script id="apilot-spec" type="application/json">${specJson}</script>`)
+    injections.push(`<script>window.__EMBEDDED_SPEC__=JSON.parse(document.getElementById("apilot-spec").textContent)</script>`)
 
-  const specSize = Buffer.byteLength(specJson, "utf8")
-  if (specSize > 5 * 1024 * 1024) {
-    console.warn(`\x1b[33mwarning:\x1b[0m Spec is ${formatSize(specSize)}. Consider using multi-file mode (without --single-file) for better performance.`)
+    const specSize = Buffer.byteLength(specJson, "utf8")
+    if (specSize > 5 * 1024 * 1024) {
+      console.warn(`\x1b[33mwarning:\x1b[0m Spec is ${formatSize(specSize)}. Consider using multi-file mode (without --single-file) for better performance.`)
+    }
+  } else {
+    const specOutPath = join(tmpDir, "spec.json")
+    writeFileSync(specOutPath, JSON.stringify(spec!, null, 2), "utf8")
+    injections.push(`<script>window.__OPENAPI_URL__="./spec.json"</script>`)
   }
-} else {
-  const specOutPath = join(tmpDir, "spec.json")
-  writeFileSync(specOutPath, JSON.stringify(spec!, null, 2), "utf8")
-  injections.push(`<script>window.__OPENAPI_URL__="./spec.json"</script>`)
-}
 
-if (values.title) {
-  const titleMatch = html.match(/<title>[^<]*<\/title>/)
-  if (titleMatch && titleMatch.index !== undefined) {
-    html = html.slice(0, titleMatch.index) + `<title>${escapeHtml(values.title as string)}</title>` + html.slice(titleMatch.index + titleMatch[0].length)
+  if (values.title) {
+    const titleMatch = html.match(/<title>[^<]*<\/title>/)
+    if (titleMatch && titleMatch.index !== undefined) {
+      html = html.slice(0, titleMatch.index) + `<title>${escapeHtml(values.title as string)}</title>` + html.slice(titleMatch.index + titleMatch[0].length)
+    }
+    injections.push(`<script>window.__OPENAPI_TITLE__=${escapeForScript(JSON.stringify(values.title))}</script>`)
   }
-  injections.push(`<script>window.__OPENAPI_TITLE__=${escapeForScript(JSON.stringify(values.title))}</script>`)
-}
 
-if (values.lang) {
-  const validLangs = ["en", "zh_CN", "zh_HK", "zh_TW", "ja", "ko"]
-  if (!validLangs.includes(values.lang as string)) {
-    console.warn(`\x1b[33mwarning:\x1b[0m Unknown language '${values.lang}'. Valid options: ${validLangs.join(", ")}`)
+  if (values.lang) {
+    const validLangs = ["en", "zh_CN", "zh_HK", "zh_TW", "ja", "ko"]
+    if (!validLangs.includes(values.lang as string)) {
+      console.warn(`\x1b[33mwarning:\x1b[0m Unknown language '${values.lang}'. Valid options: ${validLangs.join(", ")}`)
+    }
+    injections.push(`<script>if(!localStorage.getItem("oa_locale"))localStorage.setItem("oa_locale",${escapeForScript(JSON.stringify(values.lang))})</script>`)
   }
-  injections.push(`<script>if(!localStorage.getItem("oa_locale"))localStorage.setItem("oa_locale",${escapeForScript(JSON.stringify(values.lang))})</script>`)
-}
 
-if (injections.length > 0) {
-  const marker = "</head>"
-  const pos = html.lastIndexOf(marker)
-  if (pos !== -1) {
-    html = html.slice(0, pos) + injections.join("\n") + "\n" + html.slice(pos)
+  if (injections.length > 0) {
+    const marker = "</head>"
+    const pos = html.lastIndexOf(marker)
+    if (pos !== -1) {
+      html = html.slice(0, pos) + injections.join("\n") + "\n" + html.slice(pos)
+    }
   }
+
+  writeFileSync(htmlPath, html, "utf8")
+
+  if (singleFile) {
+    // Single-file: only copy index.html to outDir
+    const assetsDir = join(tmpDir, "assets")
+    if (existsSync(assetsDir)) rmSync(assetsDir, { recursive: true })
+    const faviconPath = join(tmpDir, "favicon.svg")
+    if (existsSync(faviconPath)) rmSync(faviconPath)
+    cpSync(join(tmpDir, "index.html"), join(outDir, "index.html"))
+  } else {
+    // Multi-file: copy everything to outDir
+    cpSync(tmpDir, outDir, { recursive: true })
+  }
+} finally {
+  rmSync(tmpDir, { recursive: true, force: true })
 }
-
-writeFileSync(htmlPath, html, "utf8")
-
-if (singleFile) {
-  // Single-file: only copy index.html to outDir
-  const assetsDir = join(tmpDir, "assets")
-  if (existsSync(assetsDir)) rmSync(assetsDir, { recursive: true })
-  const faviconPath = join(tmpDir, "favicon.svg")
-  if (existsSync(faviconPath)) rmSync(faviconPath)
-  cpSync(join(tmpDir, "index.html"), join(outDir, "index.html"))
-} else {
-  // Multi-file: copy everything to outDir
-  cpSync(tmpDir, outDir, { recursive: true })
-}
-
-// Clean up temp directory
-rmSync(tmpDir, { recursive: true })
 
 const outHtmlPath = join(outDir, "index.html")
 const totalSize = singleFile

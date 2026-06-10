@@ -11,7 +11,16 @@ export function resolveEffectiveSchema(schema: SchemaObject | undefined | null):
       const { properties, required, ...rest } = part as SchemaObject & { required?: string[] };
       Object.assign(merged, rest);
       if (properties) {
-        merged.properties = { ...(merged.properties || {}), ...properties };
+        const existing = merged.properties || {};
+        const combined: Record<string, SchemaObject> = { ...existing };
+        for (const [pk, pv] of Object.entries(properties)) {
+          if (existing[pk] && typeof existing[pk] === 'object' && typeof pv === 'object') {
+            combined[pk] = { ...existing[pk], ...pv };
+          } else {
+            combined[pk] = pv;
+          }
+        }
+        merged.properties = combined;
       }
       if (required) {
         merged.required = [...((merged as { required?: string[] }).required || []), ...required];
@@ -20,7 +29,16 @@ export function resolveEffectiveSchema(schema: SchemaObject | undefined | null):
     for (const [k, v] of Object.entries(s)) {
       if (k === 'allOf') continue;
       if (k === 'properties') {
-        merged.properties = { ...(merged.properties || {}), ...(v as Record<string, SchemaObject>) };
+        const existing = merged.properties || {};
+        const combined: Record<string, SchemaObject> = { ...existing };
+        for (const [pk, pv] of Object.entries(v as Record<string, SchemaObject>)) {
+          if (existing[pk] && typeof existing[pk] === 'object' && typeof pv === 'object') {
+            combined[pk] = { ...existing[pk], ...pv };
+          } else {
+            combined[pk] = pv;
+          }
+        }
+        merged.properties = combined;
       } else if (k === 'required') {
         merged.required = [...((merged as { required?: string[] }).required || []), ...(v as string[])];
       } else {

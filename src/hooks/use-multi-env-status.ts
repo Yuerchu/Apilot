@@ -191,8 +191,8 @@ export function useMultiEnvStatusProvider(): MultiEnvStatusValue {
     })
     if (!controller.signal.aborted) {
       setEnvStatuses(results)
+      setLoading(false)
     }
-    setLoading(false)
   }, [enabled, stagedEnvs, activeEnvId, activeRouteKeys, defaultSpecPath, state.routes.length])
 
   // Auto-fetch when spec is loaded and enabled

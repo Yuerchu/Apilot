@@ -1,8 +1,25 @@
 # Apilot
 
-现代化的 OpenAPI 文档查看与 API 测试工具。基于 React、TypeScript、Shadcn/ui 和 Tailwind CSS 构建。
+**Apilot** 是一个现代化的 **Swagger UI 替代品** — 支持 500+ 端点不卡顿的 OpenAPI 文档查看与 API 测试工具。可直接替代 Swagger UI、Redoc、Scalar，提供 Schema 驱动表单、在线请求测试、模型关系图、多环境管理等功能。
+
+基于 React、TypeScript、Shadcn/ui 和 Tailwind CSS 构建。
 
 **在线体验**：[openapi.yxqi.cn](https://openapi.yxqi.cn) | [English README](README.md)
+
+## 为什么选择 Apilot？
+
+| | Swagger UI | Redoc | Scalar | **Apilot** |
+|---|---|---|---|---|
+| 在线 API 测试 | ✅ | ❌ | ✅ | ✅ |
+| Schema 驱动表单 | ❌ | ❌ | 部分 | ✅ |
+| 模型关系图 | ❌ | ❌ | ❌ | ✅ |
+| 多环境管理 | ❌ | ❌ | ❌ | ✅ |
+| 跨环境 API 状态检测 | ❌ | ❌ | ❌ | ✅ |
+| Spec 差异对比与诊断 | ❌ | ❌ | ❌ | ✅ |
+| 单 HTML 文件输出 | ❌ | ❌ | ❌ | ✅ |
+| 多语言（6 种） | ❌ | ❌ | ❌ | ✅ |
+| CLI 静态文档生成 | ❌ | ✅ | ❌ | ✅ |
+| FastAPI 集成 | 内置 | 社区 | 社区 | ✅ |
 
 ## 功能特性
 

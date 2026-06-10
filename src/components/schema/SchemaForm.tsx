@@ -548,15 +548,14 @@ function FormFields({
   )
 }
 
-function stripExcludedFields(obj: unknown, excluded: Set<string>, required?: Set<string>, prefix = ""): unknown {
+function stripExcludedFields(obj: unknown, excluded: Set<string>, prefix = ""): unknown {
   if (typeof obj !== "object" || obj === null || Array.isArray(obj)) return obj
   const result: Record<string, unknown> = {}
   for (const [key, val] of Object.entries(obj)) {
     const path = prefix ? `${prefix}.${key}` : key
     if (excluded.has(path)) continue
-    if (val === null && required && !required.has(key)) continue
     result[key] = typeof val === "object" && val !== null && !Array.isArray(val)
-      ? stripExcludedFields(val, excluded, undefined, path)
+      ? stripExcludedFields(val, excluded, path)
       : val
   }
   return result
@@ -650,8 +649,7 @@ function ObjectSchemaForm({ schema, value, onChange, showErrors, defaultExcludeO
   useEffect(() => {
     const sub = form.watch((values) => {
       if (syncingRef.current) return
-      const requiredSet = new Set(schema.required || [])
-      const stripped = stripExcludedFields(values, excluded, requiredSet) as SchemaFormValues
+      const stripped = stripExcludedFields(values, excluded) as SchemaFormValues
       const json = JSON.stringify(stripped)
       if (json === lastJsonRef.current) return
       lastJsonRef.current = json
