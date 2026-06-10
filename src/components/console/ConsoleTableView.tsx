@@ -61,31 +61,34 @@ export function ConsoleTableView({ data, schema, columnLayout, hasEdit, hasDelet
   )
 }
 
-function ActionCellRenderer(props: CustomCellRendererProps & {
-  hasEdit?: boolean
-  hasDelete?: boolean
-  onEdit?: (row: Record<string, unknown>) => void
-  onDelete?: (row: Record<string, unknown>) => void
-}) {
+interface GridContext {
+  hasEdit?: boolean | undefined
+  hasDelete?: boolean | undefined
+  onEdit?: ((row: Record<string, unknown>) => void) | undefined
+  onDelete?: ((row: Record<string, unknown>) => void) | undefined
+}
+
+function ActionCellRenderer(props: CustomCellRendererProps) {
   const { t } = useTranslation()
   const row = props.data as Record<string, unknown> | undefined
-  if (!row) return null
+  const ctx = props.context as GridContext | undefined
+  if (!row || !ctx) return null
   return (
     <span className="inline-flex items-center gap-1 h-full">
-      {props.hasEdit && (
+      {ctx.hasEdit && (
         <button
           type="button"
-          onClick={() => props.onEdit?.(row)}
+          onClick={() => ctx.onEdit?.(row)}
           className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[11px] text-blue-500 hover:text-blue-400 transition-colors"
         >
           <Pencil className="size-3" />
           {t("console.edit")}
         </button>
       )}
-      {props.hasDelete && (
+      {ctx.hasDelete && (
         <button
           type="button"
-          onClick={() => props.onDelete?.(row)}
+          onClick={() => ctx.onDelete?.(row)}
           className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[11px] text-red-500 hover:text-red-400 transition-colors"
         >
           <Trash2 className="size-3" />
@@ -114,12 +117,11 @@ function ConsoleAgGrid({ items, fieldMap, columnLayout, hasEdit, hasDelete, onEd
   const gridRef = useRef<AgGridReact>(null)
   const [quickFilter, setQuickFilter] = useState("")
 
-  const onEditRef = useRef(onEdit)
-  onEditRef.current = onEdit
-  const onDeleteRef = useRef(onDelete)
-  onDeleteRef.current = onDelete
-
   const hasActions = hasEdit || hasDelete
+
+  const gridContext = useMemo<GridContext>(() => ({
+    hasEdit, hasDelete, onEdit, onDelete,
+  }), [hasEdit, hasDelete, onEdit, onDelete])
 
   const defaultColDef = useMemo<ColDef>(() => ({
     resizable: true,
@@ -173,12 +175,6 @@ function ConsoleAgGrid({ items, fieldMap, columnLayout, hasEdit, hasDelete, onEd
         pinned: "right",
         width: (hasEdit ? 70 : 0) + (hasDelete ? 70 : 0) + 16,
         cellRenderer: ActionCellRenderer,
-        cellRendererParams: {
-          hasEdit,
-          hasDelete,
-          onEdit: (row: Record<string, unknown>) => onEditRef.current?.(row),
-          onDelete: (row: Record<string, unknown>) => onDeleteRef.current?.(row),
-        },
       })
     }
 
@@ -244,6 +240,7 @@ function ConsoleAgGrid({ items, fieldMap, columnLayout, hasEdit, hasDelete, onEd
           key={enterprise ? "e" : "c"}
           ref={gridRef}
           theme={theme}
+          context={gridContext}
           rowData={items}
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}

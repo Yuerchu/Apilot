@@ -29,7 +29,7 @@ export function StatsDashboardTemplate({ resource }: { resource: ConsoleResource
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  const { statCards, chartData } = categorizeFields(data)
+  const { statCards, chartData } = useMemo(() => categorizeFields(data), [data])
   const { resolvedTheme } = useTheme()
   const chartOptions = useMemo(
     () => buildChartOptions(chartData, resolvedTheme === "dark"),
