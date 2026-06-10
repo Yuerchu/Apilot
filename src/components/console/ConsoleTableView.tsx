@@ -12,6 +12,7 @@ import { collectColumns, buildFieldMap, type FieldMeta } from "@/components/endp
 import { buildJsonSchemaTree } from "@/lib/json-schema-tree"
 import "@/components/endpoints/ag-grid-modules"
 import type { SchemaObject } from "@/lib/openapi/types"
+import type { ColumnConfig } from "@/lib/console/types"
 import { AG_GRID_LOCALE_CN } from "@ag-grid-community/locale"
 import { AG_GRID_LOCALE_HK } from "@ag-grid-community/locale"
 import { AG_GRID_LOCALE_TW } from "@ag-grid-community/locale"
@@ -34,13 +35,14 @@ const autoSizeStrategy = { type: "fitCellContents" as const, skipHeader: false }
 interface ConsoleTableViewProps {
   data: unknown
   schema?: SchemaObject | undefined
+  columnLayout?: ColumnConfig[] | undefined
   hasEdit?: boolean
   hasDelete?: boolean
   onEdit?: (row: Record<string, unknown>) => void
   onDelete?: (row: Record<string, unknown>) => void
 }
 
-export function ConsoleTableView({ data, schema, hasEdit, hasDelete, onEdit, onDelete }: ConsoleTableViewProps) {
+export function ConsoleTableView({ data, schema, columnLayout, hasEdit, hasDelete, onEdit, onDelete }: ConsoleTableViewProps) {
   const items = useMemo(() => {
     if (Array.isArray(data)) return data.filter(r => r && typeof r === "object") as Record<string, unknown>[]
     return []
@@ -62,6 +64,7 @@ export function ConsoleTableView({ data, schema, hasEdit, hasDelete, onEdit, onD
     <ConsoleAgGrid
       items={items}
       fieldMap={fieldMap}
+      columnLayout={columnLayout}
       hasEdit={hasEdit}
       hasDelete={hasDelete}
       onEdit={onEdit}
@@ -108,13 +111,14 @@ function ActionCellRenderer(props: CustomCellRendererProps & {
 interface ConsoleAgGridProps {
   items: Record<string, unknown>[]
   fieldMap: Map<string, FieldMeta>
+  columnLayout?: ColumnConfig[] | undefined
   hasEdit?: boolean | undefined
   hasDelete?: boolean | undefined
   onEdit?: ((row: Record<string, unknown>) => void) | undefined
   onDelete?: ((row: Record<string, unknown>) => void) | undefined
 }
 
-function ConsoleAgGrid({ items, fieldMap, hasEdit, hasDelete, onEdit, onDelete }: ConsoleAgGridProps) {
+function ConsoleAgGrid({ items, fieldMap, columnLayout, hasEdit, hasDelete, onEdit, onDelete }: ConsoleAgGridProps) {
   const { t, i18n } = useTranslation()
   const theme = useAgGridTheme()
   const localeText = AG_GRID_LOCALES[i18n.language]
@@ -134,15 +138,35 @@ function ConsoleAgGrid({ items, fieldMap, hasEdit, hasDelete, onEdit, onDelete }
   }), [enterprise])
 
   const columnDefs = useMemo<ColDef[]>(() => {
-    const cols = collectColumns(items)
-    const dataCols: ColDef[] = cols.map(key => {
+    const allCols = collectColumns(items)
+
+    let orderedCols: string[]
+    if (columnLayout && columnLayout.length > 0) {
+      const layoutMap = new Map(columnLayout.map(c => [c.field, c]))
+      const fromLayout = columnLayout
+        .filter(c => c.visible)
+        .sort((a, b) => a.order - b.order)
+        .map(c => c.field)
+        .filter(f => allCols.includes(f))
+      const newCols = allCols.filter(f => !layoutMap.has(f))
+      orderedCols = [...fromLayout, ...newCols]
+    } else {
+      orderedCols = allCols
+    }
+
+    const layoutMap = columnLayout ? new Map(columnLayout.map(c => [c.field, c])) : null
+
+    const dataCols: ColDef[] = orderedCols.map(key => {
       const meta = fieldMap.get(key)
-      const label = meta?.description || key
+      const layout = layoutMap?.get(key)
+      const label = layout?.headerLabel || meta?.description || key
       return {
         field: key,
         headerName: label,
         headerTooltip: label !== key ? `${key}: ${label}` : key,
         cellRenderer: ValueCellRenderer,
+        ...(layout?.width ? { width: layout.width } : {}),
+        ...(layout?.pinned ? { pinned: layout.pinned } : {}),
       }
     })
 
@@ -161,7 +185,7 @@ function ConsoleAgGrid({ items, fieldMap, hasEdit, hasDelete, onEdit, onDelete }
     }
 
     return dataCols
-  }, [items, fieldMap, hasActions, hasEdit, hasDelete, onEdit, onDelete, t])
+  }, [items, fieldMap, columnLayout, hasActions, hasEdit, hasDelete, onEdit, onDelete, t])
 
   const exportCsv = useCallback(() => {
     gridRef.current?.api.exportDataAsCsv()

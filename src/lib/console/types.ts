@@ -63,15 +63,15 @@ export interface FormFieldConfig {
   field: string
   visible: boolean
   order: number
-  label?: string
-  widgetType?: string
+  label?: string | undefined
+  widgetType?: string | undefined
 }
 
 export interface ResourceLayout {
-  columns?: ColumnConfig[]
-  createFields?: FormFieldConfig[]
-  updateFields?: FormFieldConfig[]
-  displayNameOverride?: string
+  columns?: ColumnConfig[] | undefined
+  createFields?: FormFieldConfig[] | undefined
+  updateFields?: FormFieldConfig[] | undefined
+  displayNameOverride?: string | undefined
 }
 
 export interface PaginationConfig {

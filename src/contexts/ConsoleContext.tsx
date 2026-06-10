@@ -1,7 +1,8 @@
-import { createContext, useContext, useReducer, useMemo, type Dispatch, type ReactNode } from "react"
+import { createContext, useContext, useReducer, useMemo, useEffect, type Dispatch, type ReactNode } from "react"
 import type { ParsedRoute } from "@/lib/openapi/types"
 import type { ConsoleResource, ConsoleResourceGroup, ResourceLayout } from "@/lib/console/types"
 import { groupRoutes, groupResourcesByPrefix } from "@/lib/console/resource-grouper"
+import { loadLayouts } from "@/lib/console/layout-config"
 
 export type ConsoleSubView = "list" | "detail" | "create" | "edit"
 
@@ -60,11 +61,12 @@ interface ConsoleContextValue {
   groups: ConsoleResourceGroup[]
   activeResource: ConsoleResource | null
   activeLayout: ResourceLayout | null
+  specId: string
 }
 
 const ConsoleCtx = createContext<ConsoleContextValue | null>(null)
 
-export function ConsoleProvider({ routes, children }: { routes: ParsedRoute[]; children: ReactNode }) {
+export function ConsoleProvider({ routes, specId, children }: { routes: ParsedRoute[]; specId: string; children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState)
 
   const resources = useMemo(() => groupRoutes(routes), [routes])
@@ -78,8 +80,17 @@ export function ConsoleProvider({ routes, children }: { routes: ParsedRoute[]; c
     [activeResource, state.layouts],
   )
 
+  useEffect(() => {
+    if (!specId) return
+    loadLayouts(specId).then(layouts => {
+      if (Object.keys(layouts).length > 0) {
+        dispatch({ type: "LOAD_LAYOUTS", layouts })
+      }
+    })
+  }, [specId])
+
   return (
-    <ConsoleCtx.Provider value={{ state, dispatch, resources, groups, activeResource, activeLayout }}>
+    <ConsoleCtx.Provider value={{ state, dispatch, resources, groups, activeResource, activeLayout, specId }}>
       {children}
     </ConsoleCtx.Provider>
   )
