@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { Plus, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react"
+import { Plus, RefreshCw, ChevronLeft, ChevronRight, Settings2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -205,6 +205,9 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
         <div className="flex-1" />
         <Button size="sm" variant="outline" onClick={fetchList} disabled={loading}>
           <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => dispatch({ type: "SET_BUILDER_MODE", on: true })}>
+          <Settings2 className="size-4" />
         </Button>
       </div>
 

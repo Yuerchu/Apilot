@@ -6,6 +6,7 @@ import { ConsoleDetailPage } from "./ConsoleDetailPage"
 import { ConsoleFormPage } from "./ConsoleFormPage"
 import { ConsoleActionPage } from "./ConsoleActionPage"
 import { ConsoleFormDialog } from "./ConsoleFormDialog"
+import { ConsoleBuilder } from "./builder/ConsoleBuilder"
 
 export function ConsoleResourcePage({ resource }: { resource: ConsoleResource }) {
   const { state, dispatch } = useConsoleContext()
@@ -13,6 +14,10 @@ export function ConsoleResourcePage({ resource }: { resource: ConsoleResource })
   const handleFormSuccess = useCallback(() => {
     dispatch({ type: "SET_SUB_VIEW", view: "list" })
   }, [dispatch])
+
+  if (state.builderMode) {
+    return <ConsoleBuilder resource={resource} listData={null} />
+  }
 
   return (
     <>

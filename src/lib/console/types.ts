@@ -50,6 +50,30 @@ export interface ConsoleResourceGroup {
   resources: ConsoleResource[]
 }
 
+export interface ColumnConfig {
+  field: string
+  visible: boolean
+  order: number
+  headerLabel?: string | undefined
+  width?: number | undefined
+  pinned?: "left" | "right" | undefined
+}
+
+export interface FormFieldConfig {
+  field: string
+  visible: boolean
+  order: number
+  label?: string
+  widgetType?: string
+}
+
+export interface ResourceLayout {
+  columns?: ColumnConfig[]
+  createFields?: FormFieldConfig[]
+  updateFields?: FormFieldConfig[]
+  displayNameOverride?: string
+}
+
 export interface PaginationConfig {
   style: "offset" | "cursor" | "page" | "none"
   itemsField: string | null
