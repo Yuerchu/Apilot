@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util"
-import { readFileSync, writeFileSync, mkdirSync, cpSync, existsSync, readdirSync, statSync, rmSync } from "node:fs"
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, cpSync, existsSync, readdirSync, statSync, rmSync } from "node:fs"
 import { resolve, dirname, join, extname, basename } from "node:path"
 import { fileURLToPath } from "node:url"
 import YAML from "yaml"
@@ -164,9 +164,12 @@ if (!existsSync(templateDir)) {
 }
 
 mkdirSync(outDir, { recursive: true })
-cpSync(templateDir, outDir, { recursive: true })
 
-const htmlPath = join(outDir, "index.html")
+// Build in a temp directory to avoid overwriting user files (especially assets/)
+const tmpDir = mkdtempSync(join(outDir, ".apilot-build-"))
+cpSync(templateDir, tmpDir, { recursive: true })
+
+const htmlPath = join(tmpDir, "index.html")
 let html = readFileSync(htmlPath, "utf8")
 
 const injections: string[] = []
@@ -186,7 +189,7 @@ if (singleFile) {
     console.warn(`\x1b[33mwarning:\x1b[0m Spec is ${formatSize(specSize)}. Consider using multi-file mode (without --single-file) for better performance.`)
   }
 } else {
-  const specOutPath = join(outDir, "spec.json")
+  const specOutPath = join(tmpDir, "spec.json")
   writeFileSync(specOutPath, JSON.stringify(spec!, null, 2), "utf8")
   injections.push(`<script>window.__OPENAPI_URL__="./spec.json"</script>`)
 }
@@ -218,15 +221,23 @@ if (injections.length > 0) {
 writeFileSync(htmlPath, html, "utf8")
 
 if (singleFile) {
-  // Clean up inlined assets, keep only index.html
-  const assetsDir = join(outDir, "assets")
+  // Single-file: only copy index.html to outDir
+  const assetsDir = join(tmpDir, "assets")
   if (existsSync(assetsDir)) rmSync(assetsDir, { recursive: true })
-  const faviconPath = join(outDir, "favicon.svg")
+  const faviconPath = join(tmpDir, "favicon.svg")
   if (existsSync(faviconPath)) rmSync(faviconPath)
+  cpSync(join(tmpDir, "index.html"), join(outDir, "index.html"))
+} else {
+  // Multi-file: copy everything to outDir
+  cpSync(tmpDir, outDir, { recursive: true })
 }
 
+// Clean up temp directory
+rmSync(tmpDir, { recursive: true })
+
+const outHtmlPath = join(outDir, "index.html")
 const totalSize = singleFile
-  ? statSync(htmlPath).size
+  ? statSync(outHtmlPath).size
   : dirSize(outDir)
 const files = singleFile ? 1 : fileCount(outDir)
 

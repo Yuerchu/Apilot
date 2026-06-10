@@ -18,7 +18,12 @@ const PASSWORD_PATH_KEYWORDS = ["password", "change-password", "reset-password",
 
 function pathContains(basePath: string, keywords: string[]): boolean {
   const segments = basePath.toLowerCase().split("/").filter(Boolean).filter(s => !s.startsWith("{"))
-  return keywords.some(k => segments.some(seg => seg === k || seg.endsWith(`-${k}`) || seg.startsWith(`${k}-`)))
+  return keywords.some(k => segments.some(seg =>
+    seg === k
+    || seg.endsWith(`-${k}`) || seg.startsWith(`${k}-`)
+    || seg.endsWith(`_${k}`) || seg.startsWith(`${k}_`)
+    || seg.split(/[-_]/).includes(k)
+  ))
 }
 
 function hasRequestBodyAction(resource: ConsoleResource): boolean {

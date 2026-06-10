@@ -24,7 +24,12 @@ export function validateWithSchema(
   const cleanSchema = stripInternalFields(schema)
 
   try {
-    const validate = ajv.compile(cleanSchema)
+    const cacheKey = JSON.stringify(cleanSchema)
+    let validate = ajv.getSchema(cacheKey)
+    if (!validate) {
+      cleanSchema.$id = cacheKey
+      validate = ajv.compile(cleanSchema)
+    }
     const valid = validate(data)
     if (valid) return []
 
@@ -72,8 +77,10 @@ function formatErrorMessage(field: string, err: { message?: string; keyword: str
 
 function stripInternalFields(schema: SchemaObject): Record<string, unknown> {
   const result: Record<string, unknown> = {}
+  const isNullable = schema.nullable === true || schema["x-nullable"] === true
   for (const [k, v] of Object.entries(schema)) {
     if (k.startsWith("_")) continue
+    if (k === "nullable" || k === "x-nullable") continue
     if (k === "properties" && v && typeof v === "object") {
       const props: Record<string, unknown> = {}
       for (const [pk, pv] of Object.entries(v as Record<string, SchemaObject>)) {
@@ -87,6 +94,9 @@ function stripInternalFields(schema: SchemaObject): Record<string, unknown> {
     } else {
       result[k] = v
     }
+  }
+  if (isNullable && result.type && typeof result.type === "string") {
+    result.type = [result.type, "null"]
   }
   return result
 }

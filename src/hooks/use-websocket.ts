@@ -70,11 +70,13 @@ export function useWebSocket() {
       }
 
       ws.onerror = () => {
+        if (wsRef.current !== ws) return
         setError("WebSocket connection error")
         setStatus("error")
       }
 
       ws.onclose = (event) => {
+        if (wsRef.current !== ws) return
         setStatus("disconnected")
         if (event.code !== 1000 && event.code !== 1005) {
           setError(`Closed: ${event.code}${event.reason ? ` — ${event.reason}` : ""}`)

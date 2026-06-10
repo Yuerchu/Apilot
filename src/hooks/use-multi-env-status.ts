@@ -106,10 +106,12 @@ export function useMultiEnvStatusProvider(): MultiEnvStatusValue {
       const headers = buildAuthHeaders(env.authType, env.authToken, env.authUser, env.authKeyName, env.oauth2Token)
 
       try {
-        const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
+        const envController = new AbortController()
+        const timeoutId = setTimeout(() => envController.abort(), FETCH_TIMEOUT)
+        controller.signal.addEventListener("abort", () => envController.abort())
         const res = await fetch(specUrl, {
           headers,
-          signal: controller.signal,
+          signal: envController.signal,
         })
         clearTimeout(timeoutId)
 
@@ -181,16 +183,16 @@ export function useMultiEnvStatusProvider(): MultiEnvStatusValue {
       }
     }
 
+    // Sort by stage priority
+    results.sort((a, b) => {
+      const ai = STAGE_ORDER.indexOf(a.stage as EnvironmentStage)
+      const bi = STAGE_ORDER.indexOf(b.stage as EnvironmentStage)
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+    })
     if (!controller.signal.aborted) {
-      // Sort by stage priority
-      results.sort((a, b) => {
-        const ai = STAGE_ORDER.indexOf(a.stage as EnvironmentStage)
-        const bi = STAGE_ORDER.indexOf(b.stage as EnvironmentStage)
-        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
-      })
       setEnvStatuses(results)
-      setLoading(false)
     }
+    setLoading(false)
   }, [enabled, stagedEnvs, activeEnvId, activeRouteKeys, defaultSpecPath, state.routes.length])
 
   // Auto-fetch when spec is loaded and enabled

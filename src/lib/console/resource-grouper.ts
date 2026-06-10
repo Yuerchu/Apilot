@@ -265,25 +265,30 @@ export function groupRoutes(routes: ParsedRoute[]): ConsoleResource[] {
     }
 
     if (!attached) {
-      resources.push({
-        name: entry.route.operationId || entry.route.path.replace(/\//g, "_").replace(/^_/, ""),
-        displayName: label,
-        basePath: entry.route.path,
-        tag,
-        idParam: null,
-        pageType: "action" as PageType,
-        operations: {},
-        actions: [makeAction(entry, null)],
-        listItemSchema: null, createSchema: null, updateSchema: null, detailSchema: null,
-        confidence: 0.2,
-        hints: [{
-          code: "non-restful-endpoint",
-          message: `Endpoint ${entry.route.method} ${entry.route.path} does not match a RESTful pattern`,
-          suggestion: "Configure this endpoint in .apilot as a standalone action or hide it",
-          resource: entry.route.operationId ?? entry.route.path,
-        }],
-        parent: null,
-      })
+      const existing = resources.find(r => r.basePath === entry.route.path)
+      if (existing) {
+        existing.actions.push(makeAction(entry, null))
+      } else {
+        resources.push({
+          name: entry.route.operationId || entry.route.path.replace(/\//g, "_").replace(/^_/, ""),
+          displayName: label,
+          basePath: entry.route.path,
+          tag,
+          idParam: null,
+          pageType: "action" as PageType,
+          operations: {},
+          actions: [makeAction(entry, null)],
+          listItemSchema: null, createSchema: null, updateSchema: null, detailSchema: null,
+          confidence: 0.2,
+          hints: [{
+            code: "non-restful-endpoint",
+            message: `Endpoint ${entry.route.method} ${entry.route.path} does not match a RESTful pattern`,
+            suggestion: "Configure this endpoint in .apilot as a standalone action or hide it",
+            resource: entry.route.operationId ?? entry.route.path,
+          }],
+          parent: null,
+        })
+      }
     }
   }
 

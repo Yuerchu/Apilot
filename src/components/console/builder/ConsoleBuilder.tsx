@@ -272,7 +272,7 @@ export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
 
         {/* Center: Preview */}
         <main className="flex-1 min-w-0 overflow-auto p-4">
-          <ConsoleListPage resource={resource} readOnly />
+          <ConsoleListPage resource={resource} readOnly columnLayoutOverride={columns} />
         </main>
 
         {/* Right: Property editor */}

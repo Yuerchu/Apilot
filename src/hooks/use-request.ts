@@ -103,7 +103,8 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
     const headers: Record<string, string> = { ...getAuthHeaders() }
 
     for (const p of route.parameters || []) {
-      const val = params[p.name] ?? ""
+      let val = params[p.name] ?? ""
+      if (val === "__empty__" || val === "__null__") val = ""
       if (!val && !p.required) continue
       if (p.in === "path") {
         path = path.replace(`{${p.name}}`, encodeURIComponent(val))
