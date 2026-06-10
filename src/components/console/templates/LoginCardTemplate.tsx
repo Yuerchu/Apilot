@@ -18,7 +18,7 @@ export function LoginCardTemplate({ resource }: { resource: ConsoleResource }) {
   const [formData, setFormData] = useState<FormOutput>({})
   const [response, setResponse] = useState<string | null>(null)
 
-  const action = resource.actions[0] ?? resource.operations.create
+  const action = resource.actions.find(a => !!getRequestBodySchema(a.route)) ?? resource.operations.create
   const schema = action ? getRequestBodySchema(action.route) : resource.createSchema
 
   const handleChange = useCallback((v: FormOutput) => setFormData(v), [])

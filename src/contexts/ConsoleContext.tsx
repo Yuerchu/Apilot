@@ -12,6 +12,7 @@ export interface ConsoleState {
   subView: ConsoleSubView
   activeItemId: string | null
   editingRow: Record<string, unknown> | null
+  refreshCounter: number
   builderMode: boolean
   layouts: Record<string, ResourceLayout>
 }
@@ -20,6 +21,7 @@ type ConsoleAction =
   | { type: "SET_ACTIVE_RESOURCE"; key: string }
   | { type: "SET_ACTIVE_ACTION"; key: string; actionIndex: number }
   | { type: "SET_SUB_VIEW"; view: ConsoleSubView; itemId?: string | null; row?: Record<string, unknown> | null }
+  | { type: "REFRESH" }
   | { type: "SET_BUILDER_MODE"; on: boolean }
   | { type: "SET_LAYOUT"; basePath: string; layout: ResourceLayout }
   | { type: "RESET_LAYOUT"; basePath: string }
@@ -31,6 +33,7 @@ const initialState: ConsoleState = {
   subView: "list",
   activeItemId: null,
   editingRow: null,
+  refreshCounter: 0,
   builderMode: false,
   layouts: {},
 }
@@ -43,6 +46,8 @@ function reducer(state: ConsoleState, action: ConsoleAction): ConsoleState {
       return { ...state, activeResourceKey: action.key, activeActionIndex: action.actionIndex, subView: "list", activeItemId: null, editingRow: null }
     case "SET_SUB_VIEW":
       return { ...state, subView: action.view, activeItemId: action.itemId ?? null, editingRow: action.row ?? null }
+    case "REFRESH":
+      return { ...state, refreshCounter: state.refreshCounter + 1 }
     case "SET_BUILDER_MODE":
       return { ...state, builderMode: action.on }
     case "SET_LAYOUT": {

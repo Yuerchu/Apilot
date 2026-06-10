@@ -1,4 +1,3 @@
-import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -11,8 +10,6 @@ interface ColumnPropertyEditorProps {
 }
 
 export function ColumnPropertyEditor({ column, onChange }: ColumnPropertyEditorProps) {
-  const { t } = useTranslation()
-
   const update = (patch: Partial<ColumnConfig>) => onChange({ ...column, ...patch })
 
   return (
@@ -20,7 +17,7 @@ export function ColumnPropertyEditor({ column, onChange }: ColumnPropertyEditorP
       <div className="text-xs font-mono text-muted-foreground">{column.field}</div>
 
       <div className="space-y-1.5">
-        <Label className="text-xs">{t("console.edit")}</Label>
+        <Label className="text-xs">Header Label</Label>
         <Input
           value={column.headerLabel ?? ""}
           onChange={e => update({ headerLabel: e.target.value || undefined })}
@@ -55,7 +52,7 @@ export function ColumnPropertyEditor({ column, onChange }: ColumnPropertyEditorP
       </div>
 
       <div className="flex items-center justify-between">
-        <Label className="text-xs">{t("console.actions")}</Label>
+        <Label className="text-xs">Visible</Label>
         <Switch
           checked={column.visible}
           onCheckedChange={v => update({ visible: v })}

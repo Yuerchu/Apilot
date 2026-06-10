@@ -1,4 +1,3 @@
-import { useTranslation } from "react-i18next"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -33,8 +32,6 @@ interface FormFieldPropertyEditorProps {
 }
 
 export function FormFieldPropertyEditor({ field, onChange }: FormFieldPropertyEditorProps) {
-  const { t } = useTranslation()
-
   const update = (patch: Partial<FormFieldConfig>) => onChange({ ...field, ...patch })
 
   return (
@@ -42,7 +39,7 @@ export function FormFieldPropertyEditor({ field, onChange }: FormFieldPropertyEd
       <div className="text-xs font-mono text-muted-foreground">{field.field}</div>
 
       <div className="space-y-1.5">
-        <Label className="text-xs">{t("console.edit")}</Label>
+        <Label className="text-xs">Label</Label>
         <Input
           value={field.label ?? ""}
           onChange={e => update({ label: e.target.value || undefined })}

@@ -13,6 +13,7 @@ export function ConsoleResourcePage({ resource }: { resource: ConsoleResource })
 
   const handleFormSuccess = useCallback(() => {
     dispatch({ type: "SET_SUB_VIEW", view: "list" })
+    dispatch({ type: "REFRESH" })
   }, [dispatch])
 
   if (state.builderMode) {

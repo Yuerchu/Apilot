@@ -268,7 +268,7 @@ export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
 
         {/* Center: Preview */}
         <main className="flex-1 min-w-0 overflow-auto p-4">
-          <ConsoleListPage resource={resource} />
+          <ConsoleListPage resource={resource} readOnly />
         </main>
 
         {/* Right: Property editor */}
@@ -284,7 +284,7 @@ export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
           )}
           {!selectedColumn && !selectedCreateField && !selectedUpdateField && (
             <div className="flex items-center justify-center h-32 text-xs text-muted-foreground">
-              {t("console.selectResource")}
+              Select a field to edit
             </div>
           )}
         </aside>

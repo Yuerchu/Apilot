@@ -19,7 +19,7 @@ export function PasswordChangeTemplate({ resource }: { resource: ConsoleResource
   const [formData, setFormData] = useState<FormOutput>({})
   const [success, setSuccess] = useState(false)
 
-  const action = resource.actions[0] ?? resource.operations.create ?? resource.operations.update
+  const action = resource.actions.find(a => !!getRequestBodySchema(a.route)) ?? resource.operations.create ?? resource.operations.update
   const schema = action ? getRequestBodySchema(action.route) : (resource.createSchema ?? resource.updateSchema)
 
   const handleChange = useCallback((v: FormOutput) => setFormData(v), [])

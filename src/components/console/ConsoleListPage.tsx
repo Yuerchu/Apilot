@@ -49,9 +49,9 @@ function detectPaginationParams(params: Parameter[]): { offsetParam: string | nu
   return { offsetParam, limitParam, isPageBased, sortParams }
 }
 
-export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
+export function ConsoleListPage({ resource, readOnly }: { resource: ConsoleResource; readOnly?: boolean | undefined }) {
   const { t } = useTranslation()
-  const { dispatch, activeLayout } = useConsoleContext()
+  const { state: consoleState, dispatch, activeLayout } = useConsoleContext()
   const auth = useAuthContext()
   const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
   const [data, setData] = useState<unknown>(null)
@@ -127,7 +127,7 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
         setError(`${result.status} ${result.statusText}`)
       }
     }
-  }, [resource, sendRequest, listOp, hasPagination, offsetParam, limitParam, isPageBased, pagination, filters, extractTotalCount])
+  }, [resource, sendRequest, listOp, hasPagination, offsetParam, limitParam, isPageBased, pagination, filters, extractTotalCount, consoleState.refreshCounter])
 
   useEffect(() => {
     setPagination(prev => prev.limit === 100 && defaultLimit !== 100 ? { offset: 0, limit: defaultLimit } : prev)
@@ -137,9 +137,9 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
     fetchList()
   }, [fetchList])
 
-  const hasCreate = !!resource.operations.create
-  const hasUpdate = !!resource.operations.update
-  const hasDelete = !!resource.operations.delete
+  const hasCreate = !readOnly && !!resource.operations.create
+  const hasUpdate = !readOnly && !!resource.operations.update
+  const hasDelete = !readOnly && !!resource.operations.delete
 
   const handleEdit = useCallback((row: Record<string, unknown>) => {
     dispatch({ type: "SET_SUB_VIEW", view: "edit", itemId: String(row[resource.idParam ?? "id"] ?? ""), row })
@@ -199,9 +199,11 @@ export function ConsoleListPage({ resource }: { resource: ConsoleResource }) {
         <Button size="sm" variant="outline" onClick={fetchList} disabled={loading}>
           <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
-        <Button size="sm" variant="outline" onClick={() => dispatch({ type: "SET_BUILDER_MODE", on: true })}>
-          <Settings2 className="size-4" />
-        </Button>
+        {!readOnly && (
+          <Button size="sm" variant="outline" onClick={() => dispatch({ type: "SET_BUILDER_MODE", on: true })}>
+            <Settings2 className="size-4" />
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
