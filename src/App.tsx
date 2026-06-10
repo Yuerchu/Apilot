@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react"
+import { useEffect, useMemo, lazy, Suspense } from "react"
 import type { OpenAPISpec } from "@/lib/openapi/types"
 import { useTranslation } from "react-i18next"
 import { OpenAPIProvider, useOpenAPIContext } from "@/contexts/OpenAPIContext"
@@ -22,14 +22,16 @@ import { AppSidebar } from "@/components/layout/AppSidebar"
 import { SelectionFab } from "@/components/layout/SelectionFab"
 import { EndpointsView } from "@/components/endpoints/EndpointsView"
 import { FavoritesView } from "@/components/endpoints/FavoritesView"
-import { SchemaViewerView } from "@/components/schema/SchemaViewerView"
-import { OpenAPIDiagnosticsView, OpenAPIDiffView } from "@/components/tools/ProjectToolsView"
 import { useAsyncAPIContext } from "@/contexts/AsyncAPIContext"
-import { ChannelsView } from "@/components/channels/ChannelsView"
+
+const SchemaViewerView = lazy(() => import("@/components/schema/SchemaViewerView").then(m => ({ default: m.SchemaViewerView })))
+const OpenAPIDiagnosticsView = lazy(() => import("@/components/tools/ProjectToolsView").then(m => ({ default: m.OpenAPIDiagnosticsView })))
+const OpenAPIDiffView = lazy(() => import("@/components/tools/ProjectToolsView").then(m => ({ default: m.OpenAPIDiffView })))
+const ChannelsView = lazy(() => import("@/components/channels/ChannelsView").then(m => ({ default: m.ChannelsView })))
+const ConsoleView = lazy(() => import("@/components/console/ConsoleView").then(m => ({ default: m.ConsoleView })))
 import { SidebarProvider, SidebarInset } from "@/components/animate-ui/components/radix/sidebar"
 import { toast } from "sonner"
 import { ShareProvider } from "@/components/share/ShareDialog"
-import { ConsoleView } from "@/components/console/ConsoleView"
 import { ConsoleProvider } from "@/contexts/ConsoleContext"
 import { useSpecId } from "@/hooks/use-spec-id"
 import { FavoritesContext, useFavoritesProvider } from "@/hooks/use-favorites"
@@ -170,7 +172,7 @@ function AppContent() {
           {!state.loading && state.mainView === "channels" && (
             asyncState.spec ? (
               <Fade key="channels" className="flex-1 flex flex-col min-h-0">
-                <ChannelsView />
+                <Suspense fallback={<ViewLoadingFallback />}><ChannelsView /></Suspense>
               </Fade>
             ) : <NeedSpecEmpty />
           )}
@@ -185,28 +187,28 @@ function AppContent() {
 
           {!state.loading && state.mainView === "models" && (
             <Fade key="models" className="flex-1 flex flex-col min-h-0">
-              <SchemaViewerView spec={state.spec ?? undefined} />
+              <Suspense fallback={<ViewLoadingFallback />}><SchemaViewerView spec={state.spec ?? undefined} /></Suspense>
             </Fade>
           )}
 
           {!state.loading && state.mainView === "diagnostics" && (
             specLoaded ? (
               <Fade key="diagnostics" className="flex-1 flex flex-col min-h-0">
-                <OpenAPIDiagnosticsView spec={state.spec!} sourceSpec={state.sourceSpec} />
+                <Suspense fallback={<ViewLoadingFallback />}><OpenAPIDiagnosticsView spec={state.spec!} sourceSpec={state.sourceSpec} /></Suspense>
               </Fade>
             ) : <NeedSpecEmpty />
           )}
 
           {!state.loading && state.mainView === "diff" && (
             <Fade key="diff" className="flex-1 flex flex-col min-h-0">
-              <OpenAPIDiffView spec={state.spec ?? undefined} />
+              <Suspense fallback={<ViewLoadingFallback />}><OpenAPIDiffView spec={state.spec ?? undefined} /></Suspense>
             </Fade>
           )}
 
           {!state.loading && state.mainView === "console" && (
             specLoaded ? (
               <Fade key="console" className="flex-1 flex flex-col min-h-0">
-                <ConsoleView />
+                <Suspense fallback={<ViewLoadingFallback />}><ConsoleView /></Suspense>
               </Fade>
             ) : <NeedSpecEmpty />
           )}
@@ -299,6 +301,14 @@ function LoadingSkeleton() {
         </div>
       ))}
     </motion.div>
+  )
+}
+
+function ViewLoadingFallback() {
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <Skeleton className="h-6 w-32 rounded-md" />
+    </div>
   )
 }
 

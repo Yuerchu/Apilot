@@ -33,7 +33,7 @@ const AG_GRID_LOCALES: Record<string, LocaleText> = {
   ko: AG_GRID_LOCALE_KR,
 }
 
-function useAgGridLocale(): LocaleText | undefined {
+export function useAgGridLocale(): LocaleText | undefined {
   const { i18n } = useTranslation()
   return AG_GRID_LOCALES[i18n.language]
 }

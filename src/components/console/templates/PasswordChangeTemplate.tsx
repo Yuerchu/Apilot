@@ -4,8 +4,7 @@ import { Lock } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { SchemaForm } from "@/components/schema/SchemaForm"
-import { useRequest } from "@/hooks/use-request"
-import { useAuthContext } from "@/contexts/AuthContext"
+import { useConsoleFetch } from "@/hooks/use-console-fetch"
 import type { ConsoleResource } from "@/lib/console/types"
 import { getRequestBodySchema } from "@/lib/console/schema-inference"
 import { toast } from "sonner"
@@ -14,8 +13,7 @@ type FormOutput = Record<string, unknown> | unknown[]
 
 export function PasswordChangeTemplate({ resource }: { resource: ConsoleResource }) {
   const { t } = useTranslation()
-  const auth = useAuthContext()
-  const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
+  const { mutate, loading } = useConsoleFetch()
   const [formData, setFormData] = useState<FormOutput>({})
   const [success, setSuccess] = useState(false)
 
@@ -26,17 +24,9 @@ export function PasswordChangeTemplate({ resource }: { resource: ConsoleResource
 
   const handleSubmit = async () => {
     if (!action) return
-    const body = JSON.stringify(formData)
-    const result = await sendRequest(action.route, {}, body, "application/json")
-    if (result) {
-      if (result.status >= 200 && result.status < 300) {
-        toast.success(t("console.updated"))
-        setSuccess(true)
-        setFormData({})
-      } else {
-        toast.error(t("console.updateFailed", { status: `${result.status} ${result.statusText}` }))
-      }
-    }
+    const ok = await mutate(action.route, { body: JSON.stringify(formData) })
+    if (ok) { toast.success(t("console.updated")); setSuccess(true); setFormData({}) }
+    else toast.error(t("console.updateFailed", { status: "" }))
   }
 
   return (

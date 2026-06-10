@@ -5,8 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardAction }
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useRequest } from "@/hooks/use-request"
-import { useAuthContext } from "@/contexts/AuthContext"
+import { useConsoleFetch } from "@/hooks/use-console-fetch"
 import { useConsoleContext } from "@/contexts/ConsoleContext"
 import type { ConsoleResource } from "@/lib/console/types"
 import { ConsoleFormDialog } from "../ConsoleFormDialog"
@@ -15,8 +14,7 @@ import { ConsoleActionButton } from "../ConsoleActionButton"
 export function DetailCardTemplate({ resource }: { resource: ConsoleResource }) {
   const { t } = useTranslation()
   const { state, dispatch } = useConsoleContext()
-  const auth = useAuthContext()
-  const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
+  const { fetchJson, loading } = useConsoleFetch()
   const [data, setData] = useState<Record<string, unknown> | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,15 +24,10 @@ export function DetailCardTemplate({ resource }: { resource: ConsoleResource }) 
   const fetchDetail = useCallback(async () => {
     if (!readOp) return
     setError(null)
-    const result = await sendRequest(readOp.route, {}, "", "application/json")
-    if (result) {
-      if (result.status >= 200 && result.status < 300) {
-        try { setData(JSON.parse(result.body)) } catch { setData(null) }
-      } else {
-        setError(`${result.status} ${result.statusText}`)
-      }
-    }
-  }, [readOp, sendRequest])
+    const { data: parsed, error: err } = await fetchJson<Record<string, unknown>>(readOp.route)
+    setData(parsed)
+    setError(err)
+  }, [readOp, fetchJson])
 
   useEffect(() => { fetchDetail() }, [fetchDetail])
 

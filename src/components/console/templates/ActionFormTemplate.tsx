@@ -4,8 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { SchemaForm } from "@/components/schema/SchemaForm"
-import { useRequest } from "@/hooks/use-request"
-import { useAuthContext } from "@/contexts/AuthContext"
+import { useConsoleFetch } from "@/hooks/use-console-fetch"
 import type { ConsoleResource, ResourceAction } from "@/lib/console/types"
 import { getRequestBodySchema } from "@/lib/console/schema-inference"
 import { toast } from "sonner"
@@ -30,8 +29,7 @@ export function ActionFormTemplate({ resource }: { resource: ConsoleResource }) 
 
 function ActionCard({ action }: { action: ResourceAction }) {
   const { t } = useTranslation()
-  const auth = useAuthContext()
-  const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
+  const { submitJson, loading } = useConsoleFetch()
   const [formData, setFormData] = useState<FormOutput>({})
   const [response, setResponse] = useState<string | null>(null)
 
@@ -40,16 +38,10 @@ function ActionCard({ action }: { action: ResourceAction }) {
 
   const handleSubmit = async () => {
     const body = schema ? JSON.stringify(formData) : ""
-    const result = await sendRequest(action.route, {}, body, "application/json")
-    if (result) {
-      if (result.status >= 200 && result.status < 300) {
-        toast.success(`${action.label}: ${result.status}`)
-        try { setResponse(JSON.stringify(JSON.parse(result.body), null, 2)) } catch { setResponse(result.body) }
-      } else {
-        toast.error(`${action.label}: ${result.status} ${result.statusText}`)
-        setResponse(result.body)
-      }
-    }
+    const { ok, response: resp } = await submitJson(action.route, body)
+    if (ok) toast.success(`${action.label}: OK`)
+    else toast.error(`${action.label}: failed`)
+    setResponse(resp)
   }
 
   return (

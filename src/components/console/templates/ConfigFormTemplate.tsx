@@ -5,8 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardAction, 
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SchemaForm } from "@/components/schema/SchemaForm"
-import { useRequest } from "@/hooks/use-request"
-import { useAuthContext } from "@/contexts/AuthContext"
+import { useConsoleFetch } from "@/hooks/use-console-fetch"
 import type { ConsoleResource } from "@/lib/console/types"
 import { toast } from "sonner"
 
@@ -14,8 +13,7 @@ type FormOutput = Record<string, unknown> | unknown[]
 
 export function ConfigFormTemplate({ resource }: { resource: ConsoleResource }) {
   const { t } = useTranslation()
-  const auth = useAuthContext()
-  const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
+  const { fetchJson, mutate, loading } = useConsoleFetch()
   const [data, setData] = useState<FormOutput | null>(null)
   const [formData, setFormData] = useState<FormOutput>({})
   const [error, setError] = useState<string | null>(null)
@@ -27,19 +25,10 @@ export function ConfigFormTemplate({ resource }: { resource: ConsoleResource }) 
   const fetchConfig = useCallback(async () => {
     if (!readOp) return
     setError(null)
-    const result = await sendRequest(readOp.route, {}, "", "application/json")
-    if (result) {
-      if (result.status >= 200 && result.status < 300) {
-        try {
-          const parsed = JSON.parse(result.body)
-          setData(parsed)
-          setFormData(parsed)
-        } catch { /* ignore */ }
-      } else {
-        setError(`${result.status} ${result.statusText}`)
-      }
-    }
-  }, [readOp, sendRequest])
+    const { data: parsed, error: err } = await fetchJson<FormOutput>(readOp.route)
+    if (parsed) { setData(parsed); setFormData(parsed) }
+    setError(err)
+  }, [readOp, fetchJson])
 
   useEffect(() => { fetchConfig() }, [fetchConfig])
 
@@ -47,16 +36,9 @@ export function ConfigFormTemplate({ resource }: { resource: ConsoleResource }) 
 
   const handleSave = async () => {
     if (!updateOp) return
-    const body = JSON.stringify(formData)
-    const result = await sendRequest(updateOp.route, {}, body, "application/json")
-    if (result) {
-      if (result.status >= 200 && result.status < 300) {
-        toast.success(t("console.updated"))
-        fetchConfig()
-      } else {
-        toast.error(t("console.updateFailed", { status: `${result.status} ${result.statusText}` }))
-      }
-    }
+    const ok = await mutate(updateOp.route, { body: JSON.stringify(formData) })
+    if (ok) { toast.success(t("console.updated")); fetchConfig() }
+    else toast.error(t("console.updateFailed", { status: "" }))
   }
 
   return (

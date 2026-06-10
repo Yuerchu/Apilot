@@ -4,8 +4,7 @@ import { Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { SchemaForm } from "@/components/schema/SchemaForm"
-import { useRequest } from "@/hooks/use-request"
-import { useAuthContext } from "@/contexts/AuthContext"
+import { useConsoleFetch } from "@/hooks/use-console-fetch"
 import type { ResourceAction } from "@/lib/console/types"
 import { getRequestBodySchema } from "@/lib/console/schema-inference"
 import { toast } from "sonner"
@@ -15,8 +14,7 @@ type FormOutput = Record<string, unknown> | unknown[]
 export function ConsoleActionButton({ action }: { action: ResourceAction }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const auth = useAuthContext()
-  const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
+  const { mutate, loading } = useConsoleFetch()
   const [formData, setFormData] = useState<FormOutput>({})
 
   const schema = getRequestBodySchema(action.route)
@@ -26,14 +24,9 @@ export function ConsoleActionButton({ action }: { action: ResourceAction }) {
 
   const execute = async () => {
     const body = formData && Object.keys(formData).length > 0 ? JSON.stringify(formData) : ""
-    const result = await sendRequest(action.route, {}, body, "application/json")
-    if (result) {
-      if (result.status >= 200 && result.status < 300) {
-        toast.success(`${action.label}: ${result.status} ${result.statusText}`)
-      } else {
-        toast.error(`${action.label}: ${result.status} ${result.statusText}`)
-      }
-    }
+    const ok = await mutate(action.route, { body })
+    if (ok) toast.success(`${action.label}: OK`)
+    else toast.error(`${action.label}: failed`)
     setOpen(false)
   }
 

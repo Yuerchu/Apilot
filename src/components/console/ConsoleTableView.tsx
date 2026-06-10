@@ -6,28 +6,14 @@ import type { CustomCellRendererProps } from "ag-grid-react"
 import { Search, Download, FileSpreadsheet, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useAgGridTheme, ValueCellRenderer } from "@/components/endpoints/ResponseAgGrid"
+import { useAgGridTheme, useAgGridLocale, ValueCellRenderer } from "@/components/endpoints/ResponseAgGrid"
 import { useAgGridEnterprise } from "@/components/endpoints/use-ag-grid-enterprise"
 import { collectColumns, buildFieldMap, type FieldMeta } from "@/components/endpoints/ResponseTableView"
 import { buildJsonSchemaTree } from "@/lib/json-schema-tree"
 import "@/components/endpoints/ag-grid-modules"
 import type { SchemaObject } from "@/lib/openapi/types"
 import type { ColumnConfig } from "@/lib/console/types"
-import { AG_GRID_LOCALE_CN } from "@ag-grid-community/locale"
-import { AG_GRID_LOCALE_HK } from "@ag-grid-community/locale"
-import { AG_GRID_LOCALE_TW } from "@ag-grid-community/locale"
-import { AG_GRID_LOCALE_JP } from "@ag-grid-community/locale"
-import { AG_GRID_LOCALE_KR } from "@ag-grid-community/locale"
-import type { LocaleText } from "ag-grid-community"
 import { toast } from "sonner"
-
-const AG_GRID_LOCALES: Record<string, LocaleText> = {
-  zh_CN: AG_GRID_LOCALE_CN,
-  zh_HK: AG_GRID_LOCALE_HK,
-  zh_TW: AG_GRID_LOCALE_TW,
-  ja: AG_GRID_LOCALE_JP,
-  ko: AG_GRID_LOCALE_KR,
-}
 
 const rowSelectionOptions: RowSelectionOptions = { mode: "multiRow" }
 const autoSizeStrategy = { type: "fitCellContents" as const, skipHeader: false }
@@ -121,12 +107,17 @@ interface ConsoleAgGridProps {
 }
 
 function ConsoleAgGrid({ items, fieldMap, columnLayout, hasEdit, hasDelete, onEdit, onDelete }: ConsoleAgGridProps) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const theme = useAgGridTheme()
-  const localeText = AG_GRID_LOCALES[i18n.language]
+  const localeText = useAgGridLocale()
   const enterprise = useAgGridEnterprise()
   const gridRef = useRef<AgGridReact>(null)
   const [quickFilter, setQuickFilter] = useState("")
+
+  const onEditRef = useRef(onEdit)
+  onEditRef.current = onEdit
+  const onDeleteRef = useRef(onDelete)
+  onDeleteRef.current = onDelete
 
   const hasActions = hasEdit || hasDelete
 
@@ -182,12 +173,17 @@ function ConsoleAgGrid({ items, fieldMap, columnLayout, hasEdit, hasDelete, onEd
         pinned: "right",
         width: (hasEdit ? 70 : 0) + (hasDelete ? 70 : 0) + 16,
         cellRenderer: ActionCellRenderer,
-        cellRendererParams: { hasEdit, hasDelete, onEdit, onDelete },
+        cellRendererParams: {
+          hasEdit,
+          hasDelete,
+          onEdit: (row: Record<string, unknown>) => onEditRef.current?.(row),
+          onDelete: (row: Record<string, unknown>) => onDeleteRef.current?.(row),
+        },
       })
     }
 
     return dataCols
-  }, [items, fieldMap, columnLayout, hasActions, hasEdit, hasDelete, onEdit, onDelete, t])
+  }, [items, fieldMap, columnLayout, hasActions, hasEdit, hasDelete, t])
 
   const exportCsv = useCallback(() => {
     gridRef.current?.api.exportDataAsCsv()

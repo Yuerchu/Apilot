@@ -3,8 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { SchemaForm } from "@/components/schema/SchemaForm"
-import { useRequest } from "@/hooks/use-request"
-import { useAuthContext } from "@/contexts/AuthContext"
+import { useConsoleFetch } from "@/hooks/use-console-fetch"
 import type { ConsoleResource } from "@/lib/console/types"
 import { getRequestBodySchema } from "@/lib/console/schema-inference"
 import { toast } from "sonner"
@@ -13,8 +12,7 @@ type FormOutput = Record<string, unknown> | unknown[]
 
 export function FormCenteredTemplate({ resource }: { resource: ConsoleResource }) {
   const { t } = useTranslation()
-  const auth = useAuthContext()
-  const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
+  const { submitJson, loading } = useConsoleFetch()
   const [formData, setFormData] = useState<FormOutput>({})
   const [response, setResponse] = useState<string | null>(null)
 
@@ -28,17 +26,10 @@ export function FormCenteredTemplate({ resource }: { resource: ConsoleResource }
 
   const handleSubmit = async () => {
     if (!route) return
-    const body = JSON.stringify(formData)
-    const result = await sendRequest(route, {}, body, "application/json")
-    if (result) {
-      if (result.status >= 200 && result.status < 300) {
-        toast.success(t("console.created"))
-        try { setResponse(JSON.stringify(JSON.parse(result.body), null, 2)) } catch { setResponse(result.body) }
-      } else {
-        toast.error(t("console.createFailed", { status: `${result.status} ${result.statusText}` }))
-        setResponse(result.body)
-      }
-    }
+    const { ok, response: resp } = await submitJson(route, JSON.stringify(formData))
+    if (ok) toast.success(t("console.created"))
+    else toast.error(t("console.createFailed", { status: resp.slice(0, 50) }))
+    setResponse(resp)
   }
 
   return (

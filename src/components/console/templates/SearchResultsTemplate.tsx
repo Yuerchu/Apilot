@@ -6,14 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useRequest } from "@/hooks/use-request"
-import { useAuthContext } from "@/contexts/AuthContext"
+import { useConsoleFetch } from "@/hooks/use-console-fetch"
 import type { ConsoleResource } from "@/lib/console/types"
 
 export function SearchResultsTemplate({ resource }: { resource: ConsoleResource }) {
   const { t } = useTranslation()
-  const auth = useAuthContext()
-  const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
+  const { fetchJson, loading } = useConsoleFetch()
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<unknown[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -31,20 +29,15 @@ export function SearchResultsTemplate({ resource }: { resource: ConsoleResource 
     setError(null)
     const params: Record<string, string> = {}
     if (queryParam && query) params[queryParam.name] = query
-    const result = await sendRequest(route, params, "", "application/json")
-    if (result) {
-      if (result.status >= 200 && result.status < 300) {
-        try {
-          const parsed = JSON.parse(result.body)
-          const items = Array.isArray(parsed) ? parsed
-            : extractArray(parsed)
-          setResults(items)
-        } catch { setResults([]) }
-      } else {
-        setError(`${result.status} ${result.statusText}`)
-      }
+    const { data: parsed, error: err } = await fetchJson(route, params)
+    if (parsed) {
+      const items = Array.isArray(parsed) ? parsed : extractArray(parsed)
+      setResults(items)
+    } else {
+      setResults([])
     }
-  }, [route, queryParam, query, sendRequest])
+    setError(err)
+  }, [route, queryParam, query, fetchJson])
 
   return (
     <div className="flex flex-col gap-4 py-4 h-full overflow-auto">

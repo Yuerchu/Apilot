@@ -4,18 +4,15 @@ import { Upload, FileUp, X } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { useRequest } from "@/hooks/use-request"
-import { useAuthContext } from "@/contexts/AuthContext"
+import { useConsoleFetch } from "@/hooks/use-console-fetch"
 import type { ConsoleResource } from "@/lib/console/types"
 import { ConsoleActionButton } from "../ConsoleActionButton"
 import { toast } from "sonner"
 
 export function UploadTemplate({ resource }: { resource: ConsoleResource }) {
   const { t } = useTranslation()
-  const auth = useAuthContext()
-  const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
+  const { mutate, loading } = useConsoleFetch()
   const [files, setFiles] = useState<File[]>([])
-  const [response, setResponse] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -41,17 +38,9 @@ export function UploadTemplate({ resource }: { resource: ConsoleResource }) {
   const handleUpload = async () => {
     if (!route || files.length === 0) return
     for (const file of files) {
-      const formData = new FormData()
-      formData.append("file", file)
-      const result = await sendRequest(route, {}, "", "multipart/form-data", { file })
-      if (result) {
-        if (result.status >= 200 && result.status < 300) {
-          toast.success(`${file.name}: ${result.status}`)
-          try { setResponse(JSON.stringify(JSON.parse(result.body), null, 2)) } catch { setResponse(result.body) }
-        } else {
-          toast.error(`${file.name}: ${result.status} ${result.statusText}`)
-        }
-      }
+      const ok = await mutate(route, { contentType: "multipart/form-data", formData: { file } })
+      if (ok) toast.success(`${file.name}: OK`)
+      else toast.error(`${file.name}: failed`)
     }
     setFiles([])
   }
@@ -112,13 +101,6 @@ export function UploadTemplate({ resource }: { resource: ConsoleResource }) {
           </div>
         )}
 
-        {response && (
-          <Card>
-            <CardContent className="pt-4">
-              <pre className="rounded-md border bg-muted/30 p-3 text-xs overflow-auto max-h-[200px]">{response}</pre>
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   )

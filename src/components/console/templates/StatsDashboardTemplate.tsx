@@ -1,18 +1,17 @@
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { RefreshCw } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AgCharts } from "ag-charts-react"
 import type { AgChartOptions } from "ag-charts-community"
-import { useRequest } from "@/hooks/use-request"
-import { useAuthContext } from "@/contexts/AuthContext"
+import { useConsoleFetch } from "@/hooks/use-console-fetch"
+import { useTheme } from "next-themes"
 import type { ConsoleResource } from "@/lib/console/types"
 import { ConsoleActionButton } from "../ConsoleActionButton"
 
 export function StatsDashboardTemplate({ resource }: { resource: ConsoleResource }) {
-  const auth = useAuthContext()
-  const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
+  const { fetchJson, loading } = useConsoleFetch()
   const [data, setData] = useState<Record<string, unknown> | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,19 +22,19 @@ export function StatsDashboardTemplate({ resource }: { resource: ConsoleResource
     const route = readOp?.route ?? action?.route
     if (!route) return
     setError(null)
-    const result = await sendRequest(route, {}, "", "application/json")
-    if (result) {
-      if (result.status >= 200 && result.status < 300) {
-        try { setData(JSON.parse(result.body)) } catch { setData(null) }
-      } else {
-        setError(`${result.status} ${result.statusText}`)
-      }
-    }
-  }, [readOp, action, sendRequest])
+    const { data: parsed, error: err } = await fetchJson<Record<string, unknown>>(route)
+    setData(parsed)
+    setError(err)
+  }, [readOp, action, fetchJson])
 
   useEffect(() => { fetchData() }, [fetchData])
 
   const { statCards, chartData } = categorizeFields(data)
+  const { resolvedTheme } = useTheme()
+  const chartOptions = useMemo(
+    () => buildChartOptions(chartData, resolvedTheme === "dark"),
+    [chartData, resolvedTheme],
+  )
 
   return (
     <div className="flex flex-col gap-4 py-4 h-full overflow-auto">
@@ -77,7 +76,7 @@ export function StatsDashboardTemplate({ resource }: { resource: ConsoleResource
       {chartData.length > 0 && (
         <Card>
           <CardContent className="pt-4">
-            <AgCharts options={buildChartOptions(chartData)} />
+            <AgCharts options={chartOptions} />
           </CardContent>
         </Card>
       )}
@@ -136,11 +135,12 @@ function formatStatValue(value: unknown): string {
   return String(value)
 }
 
-function buildChartOptions(data: ChartDataPoint[]): AgChartOptions {
+function buildChartOptions(data: ChartDataPoint[], dark: boolean): AgChartOptions {
   return {
     data,
     series: [{ type: "bar", xKey: "label", yKey: "value" }],
     background: { fill: "transparent" },
     height: 300,
+    theme: dark ? "ag-default-dark" : "ag-default",
   }
 }
