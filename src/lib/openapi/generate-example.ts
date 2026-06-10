@@ -245,6 +245,7 @@ export function generateWithVariant(rawSchema: SchemaObject, variantId: string):
 
 export function generateExample(schema: SchemaObject | null | undefined, _depth: number = 0): unknown {
   if (!schema) return null
+  if (_depth > 10) return null
   if (schema._circular || schema._unresolved) return null
   try {
     const base = sample(schema as Record<string, unknown>)

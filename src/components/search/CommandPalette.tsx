@@ -1,4 +1,4 @@
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Route, Database } from "lucide-react"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
@@ -34,6 +34,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
   const schemas = state.spec?.components?.schemas || state.spec?.definitions || {}
   const modelNames = Object.keys(schemas)
+  const [search, setSearch] = useState("")
+  const MAX_ITEMS = 100
 
   const navigate = useCallback((type: "endpoint" | "model", key: string) => {
     onOpenChange(false)
@@ -55,13 +57,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       description={t("search.hint")}
       showCloseButton={false}
     >
-      <CommandInput placeholder={t("search.placeholder")} />
+      <CommandInput placeholder={t("search.placeholder")} onValueChange={setSearch} />
       <CommandList>
         <CommandEmpty>{t("search.noResults")}</CommandEmpty>
 
         {state.routes.length > 0 && (
           <CommandGroup heading={t("search.endpoints")}>
-            {state.routes.map(route => {
+            {(search ? state.routes : state.routes.slice(0, MAX_ITEMS)).map(route => {
               const routeKey = getParsedRouteKey(route)
               const keywords = [route.method, route.path, route.summary, route.description, route.operationId, ...route.tags].filter(Boolean)
               return (
@@ -87,7 +89,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
 
         {modelNames.length > 0 && (
           <CommandGroup heading={t("search.models")}>
-            {modelNames.map(name => {
+            {(search ? modelNames : modelNames.slice(0, MAX_ITEMS)).map(name => {
               const schema = schemas[name]
               const keywords = [name, schema?.description, schema?.title].filter(Boolean)
               return (
