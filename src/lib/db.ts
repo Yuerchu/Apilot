@@ -109,7 +109,7 @@ export interface LegacySettingsSnapshot {
 }
 
 const DB_NAME = "apilot"
-const DB_VERSION = 6
+const DB_VERSION = 7
 const MAX_BODY_SIZE = 2 * 1024 * 1024
 
 const LEGACY_LS_KEYS = {
@@ -187,6 +187,13 @@ function createStoresAndIndexes(db: IDBPDatabase): void {
     db.createObjectStore("specSettings", { keyPath: "specId" })
   }
 
+  const consoleLayouts = db.objectStoreNames.contains("consoleLayouts")
+    ? null
+    : db.createObjectStore("consoleLayouts", { keyPath: "id" })
+  if (consoleLayouts) {
+    consoleLayouts.createIndex("specId", "specId")
+  }
+
   const credentials = db.objectStoreNames.contains("environmentCredentials")
     ? null
     : db.createObjectStore("environmentCredentials", { keyPath: "envId" })
@@ -222,6 +229,9 @@ function ensureIndexesForExistingStores(transaction: UpgradeTransaction): void {
     }
     if (name === "environmentCredentials") {
       ensureIndex(store, "authType", "authType")
+    }
+    if (name === "consoleLayouts") {
+      ensureIndex(store, "specId", "specId")
     }
   }
 }
@@ -546,6 +556,7 @@ export async function deleteSpec(specId: string): Promise<void> {
     deleteAllFromIndex("favorites", "specId", specId),
     deleteAllFromIndex("history", "specId", specId),
     deleteWsHistoryForSpec(specId),
+    deleteAllFromIndex("consoleLayouts", "specId", specId),
     db.delete("specSettings", specId),
     db.delete("specs", specId),
   ])

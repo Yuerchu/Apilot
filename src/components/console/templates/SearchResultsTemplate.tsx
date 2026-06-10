@@ -1,0 +1,137 @@
+import { useState, useCallback } from "react"
+import { useTranslation } from "react-i18next"
+import { Search } from "lucide-react"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useRequest } from "@/hooks/use-request"
+import { useAuthContext } from "@/contexts/AuthContext"
+import type { ConsoleResource } from "@/lib/console/types"
+
+export function SearchResultsTemplate({ resource }: { resource: ConsoleResource }) {
+  const { t } = useTranslation()
+  const auth = useAuthContext()
+  const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
+  const [query, setQuery] = useState("")
+  const [results, setResults] = useState<unknown[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const listOp = resource.operations.list
+  const action = !listOp ? resource.actions[0] : null
+  const route = listOp?.route ?? action?.route
+
+  const queryParam = route?.parameters.find(p =>
+    p.in === "query" && ["q", "query", "search", "keyword", "keywords", "term"].includes(p.name.toLowerCase())
+  )
+
+  const handleSearch = useCallback(async () => {
+    if (!route) return
+    setError(null)
+    const params: Record<string, string> = {}
+    if (queryParam && query) params[queryParam.name] = query
+    const result = await sendRequest(route, params, "", "application/json")
+    if (result) {
+      if (result.status >= 200 && result.status < 300) {
+        try {
+          const parsed = JSON.parse(result.body)
+          const items = Array.isArray(parsed) ? parsed
+            : extractArray(parsed)
+          setResults(items)
+        } catch { setResults([]) }
+      } else {
+        setError(`${result.status} ${result.statusText}`)
+      }
+    }
+  }, [route, queryParam, query, sendRequest])
+
+  return (
+    <div className="flex flex-col gap-4 py-4 h-full overflow-auto">
+      <div>
+        <h2 className="text-base font-semibold">{resource.displayName}</h2>
+        <p className="text-xs text-muted-foreground font-mono">{resource.basePath}</p>
+      </div>
+
+      <div className="flex gap-2 max-w-xl">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleSearch()}
+            placeholder={queryParam ? `Search by ${queryParam.name}...` : "Search..."}
+            className="pl-9"
+          />
+        </div>
+        <Button onClick={handleSearch} disabled={loading}>
+          <Search className="size-4 mr-1.5" />
+          {t("console.search")}
+        </Button>
+      </div>
+
+      {error && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
+      )}
+
+      {loading && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[1,2,3].map(i => <Skeleton key={i} className="h-32 rounded-xl" />)}
+        </div>
+      )}
+
+      {results !== null && results.length === 0 && !loading && (
+        <div className="text-center py-12 text-sm text-muted-foreground">No results found</div>
+      )}
+
+      {results !== null && results.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {results.map((item, i) => (
+            <ResultCard key={i} data={item} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ResultCard({ data }: { data: unknown }) {
+  if (!data || typeof data !== "object") {
+    return <Card><CardContent className="pt-4 text-sm">{String(data)}</CardContent></Card>
+  }
+  const obj = data as Record<string, unknown>
+  const title = String(obj.name ?? obj.title ?? obj.label ?? obj.id ?? "")
+  const desc = String(obj.description ?? obj.summary ?? obj.text ?? "")
+  const entries = Object.entries(obj).slice(0, 5)
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        {title && <CardTitle className="text-sm truncate">{title}</CardTitle>}
+      </CardHeader>
+      <CardContent>
+        {desc && <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{desc}</p>}
+        <div className="flex flex-wrap gap-1">
+          {entries.map(([key, value]) => (
+            typeof value !== "object" && (
+              <Badge key={key} variant="outline" className="text-[10px] font-normal">
+                {key}: {String(value).slice(0, 30)}
+              </Badge>
+            )
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function extractArray(data: unknown): unknown[] {
+  if (Array.isArray(data)) return data
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>
+    for (const key of ["items", "data", "results", "records", "rows", "hits", "matches"]) {
+      if (Array.isArray(obj[key])) return obj[key] as unknown[]
+    }
+  }
+  return []
+}

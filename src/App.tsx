@@ -29,6 +29,9 @@ import { ChannelsView } from "@/components/channels/ChannelsView"
 import { SidebarProvider, SidebarInset } from "@/components/animate-ui/components/radix/sidebar"
 import { toast } from "sonner"
 import { ShareProvider } from "@/components/share/ShareDialog"
+import { ConsoleView } from "@/components/console/ConsoleView"
+import { ConsoleProvider } from "@/contexts/ConsoleContext"
+import { useSpecId } from "@/hooks/use-spec-id"
 import { FavoritesContext, useFavoritesProvider } from "@/hooks/use-favorites"
 import { EnvironmentsContext, useEnvironmentsProvider } from "@/hooks/use-environments"
 import { MultiEnvStatusContext, useMultiEnvStatusProvider } from "@/hooks/use-multi-env-status"
@@ -93,6 +96,7 @@ function AppContent() {
     clearModelSelection,
   } = useOpenAPIContext()
   const { state: asyncState } = useAsyncAPIContext()
+  const specId = useSpecId() ?? ""
   const { loadFromUrl, loadFromSpec } = useOpenAPI()
   const auth = useAuthContext()
   useUrlState()
@@ -140,6 +144,7 @@ function AppContent() {
 
   return (
     <ShareProvider>
+      <ConsoleProvider routes={state.routes} specId={specId}>
       <SidebarProvider defaultOpen={!isEmbedded}>
         <AppSidebar />
         <SidebarInset className="flex flex-col h-screen md:h-[calc(100svh-1rem)] overflow-hidden">
@@ -197,6 +202,14 @@ function AppContent() {
               <OpenAPIDiffView spec={state.spec ?? undefined} />
             </Fade>
           )}
+
+          {!state.loading && state.mainView === "console" && (
+            specLoaded ? (
+              <Fade key="console" className="flex-1 flex flex-col min-h-0">
+                <ConsoleView />
+              </Fade>
+            ) : <NeedSpecEmpty />
+          )}
         </div>
 
         {state.mainView === "endpoints" && (
@@ -216,6 +229,7 @@ function AppContent() {
         )}
         </SidebarInset>
       </SidebarProvider>
+      </ConsoleProvider>
     </ShareProvider>
   )
 }
