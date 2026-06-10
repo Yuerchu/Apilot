@@ -210,7 +210,7 @@ export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
       {/* Three-panel layout */}
       <div className="flex flex-1 min-h-0">
         {/* Left: Field list */}
-        <aside className="w-72 shrink-0 border-r overflow-hidden flex flex-col">
+        <aside className="w-72 shrink-0 border-r overflow-y-auto flex flex-col">
           <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as ActiveTab); setSelectedField(null) }} className="h-full flex flex-col">
             <TabsList className="mx-2 mt-2 shrink-0 h-auto flex-wrap">
               <TabsTrigger value="columns" className="text-xs">Columns</TabsTrigger>
@@ -257,7 +257,7 @@ export function ConsoleBuilder({ resource, listData }: ConsoleBuilderProps) {
         </main>
 
         {/* Right: Property editor */}
-        <aside className="w-64 shrink-0 border-l overflow-auto">
+        <aside className="w-64 shrink-0 border-l overflow-y-auto">
           {selectedColumn && (
             <ColumnPropertyEditor column={selectedColumn} onChange={handleColumnPropertyChange} />
           )}
