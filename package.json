@@ -1,6 +1,6 @@
 {
   "name": "@yuerchu/apilot",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "type": "module",
   "repository": {
     "type": "git",
@@ -34,7 +34,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.mjs --configLoader native --pool threads",
-    "build:cli-bundle": "esbuild cli/src/index.ts --bundle --platform=node --format=esm --outfile=cli/index.mjs --external:node:*",
+    "build:cli-bundle": "esbuild cli/src/index.ts --bundle --platform=node --format=esm --outfile=cli/index.mjs --external:node:* --banner:js=\"import{createRequire}from'node:module';const require=createRequire(import.meta.url);\"",
     "build:template": "node --import tsx cli/src/build-template.ts",
     "prepublishOnly": "pnpm build:cli-bundle && pnpm build:template"
   },
