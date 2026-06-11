@@ -5,6 +5,7 @@ import { Star } from "@/components/animate-ui/icons/star"
 import type { ParsedRoute } from "@/lib/openapi/types"
 import { getParsedRouteKey } from "@/lib/openapi/route-key"
 import { cn } from "@/lib/utils"
+import { isEmbeddedMode } from "@/lib/embedded"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { formatMarkdown } from "@/lib/format-route"
 import { useMultiEnvStatus } from "@/hooks/use-multi-env-status"
@@ -161,10 +162,12 @@ export const RouteCard = memo(function RouteCard({ route, index, isFavorite, onT
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onSelect={handleShare}>
-          <Share2 data-icon="inline-start" />
-          {t("share.menuItem")}
-        </ContextMenuItem>
+        {!isEmbeddedMode() && (
+          <ContextMenuItem onSelect={handleShare}>
+            <Share2 data-icon="inline-start" />
+            {t("share.menuItem")}
+          </ContextMenuItem>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   )

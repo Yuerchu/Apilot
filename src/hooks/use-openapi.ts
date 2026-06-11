@@ -23,6 +23,7 @@ import {
 import { detectSpecType, parseAsyncAPIDocument } from "@/lib/asyncapi/parser"
 import { getEnvironmentRuntimes, getSpecSettings, putSpecFromDocument } from "@/lib/db"
 import { computeSpecId } from "@/lib/spec-id"
+import { isEmbeddedMode } from "@/lib/embedded"
 
 function extractRoutes(spec: OpenAPISpec, sourceSpec: OpenAPISpec): {
   routes: ParsedRoute[]
@@ -139,17 +140,21 @@ export function useOpenAPI() {
     asyncDispatch({ type: "RESET" })
     dispatch({ type: "SET_SPEC", spec, sourceSpec })
     dispatch({ type: "SET_SPEC_URL", url })
-    await putSpecFromDocument(spec, url, url ? "url" : "file")
+    if (!isEmbeddedMode()) {
+      await putSpecFromDocument(spec, url, url ? "url" : "file")
+    }
     await yieldToUI()
     const { routes, allTags, modelRouteMap } = extractRoutes(spec, sourceSpec)
     let baseUrl = baseUrlOverride?.trim() || detectBaseUrl(spec, url)
-    const sid = computeSpecId(spec, url)
-    if (sid) {
-      const settings = await getSpecSettings(sid)
-      if (settings?.activeEnvId) {
-        const envs = await getEnvironmentRuntimes(sid)
-        const active = envs.find(e => e.id === settings.activeEnvId)
-        if (active) baseUrl = active.baseUrl
+    if (!isEmbeddedMode()) {
+      const sid = computeSpecId(spec, url)
+      if (sid) {
+        const settings = await getSpecSettings(sid)
+        if (settings?.activeEnvId) {
+          const envs = await getEnvironmentRuntimes(sid)
+          const active = envs.find(e => e.id === settings.activeEnvId)
+          if (active) baseUrl = active.baseUrl
+        }
       }
     }
     dispatch({ type: "SET_ROUTES", routes, allTags, modelRouteMap })
@@ -178,7 +183,9 @@ export function useOpenAPI() {
     dispatch({ type: "SET_SPEC", spec: compatSpec })
     dispatch({ type: "SET_SPEC_TYPE", specType: "asyncapi" })
     dispatch({ type: "SET_SPEC_URL", url })
-    await putSpecFromDocument(compatSpec, url, url ? "url" : "file")
+    if (!isEmbeddedMode()) {
+      await putSpecFromDocument(compatSpec, url, url ? "url" : "file")
+    }
     dispatch({ type: "SET_ROUTES", routes: [], allTags: [], modelRouteMap: { modelToRoutes: {}, routeToModels: {} } })
     asyncDispatch({ type: "SET_PARSED_RESULT", result })
     dispatch({ type: "SET_MAIN_VIEW", view: "channels" })

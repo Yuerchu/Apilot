@@ -12,6 +12,7 @@ import {
 import { DocTab } from "./DocTab"
 import { TryTab } from "./TryTab"
 import { HistoryTab } from "./HistoryTab"
+import { isHideTryIt } from "@/lib/embedded"
 
 interface RouteDetailProps {
   route: ParsedRoute
@@ -33,12 +34,16 @@ export const RouteDetail = memo(function RouteDetail({ route, index }: RouteDeta
         <TabsTrigger value="doc" className={tabTriggerClass}>
           {t("doc.tabs.doc")}
         </TabsTrigger>
-        <TabsTrigger value="try" className={tabTriggerClass}>
-          {t("doc.tabs.test")}
-        </TabsTrigger>
-        <TabsTrigger value="history" className={tabTriggerClass}>
-          {t("doc.tabs.history")}
-        </TabsTrigger>
+        {!isHideTryIt() && (
+          <TabsTrigger value="try" className={tabTriggerClass}>
+            {t("doc.tabs.test")}
+          </TabsTrigger>
+        )}
+        {!isHideTryIt() && (
+          <TabsTrigger value="history" className={tabTriggerClass}>
+            {t("doc.tabs.history")}
+          </TabsTrigger>
+        )}
       </TabsList>
 
       <TabsContents className="mt-3">
@@ -46,13 +51,17 @@ export const RouteDetail = memo(function RouteDetail({ route, index }: RouteDeta
           <DocTab route={route} />
         </TabsContent>
 
-        <TabsContent value="try">
-          <TryTab route={route} index={index} />
-        </TabsContent>
+        {!isHideTryIt() && (
+          <TabsContent value="try">
+            <TryTab route={route} index={index} />
+          </TabsContent>
+        )}
 
-        <TabsContent value="history">
-          <HistoryTab route={route} />
-        </TabsContent>
+        {!isHideTryIt() && (
+          <TabsContent value="history">
+            <HistoryTab route={route} />
+          </TabsContent>
+        )}
       </TabsContents>
     </Tabs>
   )

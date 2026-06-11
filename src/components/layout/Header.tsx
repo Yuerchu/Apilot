@@ -14,6 +14,7 @@ import { CommandPalette } from "@/components/search/CommandPalette"
 import { HeaderShareButton } from "@/components/share/ShareDialog"
 import { SettingsDialog } from "@/components/settings/SettingsDialog"
 import type { MainView } from "@/lib/openapi/types"
+import { isEmbeddedMode } from "@/lib/embedded"
 
 const VIEW_I18N: Record<string, string> = {
   endpoints: "sidebar.endpoints",
@@ -73,7 +74,7 @@ export function Header() {
 
         <div className="flex-1" />
 
-        {(state.spec || state.specUrl || state.baseUrl) && <HeaderShareButton />}
+        {!isEmbeddedMode() && (state.spec || state.specUrl || state.baseUrl) && <HeaderShareButton />}
 
         {state.spec && (
           <InputGroup className="max-w-xs cursor-pointer" onClick={() => setSearchOpen(true)}>

@@ -41,6 +41,7 @@ await build({
     outDir: "cli/template/multi",
     emptyOutDir: true,
     rollupOptions: {
+      external: ["ag-grid-enterprise"],
       output: {
         manualChunks(id) {
           if (id.includes("@asyncapi") || id.includes("@stoplight") || id.includes("nimma")) return "asyncapi"
@@ -64,6 +65,7 @@ await build({
     emptyOutDir: true,
     cssCodeSplit: false,
     rollupOptions: {
+      external: ["ag-grid-enterprise"],
       output: {
         inlineDynamicImports: true,
       },

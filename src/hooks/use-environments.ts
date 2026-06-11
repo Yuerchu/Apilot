@@ -20,6 +20,7 @@ import type {
   EnvironmentRuntime,
   EnvironmentStage,
 } from "@/lib/db"
+import { isEmbeddedMode } from "@/lib/embedded"
 
 export interface EnvironmentsContextValue {
   environments: EnvironmentRuntime[]
@@ -95,6 +96,55 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
     setLoading(true)
 
     ;(async () => {
+      if (isEmbeddedMode()) {
+        const servers = getServers()
+        const extraServers = window.__EXTRA_SERVERS__ || []
+        const now = Date.now()
+        const runtimes: EnvironmentRuntime[] = servers.map((server, i) => ({
+          id: `embedded-${i}`,
+          specId,
+          name: server.description || server.url,
+          baseUrl: server.url,
+          source: "spec" as const,
+          stage: "" as EnvironmentStage,
+          specPath: "",
+          createdAt: now,
+          ...createEmptyEnvironmentCredential(`embedded-${i}`, now),
+        }))
+        for (let i = 0; i < extraServers.length; i++) {
+          const s = extraServers[i]!
+          runtimes.push({
+            id: `extra-${i}`,
+            specId,
+            name: s.name,
+            baseUrl: s.url,
+            source: "custom" as const,
+            stage: "" as EnvironmentStage,
+            specPath: "",
+            createdAt: now,
+            ...createEmptyEnvironmentCredential(`extra-${i}`, now),
+          })
+        }
+        if (runtimes.length === 0) {
+          runtimes.push({
+            id: "embedded-default",
+            specId,
+            name: "Default",
+            baseUrl: state.baseUrl || "",
+            source: "custom" as const,
+            stage: "" as EnvironmentStage,
+            specPath: "",
+            createdAt: now,
+            ...createEmptyEnvironmentCredential("embedded-default", now),
+          })
+        }
+        if (cancelled) return
+        setEnvironments(runtimes)
+        applyEnvironment(runtimes[0]!)
+        setLoading(false)
+        return
+      }
+
       const existing = await getEnvironmentRuntimes(specId)
       const settings = await getSpecSettings(specId)
       const legacy = readLegacySettingsFromLocalStorage()
@@ -197,7 +247,7 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
         oauth2Token: auth.oauth2Token,
         updatedAt: Date.now(),
       }
-      putEnvironmentCredential(credential)
+      if (!isEmbeddedMode()) putEnvironmentCredential(credential)
       setEnvironments(prev => prev.map(e => e.id === activeEnvId ? { ...e, ...credential } : e))
     }, 500)
 
@@ -209,7 +259,7 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
     if (!env || !specIdRef.current) return
 
     applyEnvironment(env)
-    setActiveEnvironmentForSpec(specIdRef.current, id)
+    if (!isEmbeddedMode()) setActiveEnvironmentForSpec(specIdRef.current, id)
   }, [environments, applyEnvironment])
 
   const addEnvironment = useCallback(async (name: string, baseUrl: string, stage?: EnvironmentStage, specPath?: string) => {
@@ -227,8 +277,10 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
       updatedAt: now,
     }
     const credential = createEmptyEnvironmentCredential(profile.id, now)
-    await putEnvironment(profile)
-    await putEnvironmentCredential(credential)
+    if (!isEmbeddedMode()) {
+      await putEnvironment(profile)
+      await putEnvironmentCredential(credential)
+    }
     setEnvironments(prev => [...prev, { ...profile, ...credential }])
   }, [])
 
@@ -236,7 +288,7 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
     const env = environments.find(e => e.id === id)
     if (!env) return
     const updated: EnvironmentRuntime = { ...env, ...updates, updatedAt: Date.now() }
-    await putEnvironment(profileFromRuntime(updated))
+    if (!isEmbeddedMode()) await putEnvironment(profileFromRuntime(updated))
     setEnvironments(prev => prev.map(e => e.id === id ? updated : e))
     if (id === activeEnvId && updates.baseUrl) {
       setBaseUrl(updates.baseUrl)
@@ -244,17 +296,17 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
   }, [environments, activeEnvId, setBaseUrl])
 
   const removeEnvironmentFn = useCallback(async (id: string) => {
-    await removeEnvFromDB(id)
+    if (!isEmbeddedMode()) await removeEnvFromDB(id)
     const remaining = environments.filter(e => e.id !== id)
     setEnvironments(remaining)
     if (id === activeEnvId && remaining.length > 0) {
       const next = remaining[0]!
       applyEnvironment(next)
-      if (specIdRef.current) await setActiveEnvironmentForSpec(specIdRef.current, next.id)
+      if (!isEmbeddedMode() && specIdRef.current) await setActiveEnvironmentForSpec(specIdRef.current, next.id)
     }
     if (id === activeEnvId && remaining.length === 0) {
       setActiveEnvId(null)
-      if (specIdRef.current) await setActiveEnvironmentForSpec(specIdRef.current, null)
+      if (!isEmbeddedMode() && specIdRef.current) await setActiveEnvironmentForSpec(specIdRef.current, null)
     }
   }, [environments, activeEnvId, applyEnvironment])
 

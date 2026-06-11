@@ -9,6 +9,7 @@ import { AuthSettings } from "./AuthSettings"
 import { EnvVarsSettings } from "./EnvVarsSettings"
 import { AboutSettings } from "./AboutSettings"
 import { StorageSettings } from "./StorageSettings"
+import { isEmbeddedMode } from "@/lib/embedded"
 
 type SettingsTab = "general" | "connection" | "auth" | "envVars" | "storage" | "about"
 
@@ -36,7 +37,8 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
   useEffect(() => {
     const handler = (e: Event) => {
-      const tab = (e as CustomEvent).detail as SettingsTab | undefined
+      let tab = (e as CustomEvent).detail as SettingsTab | undefined
+      if (tab === "connection" && isEmbeddedMode()) tab = "general"
       if (tab) setActiveTab(tab)
       onOpenChange(true)
     }
@@ -54,7 +56,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
 
         {/* Left nav */}
         <nav className="w-full sm:w-44 shrink-0 border-b sm:border-b-0 sm:border-r p-2 sm:p-3 flex sm:flex-col gap-1 overflow-x-auto sm:overflow-x-visible">
-          {TABS.map(tab => {
+          {(isEmbeddedMode() ? TABS.filter(t => t.id !== "connection") : TABS).map(tab => {
             const Icon = tab.icon
             return (
               <button

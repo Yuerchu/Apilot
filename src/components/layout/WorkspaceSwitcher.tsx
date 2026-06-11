@@ -26,6 +26,7 @@ import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { useSpecId } from "@/hooks/use-spec-id"
 import { useSpecs } from "@/hooks/use-specs"
 import { openSettings } from "@/components/settings/SettingsDialog"
+import { isEmbeddedMode } from "@/lib/embedded"
 import { cn } from "@/lib/utils"
 import type { SpecRecord } from "@/lib/db"
 
@@ -45,23 +46,59 @@ function formatSpecDate(timestamp: number): string {
   }).format(timestamp)
 }
 
-export function WorkspaceSwitcher() {
+function useWorkspaceInfo() {
   const { t } = useTranslation()
   const { state } = useOpenAPIContext()
   const { state: asyncState } = useAsyncAPIContext()
-  const currentSpecId = useSpecId()
-  const { specs, loadSpec, loading: specsLoading } = useSpecs()
 
   const specLoaded = !!state.spec
-  const currentSpec = specs.find(spec => spec.id === currentSpecId) ?? null
   const currentTitle = specLoaded
-    ? state.spec?.info?.title || currentSpec?.title || t("app.title")
+    ? state.spec?.info?.title || t("app.title")
     : t("app.title")
   const CurrentIcon = specLoaded ? BookOpen : Upload
   const specVersion = state.specType === "asyncapi"
     ? asyncState.info?.specVersion ? `AsyncAPI ${asyncState.info.specVersion}` : "AsyncAPI"
     : state.spec?.openapi || state.spec?.swagger || ""
   const itemCount = state.specType === "asyncapi" ? asyncState.channels.length : state.routes.length
+
+  return { t, state, specLoaded, currentTitle, CurrentIcon, specVersion, itemCount }
+}
+
+function StaticWorkspaceDisplay() {
+  const { t, state, specLoaded, currentTitle, CurrentIcon, specVersion, itemCount } = useWorkspaceInfo()
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <SidebarMenuButton size="lg" className="cursor-default">
+          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+            <CurrentIcon className="size-4" />
+          </div>
+          <div className="grid flex-1 text-left text-sm leading-tight">
+            <span className="truncate font-semibold">{currentTitle}</span>
+            {specLoaded && (
+              <span className="truncate text-xs text-muted-foreground">
+                {specVersion} · {state.specType === "asyncapi"
+                  ? t("sidebar.channelCount", { count: itemCount })
+                  : t("sidebar.endpointCount", { count: itemCount })}
+              </span>
+            )}
+          </div>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  )
+}
+
+function WorkspaceSwitcherDropdown() {
+  const { t, state, specLoaded, currentTitle, CurrentIcon, specVersion, itemCount } = useWorkspaceInfo()
+  const currentSpecId = useSpecId()
+  const { specs, loadSpec, loading: specsLoading } = useSpecs()
+
+  const currentSpec = specs.find(spec => spec.id === currentSpecId) ?? null
+  const displayTitle = specLoaded
+    ? state.spec?.info?.title || currentSpec?.title || t("app.title")
+    : currentTitle
 
   const handleLoadSpec = async (spec: SpecRecord) => {
     if (spec.sourceType !== "url" || !spec.specUrl) return
@@ -118,7 +155,7 @@ export function WorkspaceSwitcher() {
                 <CurrentIcon className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{currentTitle}</span>
+                <span className="truncate font-semibold">{displayTitle}</span>
                 {specLoaded && (
                   <span className="truncate text-xs text-muted-foreground">
                     {specVersion} · {state.specType === "asyncapi"
@@ -161,4 +198,8 @@ export function WorkspaceSwitcher() {
       </SidebarMenuItem>
     </SidebarMenu>
   )
+}
+
+export function WorkspaceSwitcher() {
+  return isEmbeddedMode() ? <StaticWorkspaceDisplay /> : <WorkspaceSwitcherDropdown />
 }

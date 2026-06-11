@@ -1,4 +1,4 @@
-import { useEffect, useMemo, lazy, Suspense } from "react"
+import { useEffect, lazy, Suspense } from "react"
 import type { OpenAPISpec } from "@/lib/openapi/types"
 import { useTranslation } from "react-i18next"
 import { OpenAPIProvider, useOpenAPIContext } from "@/contexts/OpenAPIContext"
@@ -16,6 +16,7 @@ import { Settings } from "lucide-react"
 import { openSettings } from "@/components/settings/SettingsDialog"
 import { Fade } from "@/components/animate-ui/primitives/effects/fade"
 import { formatMarkdown } from "@/lib/format-route"
+import { isEmbeddedMode } from "@/lib/embedded"
 import { Header } from "@/components/layout/Header"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AppSidebar } from "@/components/layout/AppSidebar"
@@ -108,7 +109,7 @@ function AppContent() {
     setAuthToken: auth.setAuthToken,
   }, loadFromUrl)
 
-  const isEmbedded = useMemo(() => !!(window.__EMBEDDED_SPEC__ || window.__OPENAPI_URL__), [])
+  const isEmbedded = isEmbeddedMode()
 
   useEffect(() => {
     if (window.__EMBEDDED_SPEC__) {

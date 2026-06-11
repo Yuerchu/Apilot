@@ -5,6 +5,7 @@ import { extractRouteKeys } from "@/lib/openapi/extract-route-keys"
 import { buildAuthHeaders } from "@/lib/request-utils"
 import { getParsedRouteKey } from "@/lib/openapi/route-key"
 import type { EnvironmentStage } from "@/lib/db"
+import { isEmbeddedMode } from "@/lib/embedded"
 
 type EnvFetchStatus = "ok" | "error" | "loading"
 
@@ -67,7 +68,7 @@ export function useMultiEnvStatusProvider(): MultiEnvStatusValue {
     [environments],
   )
 
-  const enabled = stagedEnvs.length >= 2
+  const enabled = !isEmbeddedMode() && stagedEnvs.length >= 2
 
   // Active env's route keys (already loaded)
   const activeRouteKeys = useMemo(() => {

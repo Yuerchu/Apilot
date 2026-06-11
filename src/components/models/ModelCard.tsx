@@ -23,6 +23,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { cn } from "@/lib/utils"
+import { isEmbeddedMode } from "@/lib/embedded"
 import { toast } from "sonner"
 import { useShareDialog } from "@/components/share/ShareDialog"
 
@@ -124,10 +125,12 @@ export const ModelCard = memo(function ModelCard({
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onSelect={handleShare}>
-          <Share2 data-icon="inline-start" />
-          {t("share.menuItem")}
-        </ContextMenuItem>
+        {!isEmbeddedMode() && (
+          <ContextMenuItem onSelect={handleShare}>
+            <Share2 data-icon="inline-start" />
+            {t("share.menuItem")}
+          </ContextMenuItem>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   )

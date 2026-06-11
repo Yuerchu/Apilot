@@ -26,6 +26,7 @@ import type { MainView } from "@/lib/openapi/types"
 import { APP_VERSION, GITHUB_URL, getBuildLabel } from "@/lib/app-info"
 import { WorkspaceSwitcher } from "@/components/layout/WorkspaceSwitcher"
 import { EnvironmentSwitcher } from "@/components/layout/EnvironmentSwitcher"
+import { isHideTryIt } from "@/lib/embedded"
 
 export function AppSidebar() {
   const { t } = useTranslation()
@@ -146,7 +147,7 @@ export function AppSidebar() {
           </SidebarMenu>
         </SidebarGroup>
 
-        {specLoaded && !isAsyncAPI && hasConsoleResources && (
+        {specLoaded && !isAsyncAPI && hasConsoleResources && !isHideTryIt() && (
           <SidebarGroup>
             <SidebarGroupLabel>
               {t("sidebar.console")}

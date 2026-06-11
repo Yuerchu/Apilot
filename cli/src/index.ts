@@ -20,6 +20,8 @@ Options:
   --title, -t <string>  Custom page title
   --single-file         Output a single self-contained HTML file
   --lang <code>         Default language (en, zh_CN, zh_HK, zh_TW, ja, ko)
+  --server <name=url>   Add a server environment (repeatable)
+  --hide-try-it         Hide the API console / "Try it out" feature
   --help, -h            Show this help
   --version, -v         Show version
 `.trim()
@@ -108,6 +110,8 @@ const { values } = parseArgs({
     title: { type: "string", short: "t" },
     "single-file": { type: "boolean", default: false },
     lang: { type: "string" },
+    server: { type: "string", multiple: true },
+    "hide-try-it": { type: "boolean", default: false },
     help: { type: "boolean", short: "h" },
     version: { type: "boolean", short: "v" },
   },
@@ -209,6 +213,24 @@ try {
       console.warn(`\x1b[33mwarning:\x1b[0m Unknown language '${values.lang}'. Valid options: ${validLangs.join(", ")}`)
     }
     injections.push(`<script>if(!localStorage.getItem("oa_locale"))localStorage.setItem("oa_locale",${escapeForScript(JSON.stringify(values.lang))})</script>`)
+  }
+
+  const servers = values.server as string[] | undefined
+  if (servers && servers.length > 0) {
+    const parsed: { name: string; url: string }[] = []
+    for (const s of servers) {
+      const eqIdx = s.indexOf("=")
+      if (eqIdx === -1) {
+        parsed.push({ name: s, url: s })
+      } else {
+        parsed.push({ name: s.slice(0, eqIdx), url: s.slice(eqIdx + 1) })
+      }
+    }
+    injections.push(`<script>window.__EXTRA_SERVERS__=${escapeForScript(JSON.stringify(parsed))}</script>`)
+  }
+
+  if (values["hide-try-it"]) {
+    injections.push(`<script>window.__HIDE_TRY_IT__=true</script>`)
   }
 
   if (injections.length > 0) {

@@ -14,4 +14,6 @@ interface Window {
   __OPENAPI_URL__?: string
   __OPENAPI_TITLE__?: string
   __EMBEDDED_SPEC__?: Record<string, unknown>
+  __EXTRA_SERVERS__?: { name: string; url: string }[]
+  __HIDE_TRY_IT__?: boolean
 }
