@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      yaml:
-        specifier: ^2.9.0
-        version: 2.9.0
     devDependencies:
       '@ag-grid-community/locale':
         specifier: ^35.3.0
@@ -303,6 +299,9 @@ importers:
       workbox-window:
         specifier: ^7.4.1
         version: 7.4.1
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
