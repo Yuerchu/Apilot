@@ -4,11 +4,14 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { AgCharts } from "ag-charts-react"
+import { ModuleRegistry, AllCommunityModule } from "ag-charts-community"
 import type { AgChartOptions } from "ag-charts-community"
 import { useConsoleFetch } from "@/hooks/use-console-fetch"
 import { useTheme } from "next-themes"
 import type { ConsoleResource } from "@/lib/console/types"
 import { ConsoleActionButton } from "../ConsoleActionButton"
+
+ModuleRegistry.registerModules([AllCommunityModule])
 
 export function StatsDashboardTemplate({ resource }: { resource: ConsoleResource }) {
   const { fetchJson, loading } = useConsoleFetch()
