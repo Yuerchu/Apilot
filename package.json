@@ -1,7 +1,11 @@
 {
   "name": "@yuerchu/apilot",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Yuerchu/Apilot.git"
+  },
   "bin": {
     "apilot": "./cli/index.mjs"
   },
