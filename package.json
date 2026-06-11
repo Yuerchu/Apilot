@@ -30,7 +30,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.mjs --configLoader native --pool threads",
-    "build:cli-bundle": "esbuild cli/src/index.ts --bundle --platform=node --format=esm --outfile=cli/index.mjs --packages=external",
+    "build:cli-bundle": "esbuild cli/src/index.ts --bundle --platform=node --format=esm --outfile=cli/index.mjs --external:node:*",
     "build:template": "node --import tsx cli/src/build-template.ts",
     "prepublishOnly": "pnpm build:cli-bundle && pnpm build:template"
   },
@@ -132,9 +132,8 @@
     "react-resizable-panels": "^4",
     "recharts": "3.8.0",
     "vaul": "^1.1.2",
+    "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
-  "dependencies": {
-    "yaml": "^2.9.0"
-  }
+  "dependencies": {}
 }
