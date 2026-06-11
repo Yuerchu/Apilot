@@ -130,6 +130,7 @@ function ConsoleAgGrid({ items, fieldMap, columnLayout, hasEdit, hasDelete, onEd
     minWidth: 80,
     autoHeaderHeight: true,
     cellDataType: false,
+    ...(enterprise ? { enableRowGroup: true } : {}),
   }), [enterprise])
 
   const columnDefs = useMemo<ColDef[]>(() => {
@@ -250,8 +251,7 @@ function ConsoleAgGrid({ items, fieldMap, columnLayout, hasEdit, hasDelete, onEd
           quickFilterText={quickFilter}
           rowSelection={rowSelectionOptions}
           suppressColumnVirtualisation={false}
-          suppressCellFocus
-          enableCellTextSelection
+          {...(enterprise ? {} : { suppressCellFocus: true, enableCellTextSelection: true })}
           ensureDomOrder
           enableBrowserTooltips
           {...(localeText ? { localeText } : {})}
@@ -259,6 +259,8 @@ function ConsoleAgGrid({ items, fieldMap, columnLayout, hasEdit, hasDelete, onEd
             statusBar,
             sideBar: sideBar!,
             getContextMenuItems: contextMenuItems,
+            cellSelection: { handle: { mode: "range" as const } },
+            rowGroupPanelShow: "onlyWhenGrouping" as const,
           } : {})}
         />
       </div>

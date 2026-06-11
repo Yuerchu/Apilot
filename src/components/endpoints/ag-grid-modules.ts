@@ -45,7 +45,12 @@ export function loadEnterprise(): Promise<void> {
       FiltersToolPanelModule,
       StatusBarModule,
       ContextMenuModule,
+      ColumnMenuModule,
       ExcelExportModule,
+      CellSelectionModule,
+      ClipboardModule,
+      RowGroupingModule,
+      RowGroupingPanelModule,
     } = await import("ag-grid-enterprise")
     LicenseManager.setLicenseKey(__AG_GRID_LICENSE_KEY__)
     ModuleRegistry.registerModules([
@@ -54,7 +59,12 @@ export function loadEnterprise(): Promise<void> {
       FiltersToolPanelModule,
       StatusBarModule,
       ContextMenuModule,
+      ColumnMenuModule,
       ExcelExportModule,
+      CellSelectionModule,
+      ClipboardModule,
+      RowGroupingModule,
+      RowGroupingPanelModule,
     ])
     _loaded = true
   })()

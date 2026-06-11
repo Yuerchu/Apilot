@@ -123,6 +123,7 @@ export function ResponseAgGrid({ items, fieldMap, maxHeight = 400 }: ResponseAgG
     autoHeight: useAutoHeight,
     autoHeaderHeight: true,
     cellDataType: false,
+    ...(enterprise ? { enableRowGroup: true } : {}),
   }), [enterprise, useAutoHeight])
 
   const columnDefs = useMemo<ColDef[]>(() => {
@@ -206,8 +207,7 @@ export function ResponseAgGrid({ items, fieldMap, maxHeight = 400 }: ResponseAgG
           quickFilterText={quickFilter}
           rowSelection={rowSelectionOptions}
           suppressColumnVirtualisation
-          suppressCellFocus
-          enableCellTextSelection
+          {...(enterprise ? {} : { suppressCellFocus: true, enableCellTextSelection: true })}
           ensureDomOrder
           enableBrowserTooltips
           {...(localeText ? { localeText } : {})}
@@ -215,6 +215,8 @@ export function ResponseAgGrid({ items, fieldMap, maxHeight = 400 }: ResponseAgG
             statusBar,
             sideBar: sideBar!,
             getContextMenuItems: contextMenuItems,
+            cellSelection: { handle: { mode: "range" as const } },
+            rowGroupPanelShow: "onlyWhenGrouping" as const,
           } : {})}
         />
       </div>
