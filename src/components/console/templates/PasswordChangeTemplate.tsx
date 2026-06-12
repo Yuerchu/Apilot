@@ -8,6 +8,7 @@ import { useConsoleFetch } from "@/hooks/use-console-fetch"
 import { useConsoleContext } from "@/contexts/ConsoleContext"
 import { applyFieldLayout } from "@/lib/console/apply-layout"
 import { getRequestBodySchema } from "@/lib/console/schema-inference"
+import { detectConfirmPasswordPair } from "@/lib/console/template-utils"
 import { toast } from "sonner"
 import type { TemplateProps } from "./index"
 
@@ -20,15 +21,24 @@ export function PasswordChangeTemplate({ resource, layoutOverride }: TemplatePro
   const { mutate, loading } = useConsoleFetch()
   const [formData, setFormData] = useState<FormOutput>({})
   const [success, setSuccess] = useState(false)
+  const [mismatch, setMismatch] = useState(false)
 
   const action = resource.actions.find(a => !!getRequestBodySchema(a.route)) ?? resource.operations.create ?? resource.operations.update
   const rawSchema = action ? getRequestBodySchema(action.route) : (resource.createSchema ?? resource.updateSchema)
   const schema = rawSchema ? applyFieldLayout(rawSchema, layout?.formFields) : null
 
-  const handleChange = useCallback((v: FormOutput) => setFormData(v), [])
+  const handleChange = useCallback((v: FormOutput) => { setFormData(v); setMismatch(false) }, [])
 
   const handleSubmit = async () => {
     if (!action) return
+    const pair = detectConfirmPasswordPair(rawSchema)
+    if (pair && !Array.isArray(formData)) {
+      const values = formData as Record<string, unknown>
+      if (values[pair.primary] !== values[pair.confirm]) {
+        setMismatch(true)
+        return
+      }
+    }
     const ok = await mutate(action.route, { body: JSON.stringify(formData) })
     if (ok) { toast.success(t("console.updated")); setSuccess(true); setFormData({}) }
     else toast.error(t("console.updateFailed", { status: "" }))
@@ -59,7 +69,10 @@ export function PasswordChangeTemplate({ resource, layoutOverride }: TemplatePro
           )}
         </CardContent>
         {!success && (
-          <CardFooter>
+          <CardFooter className="flex-col gap-2">
+            {mismatch && (
+              <p className="text-xs text-destructive w-full">{t("console.passwordMismatch")}</p>
+            )}
             <Button onClick={handleSubmit} disabled={loading || !schema} className="w-full">
               {loading ? t("console.saving") : t("console.save")}
             </Button>

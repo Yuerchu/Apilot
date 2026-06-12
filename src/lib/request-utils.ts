@@ -4,10 +4,10 @@ const TOKEN_KEYS_PRIO: Record<string, number> = {
   api_key: 5, apiKey: 5, refresh_token: 9,
 }
 
-export function findTokenFields(jsonBody: string): Array<{ key: string; value: string; priority: number }> {
+export function findTokenFields(jsonBody: string | Record<string, unknown>): Array<{ key: string; value: string; priority: number }> {
   try {
-    const obj = JSON.parse(jsonBody)
-    if (typeof obj !== "object" || obj === null) return []
+    const obj = typeof jsonBody === "string" ? JSON.parse(jsonBody) : jsonBody
+    if (typeof obj !== "object" || obj === null || Array.isArray(obj)) return []
 
     const found: Array<{ key: string; value: string; priority: number }> = []
     const search = (o: Record<string, unknown>, path: string) => {

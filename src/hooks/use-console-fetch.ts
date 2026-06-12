@@ -59,5 +59,24 @@ export function useConsoleFetch() {
     return result.status >= 200 && result.status < 300
   }, [sendRequest])
 
-  return { fetchJson, submitJson, mutate, loading }
+  const mutateWithResponse = useCallback(async (
+    route: ParsedRoute,
+    opts?: {
+      body?: string
+      params?: Record<string, string>
+      contentType?: string
+      formData?: Record<string, string | File>
+    },
+  ): Promise<SubmitJsonResult> => {
+    const o = opts ?? {}
+    const result = await sendRequest(route, o.params ?? {}, o.body ?? "", o.contentType ?? "application/json", o.formData)
+    if (!result) return { ok: false, response: "" }
+    const ok = result.status >= 200 && result.status < 300
+    let response: string
+    try { response = JSON.stringify(JSON.parse(result.body), null, 2) }
+    catch { response = result.body }
+    return { ok, response }
+  }, [sendRequest])
+
+  return { fetchJson, submitJson, mutate, mutateWithResponse, loading }
 }

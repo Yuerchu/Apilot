@@ -32,9 +32,13 @@ export function FormCenteredTemplate({ resource, layoutOverride }: TemplateProps
   const handleSubmit = async () => {
     if (!route) return
     const { ok, response: resp } = await submitJson(route, JSON.stringify(formData))
-    if (ok) toast.success(t("console.created"))
-    else toast.error(t("console.createFailed", { status: resp.slice(0, 50) }))
     setResponse(resp)
+    if (ok) {
+      toast.success(t("console.created"))
+      setFormData({})
+    } else {
+      toast.error(t("console.createFailed", { status: resp.slice(0, 50) }))
+    }
   }
 
   return (

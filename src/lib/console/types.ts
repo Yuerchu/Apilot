@@ -79,6 +79,7 @@ export interface StatsConfig {
   chartType?: "bar" | "line" | "area" | undefined
   chartHeight?: number | undefined
   fieldLabels?: Record<string, string> | undefined
+  refreshInterval?: number | undefined
 }
 
 export interface SearchConfig {

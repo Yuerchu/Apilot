@@ -12,6 +12,7 @@ import type { ConsoleResource } from "@/lib/console/types"
 import type { Parameter } from "@/lib/openapi/types"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ConsoleFilterBar } from "./ConsoleFilterBar"
+import { ConfirmDialog } from "./ConfirmDialog"
 import { toast } from "sonner"
 
 const PAGE_SIZES = [20, 50, 100]
@@ -146,12 +147,20 @@ export function ConsoleListPage({ resource, readOnly, layoutOverride }: { resour
     dispatch({ type: "SET_SUB_VIEW", view: "edit", itemId: String(row[resource.idParam ?? "id"] ?? ""), row })
   }, [dispatch, resource.idParam])
 
-  const handleDelete = useCallback(async (row: Record<string, unknown>) => {
-    const deleteOp = resource.operations.delete
-    if (!deleteOp || !resource.idParam) return
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
+
+  const handleDelete = useCallback((row: Record<string, unknown>) => {
+    if (!resource.operations.delete || !resource.idParam) return
     const id = String(row[resource.idParam] ?? row["id"] ?? "")
     if (!id) return
-    if (!window.confirm(`${t("console.delete")} ${id}?`)) return
+    setDeleteTarget(id)
+  }, [resource])
+
+  const confirmDelete = useCallback(async () => {
+    const deleteOp = resource.operations.delete
+    const id = deleteTarget
+    setDeleteTarget(null)
+    if (!deleteOp || !resource.idParam || !id) return
     const params: Record<string, string> = { [resource.idParam]: id }
     const result = await sendRequest(deleteOp.route, params, "", "application/json")
     if (result && result.status >= 200 && result.status < 300) {
@@ -160,7 +169,7 @@ export function ConsoleListPage({ resource, readOnly, layoutOverride }: { resour
     } else if (result) {
       toast.error(t("console.deleteFailed", { status: `${result.status} ${result.statusText}` }))
     }
-  }, [resource, sendRequest, fetchList, t])
+  }, [resource, deleteTarget, sendRequest, fetchList, t])
 
   const currentPage = Math.floor(pagination.offset / pagination.limit) + 1
   const totalPages = totalCount !== null ? Math.ceil(totalCount / pagination.limit) : null
@@ -301,6 +310,16 @@ export function ConsoleListPage({ resource, readOnly, layoutOverride }: { resour
           {t("console.noListEndpoint")}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={open => { if (!open) setDeleteTarget(null) }}
+        title={t("console.delete")}
+        description={`${t("console.delete")} ${deleteTarget ?? ""}?`}
+        confirmLabel={t("console.delete")}
+        destructive
+        onConfirm={confirmDelete}
+      />
     </div>
   )
 }

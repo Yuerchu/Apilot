@@ -1,13 +1,16 @@
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { RefreshCw, Save } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardAction, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SchemaForm } from "@/components/schema/SchemaForm"
 import { useConsoleFetch } from "@/hooks/use-console-fetch"
 import { useConsoleContext } from "@/contexts/ConsoleContext"
 import { applyFieldLayout } from "@/lib/console/apply-layout"
+import { stableEqual } from "@/lib/console/template-utils"
+import { ConfirmDialog } from "../ConfirmDialog"
 import { toast } from "sonner"
 import type { TemplateProps } from "./index"
 
@@ -21,11 +24,14 @@ export function ConfigFormTemplate({ resource, layoutOverride }: TemplateProps) 
   const [data, setData] = useState<FormOutput | null>(null)
   const [formData, setFormData] = useState<FormOutput>({})
   const [error, setError] = useState<string | null>(null)
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
 
   const readOp = resource.operations.read
   const updateOp = resource.operations.update
   const rawSchema = resource.updateSchema ?? resource.detailSchema
   const schema = rawSchema ? applyFieldLayout(rawSchema, layout?.formFields) : null
+
+  const dirty = useMemo(() => data !== null && !stableEqual(formData, data), [formData, data])
 
   const fetchConfig = useCallback(async () => {
     if (!readOp) return
@@ -38,6 +44,11 @@ export function ConfigFormTemplate({ resource, layoutOverride }: TemplateProps) 
   useEffect(() => { fetchConfig() }, [fetchConfig])
 
   const handleChange = useCallback((v: FormOutput) => setFormData(v), [])
+
+  const handleRefresh = useCallback(() => {
+    if (dirty) setDiscardConfirmOpen(true)
+    else fetchConfig()
+  }, [dirty, fetchConfig])
 
   const handleSave = async () => {
     if (!updateOp) return
@@ -53,7 +64,7 @@ export function ConfigFormTemplate({ resource, layoutOverride }: TemplateProps) 
           <CardTitle>{resource.displayName}</CardTitle>
           <CardDescription className="font-mono text-xs">{resource.basePath}</CardDescription>
           <CardAction>
-            <Button size="sm" variant="outline" onClick={fetchConfig} disabled={loading}>
+            <Button size="sm" variant="outline" onClick={handleRefresh} disabled={loading}>
               <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
             </Button>
           </CardAction>
@@ -82,14 +93,29 @@ export function ConfigFormTemplate({ resource, layoutOverride }: TemplateProps) 
         </CardContent>
 
         {updateOp && (
-          <CardFooter>
-            <Button onClick={handleSave} disabled={loading}>
+          <CardFooter className="gap-2">
+            <Button onClick={handleSave} disabled={loading} variant={dirty ? "default" : "outline"}>
               <Save className="size-4 mr-1.5" />
               {loading ? t("console.saving") : t("console.save")}
             </Button>
+            {dirty && (
+              <Badge variant="outline" className="text-amber-600 border-amber-600/40">
+                {t("console.unsavedChanges")}
+              </Badge>
+            )}
           </CardFooter>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={discardConfirmOpen}
+        onOpenChange={setDiscardConfirmOpen}
+        title={t("console.discardChanges")}
+        description={t("console.discardChangesConfirm")}
+        confirmLabel={t("console.discardChanges")}
+        destructive
+        onConfirm={() => { setDiscardConfirmOpen(false); fetchConfig() }}
+      />
     </div>
   )
 }

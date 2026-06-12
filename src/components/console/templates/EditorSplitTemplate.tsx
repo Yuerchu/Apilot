@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { RefreshCw, Save } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardContent, CardAction } from "@/components/ui/card"
@@ -9,6 +9,8 @@ import { SchemaForm } from "@/components/schema/SchemaForm"
 import { useConsoleFetch } from "@/hooks/use-console-fetch"
 import { useConsoleContext } from "@/contexts/ConsoleContext"
 import { applyDetailLayout, applyFieldLayout } from "@/lib/console/apply-layout"
+import { stableEqual } from "@/lib/console/template-utils"
+import { ConfirmDialog } from "../ConfirmDialog"
 import { toast } from "sonner"
 import type { TemplateProps } from "./index"
 
@@ -22,10 +24,13 @@ export function EditorSplitTemplate({ resource, layoutOverride }: TemplateProps)
   const [data, setData] = useState<Record<string, unknown> | null>(null)
   const [formData, setFormData] = useState<FormOutput>({})
   const [error, setError] = useState<string | null>(null)
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
 
   const readOp = resource.operations.read
   const updateOp = resource.operations.update
   const updateSchema = resource.updateSchema ? applyFieldLayout(resource.updateSchema, layout?.updateFields) : null
+
+  const dirty = useMemo(() => data !== null && !stableEqual(formData, data), [formData, data])
 
   const fetchDetail = useCallback(async () => {
     if (!readOp) return
@@ -40,6 +45,11 @@ export function EditorSplitTemplate({ resource, layoutOverride }: TemplateProps)
 
   const handleChange = useCallback((v: FormOutput) => setFormData(v), [])
 
+  const handleRefresh = useCallback(() => {
+    if (dirty) setDiscardConfirmOpen(true)
+    else fetchDetail()
+  }, [dirty, fetchDetail])
+
   const handleSave = async () => {
     if (!updateOp) return
     const ok = await mutate(updateOp.route, { body: JSON.stringify(formData) })
@@ -52,11 +62,26 @@ export function EditorSplitTemplate({ resource, layoutOverride }: TemplateProps)
       <div className="flex items-center gap-3">
         <h2 className="text-base font-semibold">{resource.displayName}</h2>
         <p className="text-xs text-muted-foreground font-mono">{resource.basePath}</p>
+        {dirty && (
+          <Badge variant="outline" className="text-amber-600 border-amber-600/40">
+            {t("console.unsavedChanges")}
+          </Badge>
+        )}
         <div className="flex-1" />
-        <Button size="sm" variant="outline" onClick={fetchDetail} disabled={loading}>
+        <Button size="sm" variant="outline" onClick={handleRefresh} disabled={loading}>
           <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={discardConfirmOpen}
+        onOpenChange={setDiscardConfirmOpen}
+        title={t("console.discardChanges")}
+        description={t("console.discardChangesConfirm")}
+        confirmLabel={t("console.discardChanges")}
+        destructive
+        onConfirm={() => { setDiscardConfirmOpen(false); fetchDetail() }}
+      />
 
       {error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
@@ -68,7 +93,7 @@ export function EditorSplitTemplate({ resource, layoutOverride }: TemplateProps)
         {/* Left: Current data */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Current</CardTitle>
+            <CardTitle className="text-sm">{t("console.current")}</CardTitle>
           </CardHeader>
           <CardContent>
             {loading && !data && (
@@ -99,7 +124,7 @@ export function EditorSplitTemplate({ resource, layoutOverride }: TemplateProps)
           <CardHeader>
             <CardTitle className="text-sm">{t("console.edit")}</CardTitle>
             <CardAction>
-              <Button size="sm" onClick={handleSave} disabled={loading || !updateSchema}>
+              <Button size="sm" variant={dirty ? "default" : "outline"} onClick={handleSave} disabled={loading || !updateSchema}>
                 <Save className="size-3.5 mr-1" />
                 {t("console.save")}
               </Button>

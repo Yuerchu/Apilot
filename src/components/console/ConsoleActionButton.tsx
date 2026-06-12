@@ -7,6 +7,8 @@ import { SchemaForm } from "@/components/schema/SchemaForm"
 import { useConsoleFetch } from "@/hooks/use-console-fetch"
 import type { ResourceAction } from "@/lib/console/types"
 import { getRequestBodySchema } from "@/lib/console/schema-inference"
+import { isDangerousAction } from "@/lib/console/template-utils"
+import { ConfirmDialog } from "./ConfirmDialog"
 import { toast } from "sonner"
 
 type FormOutput = Record<string, unknown> | unknown[]
@@ -14,28 +16,48 @@ type FormOutput = Record<string, unknown> | unknown[]
 export function ConsoleActionButton({ action }: { action: ResourceAction }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const { mutate, loading } = useConsoleFetch()
   const [formData, setFormData] = useState<FormOutput>({})
 
   const schema = getRequestBodySchema(action.route)
   const hasBody = !!schema
+  const dangerous = isDangerousAction(action.route)
 
   const handleChange = useCallback((v: FormOutput) => setFormData(v), [])
 
   const execute = async () => {
     const body = formData && Object.keys(formData).length > 0 ? JSON.stringify(formData) : ""
     const ok = await mutate(action.route, { body })
-    if (ok) toast.success(`${action.label}: OK`)
-    else toast.error(`${action.label}: failed`)
+    if (ok) toast.success(`${action.label}: ${t("console.ok")}`)
+    else toast.error(`${action.label}: ${t("console.requestFailed")}`)
     setOpen(false)
   }
 
   if (!hasBody) {
     return (
-      <Button size="sm" variant="outline" onClick={execute} disabled={loading}>
-        <Play className="size-3 mr-1" />
-        {action.label}
-      </Button>
+      <>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => dangerous ? setConfirmOpen(true) : execute()}
+          disabled={loading}
+        >
+          <Play className="size-3 mr-1" />
+          {action.label}
+        </Button>
+        {dangerous && (
+          <ConfirmDialog
+            open={confirmOpen}
+            onOpenChange={setConfirmOpen}
+            title={action.label}
+            description={t("console.confirmDangerous", { action: action.label })}
+            confirmLabel={t("console.execute")}
+            destructive
+            onConfirm={() => { setConfirmOpen(false); execute() }}
+          />
+        )}
+      </>
     )
   }
 

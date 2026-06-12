@@ -18,32 +18,13 @@ import type { RequestResponse, ParsedRoute } from "@/lib/openapi/types"
 import { validateWithSchema } from "@/lib/validate-schema"
 import type { SchemaObject } from "@/lib/openapi/types"
 import { ResponseTableView } from "./ResponseTableView"
+import { findTokenFields } from "@/lib/request-utils"
 import { toast } from "sonner"
 
 interface ResponsePanelProps {
   response: RequestResponse
   route?: ParsedRoute
   onApplyToken?: (token: string, fieldName: string) => void
-}
-
-const TOKEN_KEYS_PRIO: Record<string, number> = {
-  access_token: 1, accessToken: 1, token: 2, jwt: 2, bearer: 2,
-  id_token: 3, auth_token: 3, authToken: 3, session_token: 4,
-  api_key: 5, apiKey: 5, refresh_token: 9,
-}
-
-function findTokens(obj: Record<string, unknown>, path: string): Array<{ key: string; value: string; priority: number }> {
-  const found: Array<{ key: string; value: string; priority: number }> = []
-  for (const [k, v] of Object.entries(obj)) {
-    const p = path ? `${path}.${k}` : k
-    const priority = TOKEN_KEYS_PRIO[k]
-    if (typeof v === "string" && v.length >= 8 && priority !== undefined) {
-      found.push({ key: p, value: v, priority })
-    } else if (typeof v === "object" && v && !Array.isArray(v)) {
-      found.push(...findTokens(v as Record<string, unknown>, p))
-    }
-  }
-  return found
 }
 
 
@@ -98,8 +79,7 @@ export const ResponsePanel = memo(function ResponsePanel({ response, route, onAp
 
     const tokenButtons: Array<{ key: string; value: string }> = []
     if (isJson && jsonObj && typeof jsonObj === "object" && response.status >= 200 && response.status < 300) {
-      const tokens = findTokens(jsonObj, "").sort((a, b) => a.priority - b.priority)
-      for (const tk of tokens) {
+      for (const tk of findTokenFields(jsonObj)) {
         tokenButtons.push({ key: tk.key, value: tk.value })
       }
     }

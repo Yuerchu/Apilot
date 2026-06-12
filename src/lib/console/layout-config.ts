@@ -119,6 +119,7 @@ function sanitizeLayout(v: unknown): ResourceLayout | null {
     }
     if (typeof sc.chartType === "string" && VALID_CHART_TYPES.has(sc.chartType)) stats.chartType = sc.chartType as StatsConfig["chartType"]
     if (typeof sc.chartHeight === "number" && sc.chartHeight > 0) stats.chartHeight = sc.chartHeight
+    if (typeof sc.refreshInterval === "number" && sc.refreshInterval > 0) stats.refreshInterval = sc.refreshInterval
     if (isRecord(sc.fieldLabels)) {
       const labels: Record<string, string> = {}
       for (const [k, lv] of Object.entries(sc.fieldLabels)) {

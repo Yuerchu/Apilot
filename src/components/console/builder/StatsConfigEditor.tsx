@@ -56,6 +56,20 @@ export function StatsConfigEditor({ config, candidateFields, onChange }: StatsCo
         />
       </div>
 
+      <div className="space-y-1.5">
+        <Label className="text-xs">{t("console.builder.refreshInterval")}</Label>
+        <Input
+          type="number"
+          value={config?.refreshInterval ?? 0}
+          onChange={e => {
+            const n = parseInt(e.target.value, 10)
+            onChange({ ...config, refreshInterval: Number.isFinite(n) && n > 0 ? n : undefined })
+          }}
+          className="h-8 text-xs"
+        />
+        <p className="text-[10px] text-muted-foreground">{t("console.builder.refreshIntervalHint")}</p>
+      </div>
+
       {candidateFields.length > 0 && (
         <div className="space-y-1.5">
           <Label className="text-xs">{t("console.builder.excludeFields")}</Label>

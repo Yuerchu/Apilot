@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react"
+import { useTranslation } from "react-i18next"
 import { RefreshCw } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -16,6 +17,7 @@ import type { TemplateProps } from "./index"
 ModuleRegistry.registerModules([AllCommunityModule])
 
 export function StatsDashboardTemplate({ resource, layoutOverride }: TemplateProps) {
+  const { t } = useTranslation()
   const { activeLayout } = useConsoleContext()
   const layout = layoutOverride ?? activeLayout
   const { fetchJson, loading } = useConsoleFetch()
@@ -37,6 +39,14 @@ export function StatsDashboardTemplate({ resource, layoutOverride }: TemplatePro
   useEffect(() => { fetchData() }, [fetchData])
 
   const statsConfig = layout?.statsConfig
+
+  // Auto-refresh on the configured interval (seconds)
+  const refreshInterval = statsConfig?.refreshInterval
+  useEffect(() => {
+    if (!refreshInterval || refreshInterval <= 0) return
+    const timer = setInterval(fetchData, refreshInterval * 1000)
+    return () => clearInterval(timer)
+  }, [refreshInterval, fetchData])
   const { statCards, chartData } = useMemo(() => categorizeStats(data, statsConfig), [data, statsConfig])
   const { resolvedTheme } = useTheme()
   const chartOptions = useMemo(
@@ -49,6 +59,9 @@ export function StatsDashboardTemplate({ resource, layoutOverride }: TemplatePro
       <div className="flex items-center gap-3">
         <h2 className="text-base font-semibold">{resource.displayName}</h2>
         <p className="text-xs text-muted-foreground font-mono">{resource.basePath}</p>
+        {refreshInterval && refreshInterval > 0 ? (
+          <span className="text-[10px] text-muted-foreground">{t("console.autoRefresh", { seconds: refreshInterval })}</span>
+        ) : null}
         <div className="flex-1" />
         {resource.actions.map((a, i) => <ConsoleActionButton key={i} action={a} />)}
         <Button size="sm" variant="outline" onClick={fetchData} disabled={loading}>

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { Search } from "lucide-react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useConsoleFetch } from "@/hooks/use-console-fetch"
 import { useConsoleContext } from "@/contexts/ConsoleContext"
+import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { pickSearchFields } from "@/lib/console/apply-layout"
 import type { SearchConfig } from "@/lib/console/types"
 import type { TemplateProps } from "./index"
@@ -20,6 +21,9 @@ export function SearchResultsTemplate({ resource, layoutOverride }: TemplateProp
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<unknown[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Tracks the query the latest search was fired with, so the debounce effect
+  // doesn't re-fire after a manual Enter/button search of the same query.
+  const lastSearchedRef = useRef<string | null>(null)
 
   const listOp = resource.operations.list
   const action = !listOp ? resource.actions[0] : null
@@ -31,6 +35,7 @@ export function SearchResultsTemplate({ resource, layoutOverride }: TemplateProp
 
   const handleSearch = useCallback(async () => {
     if (!route) return
+    lastSearchedRef.current = query
     setError(null)
     const params: Record<string, string> = {}
     if (queryParam && query) params[queryParam.name] = query
@@ -43,6 +48,19 @@ export function SearchResultsTemplate({ resource, layoutOverride }: TemplateProp
     }
     setError(err)
   }, [route, queryParam, query, fetchJson])
+
+  // Debounced auto-search while typing (only when the route has a query param)
+  const debouncedQuery = useDebouncedValue(query, 400)
+  useEffect(() => {
+    if (!queryParam) return
+    if (debouncedQuery === lastSearchedRef.current) return
+    if (debouncedQuery.trim() === "") {
+      lastSearchedRef.current = debouncedQuery
+      setResults(null)
+      return
+    }
+    handleSearch()
+  }, [debouncedQuery, queryParam, handleSearch])
 
   return (
     <div className="flex flex-col gap-4 py-4 h-full overflow-auto">
@@ -58,7 +76,7 @@ export function SearchResultsTemplate({ resource, layoutOverride }: TemplateProp
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleSearch()}
-            placeholder={queryParam ? `Search by ${queryParam.name}...` : "Search..."}
+            placeholder={queryParam ? t("console.searchByPlaceholder", { field: queryParam.name }) : t("response.quickFilter")}
             className="pl-9"
           />
         </div>
@@ -79,7 +97,7 @@ export function SearchResultsTemplate({ resource, layoutOverride }: TemplateProp
       )}
 
       {results !== null && results.length === 0 && !loading && (
-        <div className="text-center py-12 text-sm text-muted-foreground">No results found</div>
+        <div className="text-center py-12 text-sm text-muted-foreground">{t("console.noResults")}</div>
       )}
 
       {results !== null && results.length > 0 && (
