@@ -68,13 +68,15 @@ export function ConsoleActionButton({ action }: { action: ResourceAction }) {
         {action.label}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="flex max-w-lg max-h-[80vh] flex-col">
           <DialogHeader><DialogTitle>{action.label}</DialogTitle></DialogHeader>
           <p className="text-xs text-muted-foreground font-mono">
             {action.route.method.toUpperCase()} {action.route.path}
           </p>
           {schema && (
-            <SchemaForm schema={schema} value={formData} onChange={handleChange} />
+            <div className="-mx-6 min-h-0 flex-1 overflow-y-auto px-6 pb-4">
+              <SchemaForm schema={schema} value={formData} onChange={handleChange} />
+            </div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>{t("console.cancel")}</Button>

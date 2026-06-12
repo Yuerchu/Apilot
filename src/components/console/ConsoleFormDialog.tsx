@@ -76,14 +76,16 @@ export function ConsoleFormDialog({ resource, mode, initialData, onSuccess }: Pr
 
   return (
     <Dialog open onOpenChange={() => close()}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="flex max-w-2xl max-h-[80vh] flex-col">
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
-        <SchemaForm
-          schema={schema}
-          value={formData}
-          onChange={handleChange}
-          defaultExcludeOptional={mode === "edit"}
-        />
+        <div className="-mx-6 min-h-0 flex-1 overflow-y-auto px-6 pb-4">
+          <SchemaForm
+            schema={schema}
+            value={formData}
+            onChange={handleChange}
+            defaultExcludeOptional={mode === "edit"}
+          />
+        </div>
         <DialogFooter>
           <Button variant="outline" onClick={close}>{t("console.cancel")}</Button>
           <Button onClick={handleSubmit} disabled={loading}>
