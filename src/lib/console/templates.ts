@@ -1,10 +1,12 @@
-import type { ConsoleResource, ResourceAction } from "./types"
+import type { ConsoleResource, ResourceAction, EditableDimension } from "./types"
+import type { SchemaObject } from "@/lib/openapi/types"
 import { getRequestBodySchema } from "./schema-inference"
 
 export interface PageTemplate {
   id: string
   name: string
   category: "auth" | "crud" | "form" | "detail" | "action"
+  editable: EditableDimension[]
   matchScore: (resource: ConsoleResource) => number
 }
 
@@ -35,12 +37,14 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     id: "crud-table",
     name: "console.template.crudTable",
     category: "crud",
+    editable: ["columns", "create", "update"],
     matchScore: (r) => r.operations.list ? 1.0 : 0,
   },
   {
     id: "login-card",
     name: "console.template.loginCard",
     category: "auth",
+    editable: ["form"],
     matchScore: (r) => {
       if (r.operations.list || r.operations.read || r.operations.update) return 0
       if (!pathContains(r.basePath, AUTH_PATH_KEYWORDS)) return 0
@@ -52,6 +56,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     id: "register-form",
     name: "console.template.registerForm",
     category: "auth",
+    editable: ["form"],
     matchScore: (r) => {
       if (!pathContains(r.basePath, REGISTER_PATH_KEYWORDS)) return 0
       if (hasRequestBodyAction(r) || r.operations.create) return 0.95
@@ -62,6 +67,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     id: "detail-card",
     name: "console.template.detailCard",
     category: "detail",
+    editable: ["detail"],
     matchScore: (r) => {
       if (r.operations.list) return 0
       if (r.operations.read) return 0.85
@@ -72,6 +78,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     id: "editor-split",
     name: "console.template.editorSplit",
     category: "detail",
+    editable: ["detail", "update"],
     matchScore: (r) => {
       if (r.operations.list) return 0
       if (r.operations.read && r.operations.update) return 0.9
@@ -82,6 +89,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     id: "form-centered",
     name: "console.template.formCentered",
     category: "form",
+    editable: ["form"],
     matchScore: (r) => {
       if (r.operations.list) return 0
       if (r.operations.create && r.createSchema) return 0.8
@@ -93,6 +101,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     id: "upload-dropzone",
     name: "console.template.uploadDropzone",
     category: "form",
+    editable: [],
     matchScore: (r) => {
       if (r.operations.list) return 0
       if (pathContains(r.basePath, UPLOAD_PATH_KEYWORDS)) {
@@ -106,6 +115,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     id: "stats-dashboard",
     name: "console.template.statsDashboard",
     category: "detail",
+    editable: ["stats"],
     matchScore: (r) => {
       if (r.operations.list) return 0
       if (pathContains(r.basePath, STATS_PATH_KEYWORDS)) return 0.9
@@ -116,6 +126,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     id: "config-form",
     name: "console.template.configForm",
     category: "form",
+    editable: ["form"],
     matchScore: (r) => {
       if (r.operations.list) return 0
       if (pathContains(r.basePath, CONFIG_PATH_KEYWORDS) && (r.operations.read || r.operations.update)) return 0.9
@@ -126,6 +137,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     id: "search-results",
     name: "console.template.searchResults",
     category: "crud",
+    editable: ["search"],
     matchScore: (r) => {
       if (pathContains(r.basePath, SEARCH_PATH_KEYWORDS)) return 0.85
       const hasSearchParam = r.operations.list?.route.parameters.some(p =>
@@ -139,6 +151,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     id: "password-change",
     name: "console.template.passwordChange",
     category: "auth",
+    editable: ["form"],
     matchScore: (r) => {
       if (r.operations.list) return 0
       if (pathContains(r.basePath, PASSWORD_PATH_KEYWORDS)) return 0.95
@@ -149,6 +162,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     id: "action-form",
     name: "console.template.actionForm",
     category: "action",
+    editable: ["form"],
     matchScore: (r) => {
       if (r.operations.list || r.operations.read) return 0
       if (r.actions.length >= 1 && hasRequestBodyAction(r)) return 0.7
@@ -159,6 +173,7 @@ export const PAGE_TEMPLATES: PageTemplate[] = [
     id: "action-list",
     name: "console.template.actionList",
     category: "action",
+    editable: [],
     matchScore: (r) => {
       if (r.operations.list || r.operations.read) return 0
       if (r.actions.length > 0) return 0.5
@@ -182,6 +197,36 @@ export function selectActionTemplate(action: ResourceAction): PageTemplate {
   if (method === "GET") return PAGE_TEMPLATES.find(t => t.id === "detail-card")!
 
   return PAGE_TEMPLATES.find(t => t.id === "action-form")!
+}
+
+/**
+ * The single source of truth for "which raw schema does a form-like template render".
+ * The Builder's Form tab and the template component both call this so the field
+ * list shown in the editor always matches the fields the template renders.
+ */
+export function getFormSchema(resource: ConsoleResource, templateId: string): SchemaObject | null {
+  const actionBodySchema = (): SchemaObject | null => {
+    for (const a of resource.actions) {
+      const s = getRequestBodySchema(a.route)
+      if (s) return s
+    }
+    return null
+  }
+
+  switch (templateId) {
+    case "login-card":
+    case "register-form":
+    case "password-change":
+      return actionBodySchema() ?? resource.createSchema ?? resource.updateSchema
+    case "form-centered":
+      return resource.createSchema ?? actionBodySchema()
+    case "config-form":
+      return resource.updateSchema ?? resource.detailSchema
+    case "action-form":
+      return actionBodySchema()
+    default:
+      return null
+  }
 }
 
 export function selectBestTemplate(resource: ConsoleResource, overrideId?: string | undefined): PageTemplate {

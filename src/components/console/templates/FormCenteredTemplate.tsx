@@ -4,14 +4,18 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button"
 import { SchemaForm } from "@/components/schema/SchemaForm"
 import { useConsoleFetch } from "@/hooks/use-console-fetch"
-import type { ConsoleResource } from "@/lib/console/types"
+import { useConsoleContext } from "@/contexts/ConsoleContext"
+import { applyFieldLayout } from "@/lib/console/apply-layout"
 import { getRequestBodySchema } from "@/lib/console/schema-inference"
 import { toast } from "sonner"
+import type { TemplateProps } from "./index"
 
 type FormOutput = Record<string, unknown> | unknown[]
 
-export function FormCenteredTemplate({ resource }: { resource: ConsoleResource }) {
+export function FormCenteredTemplate({ resource, layoutOverride }: TemplateProps) {
   const { t } = useTranslation()
+  const { activeLayout } = useConsoleContext()
+  const layout = layoutOverride ?? activeLayout
   const { submitJson, loading } = useConsoleFetch()
   const [formData, setFormData] = useState<FormOutput>({})
   const [response, setResponse] = useState<string | null>(null)
@@ -19,7 +23,8 @@ export function FormCenteredTemplate({ resource }: { resource: ConsoleResource }
   const op = resource.operations.create
   const action = !op ? resource.actions.find(a => !!getRequestBodySchema(a.route)) : null
   const route = op?.route ?? action?.route
-  const schema = op ? resource.createSchema : (action ? getRequestBodySchema(action.route) : null)
+  const rawSchema = op ? resource.createSchema : (action ? getRequestBodySchema(action.route) : null)
+  const schema = rawSchema ? applyFieldLayout(rawSchema, layout?.formFields) : null
   const label = op?.label ?? action?.label ?? t("console.execute")
 
   const handleChange = useCallback((v: FormOutput) => setFormData(v), [])

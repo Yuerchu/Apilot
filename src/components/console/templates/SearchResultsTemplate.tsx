@@ -7,10 +7,15 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useConsoleFetch } from "@/hooks/use-console-fetch"
-import type { ConsoleResource } from "@/lib/console/types"
+import { useConsoleContext } from "@/contexts/ConsoleContext"
+import { pickSearchFields } from "@/lib/console/apply-layout"
+import type { SearchConfig } from "@/lib/console/types"
+import type { TemplateProps } from "./index"
 
-export function SearchResultsTemplate({ resource }: { resource: ConsoleResource }) {
+export function SearchResultsTemplate({ resource, layoutOverride }: TemplateProps) {
   const { t } = useTranslation()
+  const { activeLayout } = useConsoleContext()
+  const layout = layoutOverride ?? activeLayout
   const { fetchJson, loading } = useConsoleFetch()
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<unknown[] | null>(null)
@@ -80,7 +85,7 @@ export function SearchResultsTemplate({ resource }: { resource: ConsoleResource 
       {results !== null && results.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {results.map((item, i) => (
-            <ResultCard key={i} data={item} />
+            <ResultCard key={i} data={item} config={layout?.searchConfig} />
           ))}
         </div>
       )}
@@ -88,14 +93,12 @@ export function SearchResultsTemplate({ resource }: { resource: ConsoleResource 
   )
 }
 
-function ResultCard({ data }: { data: unknown }) {
+function ResultCard({ data, config }: { data: unknown; config?: SearchConfig | undefined }) {
   if (!data || typeof data !== "object") {
     return <Card><CardContent className="pt-4 text-sm">{String(data)}</CardContent></Card>
   }
   const obj = data as Record<string, unknown>
-  const title = String(obj.name ?? obj.title ?? obj.label ?? obj.id ?? "")
-  const desc = String(obj.description ?? obj.summary ?? obj.text ?? "")
-  const entries = Object.entries(obj).slice(0, 5)
+  const { title, desc, badges } = pickSearchFields(obj, config)
 
   return (
     <Card>
@@ -105,12 +108,10 @@ function ResultCard({ data }: { data: unknown }) {
       <CardContent>
         {desc && <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{desc}</p>}
         <div className="flex flex-wrap gap-1">
-          {entries.map(([key, value]) => (
-            typeof value !== "object" && (
-              <Badge key={key} variant="outline" className="text-[10px] font-normal">
-                {key}: {String(value).slice(0, 30)}
-              </Badge>
-            )
+          {badges.map(([key, value]) => (
+            <Badge key={key} variant="outline" className="text-[10px] font-normal">
+              {key}: {String(value).slice(0, 30)}
+            </Badge>
           ))}
         </div>
       </CardContent>

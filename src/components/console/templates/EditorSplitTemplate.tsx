@@ -7,13 +7,17 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SchemaForm } from "@/components/schema/SchemaForm"
 import { useConsoleFetch } from "@/hooks/use-console-fetch"
-import type { ConsoleResource } from "@/lib/console/types"
+import { useConsoleContext } from "@/contexts/ConsoleContext"
+import { applyDetailLayout, applyFieldLayout } from "@/lib/console/apply-layout"
 import { toast } from "sonner"
+import type { TemplateProps } from "./index"
 
 type FormOutput = Record<string, unknown> | unknown[]
 
-export function EditorSplitTemplate({ resource }: { resource: ConsoleResource }) {
+export function EditorSplitTemplate({ resource, layoutOverride }: TemplateProps) {
   const { t } = useTranslation()
+  const { activeLayout } = useConsoleContext()
+  const layout = layoutOverride ?? activeLayout
   const { fetchJson, mutate, loading } = useConsoleFetch()
   const [data, setData] = useState<Record<string, unknown> | null>(null)
   const [formData, setFormData] = useState<FormOutput>({})
@@ -21,7 +25,7 @@ export function EditorSplitTemplate({ resource }: { resource: ConsoleResource })
 
   const readOp = resource.operations.read
   const updateOp = resource.operations.update
-  const updateSchema = resource.updateSchema
+  const updateSchema = resource.updateSchema ? applyFieldLayout(resource.updateSchema, layout?.updateFields) : null
 
   const fetchDetail = useCallback(async () => {
     if (!readOp) return
@@ -77,9 +81,9 @@ export function EditorSplitTemplate({ resource }: { resource: ConsoleResource })
               <div className="rounded-md border overflow-auto max-h-[60vh]">
                 <table className="w-full text-sm">
                   <tbody>
-                    {Object.entries(data).map(([key, value]) => (
+                    {applyDetailLayout(data, layout?.detailFields).map(({ key, label, value }) => (
                       <tr key={key} className="border-b last:border-b-0">
-                        <td className="px-2 py-1.5 font-mono text-[11px] text-muted-foreground w-[140px] align-top bg-muted/20">{key}</td>
+                        <td className="px-2 py-1.5 font-mono text-[11px] text-muted-foreground w-[140px] align-top bg-muted/20">{label}</td>
                         <td className="px-2 py-1.5 text-xs break-all">{renderValue(value)}</td>
                       </tr>
                     ))}

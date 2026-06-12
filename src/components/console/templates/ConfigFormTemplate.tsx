@@ -6,13 +6,17 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SchemaForm } from "@/components/schema/SchemaForm"
 import { useConsoleFetch } from "@/hooks/use-console-fetch"
-import type { ConsoleResource } from "@/lib/console/types"
+import { useConsoleContext } from "@/contexts/ConsoleContext"
+import { applyFieldLayout } from "@/lib/console/apply-layout"
 import { toast } from "sonner"
+import type { TemplateProps } from "./index"
 
 type FormOutput = Record<string, unknown> | unknown[]
 
-export function ConfigFormTemplate({ resource }: { resource: ConsoleResource }) {
+export function ConfigFormTemplate({ resource, layoutOverride }: TemplateProps) {
   const { t } = useTranslation()
+  const { activeLayout } = useConsoleContext()
+  const layout = layoutOverride ?? activeLayout
   const { fetchJson, mutate, loading } = useConsoleFetch()
   const [data, setData] = useState<FormOutput | null>(null)
   const [formData, setFormData] = useState<FormOutput>({})
@@ -20,7 +24,8 @@ export function ConfigFormTemplate({ resource }: { resource: ConsoleResource }) 
 
   const readOp = resource.operations.read
   const updateOp = resource.operations.update
-  const schema = resource.updateSchema ?? resource.detailSchema
+  const rawSchema = resource.updateSchema ?? resource.detailSchema
+  const schema = rawSchema ? applyFieldLayout(rawSchema, layout?.formFields) : null
 
   const fetchConfig = useCallback(async () => {
     if (!readOp) return

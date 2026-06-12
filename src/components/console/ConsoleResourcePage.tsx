@@ -1,12 +1,37 @@
 import { useCallback } from "react"
 import { useConsoleContext } from "@/contexts/ConsoleContext"
-import type { ConsoleResource } from "@/lib/console/types"
-import { selectBestTemplate, selectActionTemplate } from "@/lib/console/templates"
+import type { ConsoleResource, ResourceAction } from "@/lib/console/types"
+import { selectBestTemplate, selectActionTemplate, PAGE_TEMPLATES } from "@/lib/console/templates"
 import { getRequestBodySchema } from "@/lib/console/schema-inference"
 import { TEMPLATE_COMPONENTS } from "./templates"
 import { ConsoleFormDialog } from "./ConsoleFormDialog"
 import { ConsoleBuilder } from "./builder/ConsoleBuilder"
 import { ActionListTemplate } from "./templates/ActionListTemplate"
+
+/**
+ * Build a synthetic single-action resource keyed by the action's route path.
+ * Layouts for action pages persist under this basePath in state.layouts.
+ */
+export function buildActionResource(resource: ConsoleResource, action: ResourceAction): ConsoleResource {
+  const method = action.route.method.toUpperCase()
+  const syntheticOps: ConsoleResource["operations"] = {}
+  if (method === "GET") syntheticOps.read = action
+  else if (method === "POST") syntheticOps.create = action
+  else if (method === "PUT" || method === "PATCH") syntheticOps.update = action
+  else if (method === "DELETE") syntheticOps.delete = action
+
+  return {
+    ...resource,
+    displayName: action.label,
+    basePath: action.route.path,
+    actions: [action],
+    operations: syntheticOps,
+    createSchema: getRequestBodySchema(action.route),
+    updateSchema: method === "PUT" || method === "PATCH" ? getRequestBodySchema(action.route) : null,
+    listItemSchema: null,
+    detailSchema: null,
+  }
+}
 
 export function ConsoleResourcePage({ resource }: { resource: ConsoleResource }) {
   const { state, dispatch, activeAction, activeLayout } = useConsoleContext()
@@ -17,32 +42,28 @@ export function ConsoleResourcePage({ resource }: { resource: ConsoleResource })
   }, [dispatch])
 
   if (state.builderMode) {
-    return <ConsoleBuilder resource={resource} listData={null} />
+    const builderResource = activeAction ? buildActionResource(resource, activeAction) : resource
+    return <ConsoleBuilder resource={builderResource} listData={null} />
   }
 
   if (activeAction) {
-    const actionTemplate = selectActionTemplate(activeAction)
+    // Action-page layouts are keyed by the action's route path, not the parent basePath
+    const actionLayout = state.layouts[activeAction.route.path] ?? null
+    const overrideTpl = actionLayout?.templateId
+      ? PAGE_TEMPLATES.find(t => t.id === actionLayout.templateId)
+      : undefined
+    const actionTemplate = overrideTpl ?? selectActionTemplate(activeAction)
     const ActionComponent = TEMPLATE_COMPONENTS[actionTemplate.id]
     if (ActionComponent) {
-      const method = activeAction.route.method.toUpperCase()
-      const syntheticOps: typeof resource.operations = {}
-      if (method === "GET") syntheticOps.read = activeAction
-      else if (method === "POST") syntheticOps.create = activeAction
-      else if (method === "PUT" || method === "PATCH") syntheticOps.update = activeAction
-      else if (method === "DELETE") syntheticOps.delete = activeAction
-
-      const actionResource: ConsoleResource = {
-        ...resource,
-        displayName: activeAction.label,
-        basePath: activeAction.route.path,
-        actions: [activeAction],
-        operations: syntheticOps,
-        createSchema: getRequestBodySchema(activeAction.route),
-        updateSchema: method === "PUT" || method === "PATCH" ? getRequestBodySchema(activeAction.route) : null,
-        listItemSchema: null,
-        detailSchema: null,
-      }
-      return <ActionComponent key={`${resource.basePath}:action:${state.activeActionIndex}`} resource={actionResource} />
+      const actionResource = buildActionResource(resource, activeAction)
+      return (
+        <ActionComponent
+          key={`${resource.basePath}:action:${state.activeActionIndex}`}
+          resource={actionResource}
+          // Empty object (not undefined) so templates don't fall back to the parent resource's activeLayout
+          layoutOverride={actionLayout ?? {}}
+        />
+      )
     }
     return <ActionListTemplate key={resource.basePath} resource={resource} />
   }

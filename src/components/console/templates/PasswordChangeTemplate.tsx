@@ -5,20 +5,25 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button"
 import { SchemaForm } from "@/components/schema/SchemaForm"
 import { useConsoleFetch } from "@/hooks/use-console-fetch"
-import type { ConsoleResource } from "@/lib/console/types"
+import { useConsoleContext } from "@/contexts/ConsoleContext"
+import { applyFieldLayout } from "@/lib/console/apply-layout"
 import { getRequestBodySchema } from "@/lib/console/schema-inference"
 import { toast } from "sonner"
+import type { TemplateProps } from "./index"
 
 type FormOutput = Record<string, unknown> | unknown[]
 
-export function PasswordChangeTemplate({ resource }: { resource: ConsoleResource }) {
+export function PasswordChangeTemplate({ resource, layoutOverride }: TemplateProps) {
   const { t } = useTranslation()
+  const { activeLayout } = useConsoleContext()
+  const layout = layoutOverride ?? activeLayout
   const { mutate, loading } = useConsoleFetch()
   const [formData, setFormData] = useState<FormOutput>({})
   const [success, setSuccess] = useState(false)
 
   const action = resource.actions.find(a => !!getRequestBodySchema(a.route)) ?? resource.operations.create ?? resource.operations.update
-  const schema = action ? getRequestBodySchema(action.route) : (resource.createSchema ?? resource.updateSchema)
+  const rawSchema = action ? getRequestBodySchema(action.route) : (resource.createSchema ?? resource.updateSchema)
+  const schema = rawSchema ? applyFieldLayout(rawSchema, layout?.formFields) : null
 
   const handleChange = useCallback((v: FormOutput) => setFormData(v), [])
 

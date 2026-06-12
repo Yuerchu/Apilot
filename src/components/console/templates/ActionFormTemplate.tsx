@@ -5,13 +5,18 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { SchemaForm } from "@/components/schema/SchemaForm"
 import { useConsoleFetch } from "@/hooks/use-console-fetch"
-import type { ConsoleResource, ResourceAction } from "@/lib/console/types"
+import { useConsoleContext } from "@/contexts/ConsoleContext"
+import { applyFieldLayout } from "@/lib/console/apply-layout"
+import type { FormFieldConfig, ResourceAction } from "@/lib/console/types"
 import { getRequestBodySchema } from "@/lib/console/schema-inference"
 import { toast } from "sonner"
+import type { TemplateProps } from "./index"
 
 type FormOutput = Record<string, unknown> | unknown[]
 
-export function ActionFormTemplate({ resource }: { resource: ConsoleResource }) {
+export function ActionFormTemplate({ resource, layoutOverride }: TemplateProps) {
+  const { activeLayout } = useConsoleContext()
+  const layout = layoutOverride ?? activeLayout
   return (
     <div className="flex flex-col gap-4 py-4 h-full overflow-auto">
       <div>
@@ -20,20 +25,22 @@ export function ActionFormTemplate({ resource }: { resource: ConsoleResource }) 
       </div>
       <div className="grid gap-4 max-w-3xl">
         {resource.actions.map((action, i) => (
-          <ActionCard key={i} action={action} />
+          // formFields apply to the first action card only (single-form layout config)
+          <ActionCard key={i} action={action} fieldConfigs={i === 0 ? layout?.formFields : undefined} />
         ))}
       </div>
     </div>
   )
 }
 
-function ActionCard({ action }: { action: ResourceAction }) {
+function ActionCard({ action, fieldConfigs }: { action: ResourceAction; fieldConfigs?: FormFieldConfig[] | undefined }) {
   const { t } = useTranslation()
   const { submitJson, loading } = useConsoleFetch()
   const [formData, setFormData] = useState<FormOutput>({})
   const [response, setResponse] = useState<string | null>(null)
 
-  const schema = getRequestBodySchema(action.route)
+  const rawSchema = getRequestBodySchema(action.route)
+  const schema = rawSchema ? applyFieldLayout(rawSchema, fieldConfigs) : null
   const handleChange = useCallback((v: FormOutput) => setFormData(v), [])
 
   const handleSubmit = async () => {

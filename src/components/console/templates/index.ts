@@ -1,4 +1,4 @@
-import type { ConsoleResource } from "@/lib/console/types"
+import type { ConsoleResource, ResourceLayout } from "@/lib/console/types"
 import { ConsoleListPage } from "../ConsoleListPage"
 import { LoginCardTemplate } from "./LoginCardTemplate"
 import { FormCenteredTemplate } from "./FormCenteredTemplate"
@@ -12,7 +12,12 @@ import { ConfigFormTemplate } from "./ConfigFormTemplate"
 import { SearchResultsTemplate } from "./SearchResultsTemplate"
 import { PasswordChangeTemplate } from "./PasswordChangeTemplate"
 
-export type TemplateComponent = React.ComponentType<{ resource: ConsoleResource }>
+export interface TemplateProps {
+  resource: ConsoleResource
+  layoutOverride?: ResourceLayout | undefined
+}
+
+export type TemplateComponent = React.ComponentType<TemplateProps>
 
 export const TEMPLATE_COMPONENTS: Record<string, TemplateComponent> = {
   "crud-table": ConsoleListPage,

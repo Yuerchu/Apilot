@@ -49,9 +49,10 @@ function detectPaginationParams(params: Parameter[]): { offsetParam: string | nu
   return { offsetParam, limitParam, isPageBased, sortParams }
 }
 
-export function ConsoleListPage({ resource, readOnly, columnLayoutOverride }: { resource: ConsoleResource; readOnly?: boolean | undefined; columnLayoutOverride?: import("@/lib/console/types").ColumnConfig[] | undefined }) {
+export function ConsoleListPage({ resource, readOnly, layoutOverride }: { resource: ConsoleResource; readOnly?: boolean | undefined; layoutOverride?: import("@/lib/console/types").ResourceLayout | undefined }) {
   const { t } = useTranslation()
   const { state: consoleState, dispatch, activeLayout } = useConsoleContext()
+  const layout = layoutOverride ?? activeLayout
   const auth = useAuthContext()
   const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
   const [data, setData] = useState<unknown>(null)
@@ -241,7 +242,7 @@ export function ConsoleListPage({ resource, readOnly, columnLayoutOverride }: { 
           <ConsoleTableView
             data={extractListData(data)}
             schema={resource.listItemSchema ?? undefined}
-            columnLayout={columnLayoutOverride ?? activeLayout?.columns}
+            columnLayout={layout?.columns}
             hasEdit={hasUpdate}
             hasDelete={hasDelete}
             onEdit={handleEdit}

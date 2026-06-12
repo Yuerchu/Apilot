@@ -7,13 +7,15 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useConsoleFetch } from "@/hooks/use-console-fetch"
 import { useConsoleContext } from "@/contexts/ConsoleContext"
-import type { ConsoleResource } from "@/lib/console/types"
+import { applyDetailLayout } from "@/lib/console/apply-layout"
 import { ConsoleFormDialog } from "../ConsoleFormDialog"
 import { ConsoleActionButton } from "../ConsoleActionButton"
+import type { TemplateProps } from "./index"
 
-export function DetailCardTemplate({ resource }: { resource: ConsoleResource }) {
+export function DetailCardTemplate({ resource, layoutOverride }: TemplateProps) {
   const { t } = useTranslation()
-  const { state, dispatch } = useConsoleContext()
+  const { state, dispatch, activeLayout } = useConsoleContext()
+  const layout = layoutOverride ?? activeLayout
   const { fetchJson, loading } = useConsoleFetch()
   const [data, setData] = useState<Record<string, unknown> | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -72,10 +74,10 @@ export function DetailCardTemplate({ resource }: { resource: ConsoleResource }) 
               <div className="rounded-md border overflow-hidden">
                 <table className="w-full text-sm">
                   <tbody>
-                    {Object.entries(data).map(([key, value]) => (
+                    {applyDetailLayout(data, layout?.detailFields).map(({ key, label, value }) => (
                       <tr key={key} className="border-b last:border-b-0">
                         <td className="px-3 py-2 font-mono text-xs font-medium text-muted-foreground w-[180px] align-top bg-muted/20">
-                          {key}
+                          {label}
                         </td>
                         <td className="px-3 py-2 break-all">{renderValue(value)}</td>
                       </tr>

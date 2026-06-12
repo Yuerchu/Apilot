@@ -7,13 +7,17 @@ import { AgCharts } from "ag-charts-react"
 import { ModuleRegistry, AllCommunityModule } from "ag-charts-community"
 import type { AgChartOptions } from "ag-charts-community"
 import { useConsoleFetch } from "@/hooks/use-console-fetch"
+import { useConsoleContext } from "@/contexts/ConsoleContext"
+import { categorizeStats } from "@/lib/console/apply-layout"
 import { useTheme } from "next-themes"
-import type { ConsoleResource } from "@/lib/console/types"
 import { ConsoleActionButton } from "../ConsoleActionButton"
+import type { TemplateProps } from "./index"
 
 ModuleRegistry.registerModules([AllCommunityModule])
 
-export function StatsDashboardTemplate({ resource }: { resource: ConsoleResource }) {
+export function StatsDashboardTemplate({ resource, layoutOverride }: TemplateProps) {
+  const { activeLayout } = useConsoleContext()
+  const layout = layoutOverride ?? activeLayout
   const { fetchJson, loading } = useConsoleFetch()
   const [data, setData] = useState<Record<string, unknown> | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -32,11 +36,12 @@ export function StatsDashboardTemplate({ resource }: { resource: ConsoleResource
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  const { statCards, chartData } = useMemo(() => categorizeFields(data), [data])
+  const statsConfig = layout?.statsConfig
+  const { statCards, chartData } = useMemo(() => categorizeStats(data, statsConfig), [data, statsConfig])
   const { resolvedTheme } = useTheme()
   const chartOptions = useMemo(
-    () => buildChartOptions(chartData, resolvedTheme === "dark"),
-    [chartData, resolvedTheme],
+    () => buildChartOptions(chartData, resolvedTheme === "dark", statsConfig),
+    [chartData, resolvedTheme, statsConfig],
   )
 
   return (
@@ -95,40 +100,6 @@ export function StatsDashboardTemplate({ resource }: { resource: ConsoleResource
   )
 }
 
-interface StatCard {
-  key: string
-  label: string
-  value: unknown
-}
-
-interface ChartDataPoint {
-  label: string
-  value: number
-}
-
-function categorizeFields(data: Record<string, unknown> | null): { statCards: StatCard[]; chartData: ChartDataPoint[] } {
-  if (!data || Array.isArray(data)) return { statCards: [], chartData: [] }
-  const statCards: StatCard[] = []
-  const chartData: ChartDataPoint[] = []
-
-  for (const [key, value] of Object.entries(data)) {
-    if (typeof value === "number" && Number.isFinite(value)) {
-      const label = key.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
-      statCards.push({ key, label, value })
-      chartData.push({ label, value })
-    } else if (typeof value === "string" && value.trim() !== "") {
-      const num = Number(value)
-      if (Number.isFinite(num)) {
-        const label = key.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase())
-        statCards.push({ key, label, value: num })
-        chartData.push({ label, value: num })
-      }
-    }
-  }
-
-  return { statCards, chartData }
-}
-
 function formatStatValue(value: unknown): string {
   if (typeof value === "number") {
     if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
@@ -138,12 +109,16 @@ function formatStatValue(value: unknown): string {
   return String(value)
 }
 
-function buildChartOptions(data: ChartDataPoint[], dark: boolean): AgChartOptions {
+function buildChartOptions(
+  data: Array<{ label: string; value: number }>,
+  dark: boolean,
+  config?: import("@/lib/console/types").StatsConfig | undefined,
+): AgChartOptions {
   return {
     data,
-    series: [{ type: "bar", xKey: "label", yKey: "value" }],
+    series: [{ type: config?.chartType ?? "bar", xKey: "label", yKey: "value" }],
     background: { fill: "transparent" },
-    height: 300,
+    height: config?.chartHeight ?? 300,
     theme: dark ? "ag-default-dark" : "ag-default",
   }
 }

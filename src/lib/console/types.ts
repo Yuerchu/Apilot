@@ -67,10 +67,36 @@ export interface FormFieldConfig {
   widgetType?: string | undefined
 }
 
+export interface DetailFieldConfig {
+  field: string
+  visible: boolean
+  order: number
+  label?: string | undefined
+}
+
+export interface StatsConfig {
+  excludeFields?: string[] | undefined
+  chartType?: "bar" | "line" | "area" | undefined
+  chartHeight?: number | undefined
+  fieldLabels?: Record<string, string> | undefined
+}
+
+export interface SearchConfig {
+  titleField?: string | undefined
+  descField?: string | undefined
+  badgeFields?: string[] | undefined
+}
+
+export type EditableDimension = "columns" | "create" | "update" | "form" | "detail" | "stats" | "search"
+
 export interface ResourceLayout {
   columns?: ColumnConfig[] | undefined
   createFields?: FormFieldConfig[] | undefined
   updateFields?: FormFieldConfig[] | undefined
+  formFields?: FormFieldConfig[] | undefined
+  detailFields?: DetailFieldConfig[] | undefined
+  statsConfig?: StatsConfig | undefined
+  searchConfig?: SearchConfig | undefined
   displayNameOverride?: string | undefined
   templateId?: string | undefined
 }
