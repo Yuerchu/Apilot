@@ -30,6 +30,8 @@ export function DateTimePicker({
 }: DateTimePickerProps) {
   const { t } = useTranslation()
   const [open, setOpen] = React.useState(false)
+  // Draft holds in-progress time text; committed to value once it parses
+  const [timeDraft, setTimeDraft] = React.useState<string | null>(null)
 
   // Parse value to Date
   const date = React.useMemo(() => {
@@ -59,10 +61,11 @@ export function DateTimePicker({
   }
 
   const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const t = e.target.value
-    if (!t) return
+    const text = e.target.value
+    setTimeDraft(text)
+    if (!/^\d{2}:\d{2}(:\d{2})?$/.test(text)) return
     const base = date || new Date()
-    const parsed = parse(t, "HH:mm:ss", base)
+    const parsed = parse(text, text.length === 5 ? "HH:mm" : "HH:mm:ss", base)
     if (isNaN(parsed.getTime())) return
     onChange(parsed.toISOString())
   }
@@ -93,7 +96,7 @@ export function DateTimePicker({
             {displayText || placeholder || (mode === "date" ? t("datePicker.selectDate") : t("datePicker.selectDateTime"))}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-fit p-0" align="start">
           <Calendar
             mode="single"
             onSelect={handleDateSelect}
@@ -103,11 +106,11 @@ export function DateTimePicker({
           {mode === "datetime" && (
             <div className="border-t px-3 py-2">
               <Input
-                type="time"
-                step="1"
-                value={timeStr}
+                value={timeDraft ?? timeStr}
                 onChange={handleTimeChange}
-                className="h-8 text-xs font-mono appearance-none bg-background [&::-webkit-calendar-picker-indicator]:hidden"
+                onBlur={() => setTimeDraft(null)}
+                placeholder="HH:mm:ss"
+                className="h-8 text-xs font-mono bg-background"
               />
             </div>
           )}

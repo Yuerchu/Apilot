@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Loader2 } from "lucide-react"
 import { Send } from "@/components/animate-ui/icons/send"
 import type { ParsedRoute, SchemaObject } from "@/lib/openapi/types"
-import { resolveEffectiveSchema } from "@/lib/openapi/resolve-schema"
+import { resolveEffectiveSchema, getObjectVariants } from "@/lib/openapi/resolve-schema"
 import { getTypeStr, getConstraints } from "@/lib/openapi/type-str"
 import { generateExample } from "@/lib/openapi/generate-example"
 import { formatSchema } from "@/lib/openapi/format-schema"
@@ -17,6 +17,7 @@ import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { buildSnippet, SNIPPET_TARGETS } from "@/lib/build-snippet"
 import { SchemaForm } from "@/components/schema/SchemaForm"
 import { SchemaInput } from "@/components/schema/SchemaInput"
+import { FilePicker } from "@/components/ui/file-picker"
 import { JsonEditor } from "@/components/editor/JsonEditor"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -74,7 +75,7 @@ function ParameterField({
 function FormDataFields({
   schema,
   values,
-  fileValues: _fileValues,
+  fileValues,
   onChange,
   onFileChange,
 }: {
@@ -107,10 +108,9 @@ function FormDataFields({
             <div className="text-xs text-muted-foreground">{typeStr}</div>
             <div>
               {(ep.format === "binary" || ep.format === "base64" || ep.type === "file") ? (
-                <Input
-                  type="file"
-                  className="h-8 text-sm"
-                  onChange={e => onFileChange(key, e.target.files?.[0] || null)}
+                <FilePicker
+                  file={fileValues[key] ?? null}
+                  onChange={file => onFileChange(key, file)}
                 />
               ) : ep.type === "boolean" ? (
                 <Select value={values[key] || ""} onValueChange={v => onChange(key, v)}>
@@ -321,7 +321,8 @@ export function TryTab({ route, index: _index }: TryTabProps) {
   const hasObjectSchema = resolvedBodySchema && (resolvedBodySchema.type === "object" || resolvedBodySchema.properties)
   const hasArrayEnumSchema = resolvedBodySchema?.type === "array" && resolvedBodySchema.items
     && !!(resolveEffectiveSchema(resolvedBodySchema.items as SchemaObject).enum)
-  const hasFormableSchema = hasObjectSchema || hasArrayEnumSchema
+  const hasVariantSchema = !!resolvedBodySchema && !hasObjectSchema && getObjectVariants(resolvedBodySchema).length > 0
+  const hasFormableSchema = hasObjectSchema || hasArrayEnumSchema || hasVariantSchema
 
   // Live snippet preview
   const [snippetLang, setSnippetLang] = useState("shell-curl")
@@ -455,6 +456,7 @@ export function TryTab({ route, index: _index }: TryTabProps) {
                     onChange={handleFormChange}
                     showErrors={showErrors}
                     defaultExcludeOptional={route.method === "patch"}
+                    toolbar="full"
                   />
                 </div>
                 <div className="sticky top-0">

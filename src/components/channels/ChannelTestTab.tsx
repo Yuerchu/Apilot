@@ -5,6 +5,7 @@ import { useWebSocket, type WsMessage } from "@/hooks/use-websocket"
 import { resolveServerUrl } from "@/lib/asyncapi/parser"
 import { generateExample } from "@/lib/openapi/generate-example"
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -194,8 +195,8 @@ export function ChannelTestTab({ channel }: { channel: ParsedChannel }) {
           </Button>
         </div>
 
-        <textarea
-          className="w-full h-32 text-xs font-mono bg-background border rounded-md p-2 resize-y"
+        <Textarea
+          className="h-32 w-full resize-y bg-background p-2 font-mono text-xs"
           value={bodyJson}
           onChange={(e) => setBodyJson(e.target.value)}
           placeholder='{"type": "..."}'

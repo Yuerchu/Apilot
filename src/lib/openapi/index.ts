@@ -27,7 +27,7 @@ export type {
 } from './types'
 
 export { getParsedRouteKey, getRouteKey } from './route-key'
-export { resolveEffectiveSchema } from './resolve-schema'
+export { resolveEffectiveSchema, getObjectVariants } from './resolve-schema'
 export { getTypeStr, getConstraints } from './type-str'
 export { generateExample } from './generate-example'
 export { formatSchema } from './format-schema'

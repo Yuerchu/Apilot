@@ -3,10 +3,9 @@ import { X, Check, ChevronsUpDown } from "lucide-react"
 import { useForm, Controller, useFieldArray, type Control, type UseFormReturn } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import type { SchemaObject } from "@/lib/openapi"
-import { resolveEffectiveSchema, getTypeStr, getConstraints, generateExample } from "@/lib/openapi"
+import { resolveEffectiveSchema, getObjectVariants, getTypeStr, getConstraints, generateExample } from "@/lib/openapi"
 import { validateWithSchema } from "@/lib/validate-schema"
 import { cn } from "@/lib/utils"
-import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,6 +16,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Command,
   CommandEmpty,
   CommandGroup,
@@ -24,21 +30,30 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { FilePicker } from "@/components/ui/file-picker"
 
 import { Checkbox } from "@/components/ui/checkbox"
 
-interface ExcludedFieldsContextValue {
+type SortMode = "spec" | "required-first"
+
+interface FieldViewContextValue {
   excluded: Set<string>
   toggle: (fieldName: string) => void
+  /** Hide optional fields that are currently excluded (view filter only) */
+  requiredOnly: boolean
+  sortMode: SortMode
 }
 
-const ExcludedFieldsContext = createContext<ExcludedFieldsContextValue>({
+const FieldViewContext = createContext<FieldViewContextValue>({
   excluded: new Set(),
   toggle: () => {},
+  requiredOnly: false,
+  sortMode: "spec",
 })
 
-function useExcludedFields() {
-  return useContext(ExcludedFieldsContext)
+function useFieldView() {
+  return useContext(FieldViewContext)
 }
 
 type SchemaFormValues = Record<string, unknown>
@@ -53,6 +68,8 @@ interface SchemaFormProps {
   onChange: (value: SchemaFormOutput) => void
   prefix?: string
   showErrors?: boolean
+  /** "full" adds required-only filter and sorting (Try It); "bulk" keeps only select all/none (console default) */
+  toolbar?: "full" | "bulk"
 }
 
 function customResolver(schema: SchemaObject) {
@@ -73,28 +90,48 @@ function FieldLabel({
   isRequired,
   constraints,
   description,
+  prop,
 }: {
   name: string
   typeStr: string
   isRequired: boolean
   constraints: string
   description: string
+  prop?: SchemaObject
 }) {
-  const { t } = useTranslation()
+  const hasDetails = !!(typeStr || constraints.trim() || prop?.default !== undefined || prop?.example !== undefined)
+  const fieldName = (
+    <span
+      className={cn(
+        "font-mono text-xs font-medium text-foreground",
+        hasDetails && "cursor-help border-b border-dotted border-muted-foreground/50",
+      )}
+    >
+      {name}
+    </span>
+  )
   return (
     <div className="flex flex-wrap items-center gap-1.5 mb-1">
-      <span className="font-mono text-xs font-medium text-foreground">{name}</span>
-      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal">
-        {typeStr}
-      </Badge>
-      {isRequired && (
-        <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 font-normal">
-          {t("tryIt.required")}
-        </Badge>
+      {hasDetails ? (
+        <Tooltip delayDuration={200}>
+          <TooltipTrigger asChild>{fieldName}</TooltipTrigger>
+          <TooltipContent side="top" align="start" className="max-w-[340px]">
+            <div className="space-y-0.5 text-xs">
+              {typeStr && <div className="font-mono">{typeStr}</div>}
+              {constraints.trim() && <div className="font-mono text-[11px] opacity-80">{constraints.trim()}</div>}
+              {prop?.default !== undefined && (
+                <div className="text-[11px]">default: <span className="font-mono">{JSON.stringify(prop.default)}</span></div>
+              )}
+              {prop?.example !== undefined && (
+                <div className="text-[11px]">example: <span className="font-mono">{JSON.stringify(prop.example)}</span></div>
+              )}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        fieldName
       )}
-      {constraints && (
-        <span className="text-[10px] text-muted-foreground">{constraints.trim()}</span>
-      )}
+      {isRequired && <span className="text-xs font-medium leading-none text-destructive">*</span>}
       {description && (
         <span className="text-[10px] text-muted-foreground truncate max-w-[300px]" title={description}>
           {description}
@@ -243,6 +280,7 @@ function ArrayField({
           isRequired={isRequired}
           constraints={constraints}
           description={desc}
+          prop={effectiveProp}
         />
         <div className="ml-3 pl-3 border-l-2 border-border/50 space-y-3">
           {fields.map((field, index) => (
@@ -297,6 +335,7 @@ function ArrayField({
           isRequired={isRequired}
           constraints={constraints}
           description={desc}
+          prop={effectiveProp}
         />
         <Controller
           name={fieldName}
@@ -326,6 +365,7 @@ function ArrayField({
         isRequired={isRequired}
         constraints={constraints}
         description={desc}
+        prop={effectiveProp}
       />
       <Controller
         name={fieldName}
@@ -372,7 +412,7 @@ function FormField({
   showErrors: boolean
 }) {
   const { t } = useTranslation()
-  const { excluded, toggle } = useExcludedFields()
+  const { excluded, toggle, requiredOnly } = useFieldView()
   const effectiveProp = resolveEffectiveSchema(prop)
   const isNullable = effectiveProp._nullable || false
   const typeStr = getTypeStr(prop)
@@ -386,8 +426,13 @@ function FormField({
     const v = form.getValues(fieldName)
     return v === undefined || v === null || v === ""
   })()
-  const hasError = isRequired && isEmpty && (fieldState.isTouched || !!showErrors)
+  const showFieldError = fieldState.isTouched || !!showErrors
+  const requiredError = isRequired && isEmpty
+  const validationMessage = fieldState.error?.message
+  const hasError = showFieldError && (requiredError || !!validationMessage)
   const errorClass = hasError ? "border-destructive focus-visible:ring-destructive/30" : ""
+
+  if (!isRequired && requiredOnly && isExcluded) return null
 
   const fieldContent = renderFieldContent()
   if (!isRequired) {
@@ -417,6 +462,7 @@ function FormField({
           isRequired={isRequired}
           constraints={constraints}
           description={desc}
+          prop={effectiveProp}
         />
         <div className="ml-3 pl-3 border-l-2 border-border/50 space-y-3">
           <FormFields
@@ -454,18 +500,15 @@ function FormField({
           isRequired={isRequired}
           constraints={constraints}
           description={desc}
+          prop={effectiveProp}
         />
         <Controller
           name={fieldName}
           control={form.control}
           render={({ field }) => (
-            <Input
-              type="file"
-              className="h-8 text-xs"
-              onChange={(e) => {
-                const file = e.target.files?.[0] ?? null
-                field.onChange(file)
-              }}
+            <FilePicker
+              file={field.value instanceof File ? field.value : null}
+              onChange={file => field.onChange(file)}
             />
           )}
         />
@@ -482,6 +525,7 @@ function FormField({
         isRequired={isRequired}
         constraints={constraints}
         description={desc}
+        prop={effectiveProp}
       />
       <Controller
         name={fieldName}
@@ -511,7 +555,11 @@ function FormField({
           )
         }}
       />
-      {hasError && <span className="text-[11px] text-destructive">{t("tryIt.fieldRequired")}</span>}
+      {hasError && (
+        <span className="text-[11px] text-destructive">
+          {requiredError ? t("tryIt.fieldRequired") : validationMessage}
+        </span>
+      )}
     </div>
   )
   } // end renderFieldContent
@@ -528,12 +576,19 @@ function FormFields({
   form: UseFormReturn<SchemaFormValues>
   showErrors: boolean
 }) {
+  const { sortMode } = useFieldView()
   if (!schema.properties) return null
   const required = new Set(schema.required || [])
 
+  let entries = Object.entries(schema.properties)
+  if (sortMode === "required-first") {
+    // Stable partition: required fields first, both halves keep spec order
+    entries = [...entries.filter(([k]) => required.has(k)), ...entries.filter(([k]) => !required.has(k))]
+  }
+
   return (
     <>
-      {Object.entries(schema.properties).map(([key, prop]) => (
+      {entries.map(([key, prop]) => (
         <FormField
           key={key}
           name={key}
@@ -561,7 +616,7 @@ function stripExcludedFields(obj: unknown, excluded: Set<string>, prefix = ""): 
   return result
 }
 
-export function SchemaForm({ schema, value, onChange, prefix: _prefix, showErrors = false, defaultExcludeOptional = false }: SchemaFormProps) {
+export function SchemaForm({ schema, value, onChange, prefix: _prefix, showErrors = false, defaultExcludeOptional = false, toolbar = "bulk" }: SchemaFormProps) {
   if (!schema) return null
 
   const resolved = resolveEffectiveSchema(schema)
@@ -582,45 +637,138 @@ export function SchemaForm({ schema, value, onChange, prefix: _prefix, showError
     }
   }
 
+  // Top-level anyOf/oneOf with multiple object variants (e.g. FastAPI Union bodies)
+  // → variant selector + form for the selected variant
   if (!resolved.properties && resolved.type !== "object") {
+    const objectVariants = getObjectVariants(resolved)
+    if (objectVariants.length > 0) {
+      return (
+        <VariantSchemaForm
+          variants={objectVariants}
+          value={Array.isArray(value) ? {} : value}
+          onChange={onChange}
+          showErrors={showErrors}
+          defaultExcludeOptional={defaultExcludeOptional}
+          toolbar={toolbar}
+        />
+      )
+    }
     return null
   }
 
   const objectValue = Array.isArray(value) ? {} : value
-  return <ObjectSchemaForm schema={resolved} value={objectValue} onChange={onChange} showErrors={showErrors} defaultExcludeOptional={defaultExcludeOptional} />
+  return <ObjectSchemaForm schema={resolved} value={objectValue} onChange={onChange} showErrors={showErrors} defaultExcludeOptional={defaultExcludeOptional} toolbar={toolbar} />
 }
 
-function BulkFieldActions({
+function VariantSchemaForm({ variants, value, onChange, showErrors, defaultExcludeOptional, toolbar }: {
+  variants: (SchemaObject & { _nullable: boolean })[]
+  value: SchemaFormValues
+  onChange: (value: SchemaFormOutput) => void
+  showErrors: boolean
+  defaultExcludeOptional?: boolean
+  toolbar?: "full" | "bulk"
+}) {
+  const { t } = useTranslation()
+  const [variantIdx, setVariantIdx] = useState(0)
+  const variant = variants[variantIdx]!
+
+  const handleVariantChange = (idx: string) => {
+    const next = parseInt(idx, 10)
+    if (next === variantIdx) return
+    setVariantIdx(next)
+    const example = generateExample(variants[next]!)
+    onChange(typeof example === "object" && example !== null && !Array.isArray(example) ? example as SchemaFormValues : {})
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground shrink-0">{t("schemaForm.variant")}</span>
+        <Select value={String(variantIdx)} onValueChange={handleVariantChange}>
+          <SelectTrigger className="h-7 text-xs flex-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {variants.map((v, i) => (
+              <SelectItem key={i} value={String(i)} className="text-xs">
+                {v.title || t("schemaForm.variantN", { n: i + 1 })}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <ObjectSchemaForm
+        key={variantIdx}
+        schema={variant}
+        value={value}
+        onChange={onChange}
+        showErrors={showErrors}
+        defaultExcludeOptional={defaultExcludeOptional ?? false}
+        toolbar={toolbar}
+      />
+    </div>
+  )
+}
+
+function FieldToolbar({
+  mode,
   onSelectAll,
   onSelectNone,
-  onInvert,
+  requiredOnly,
+  onRequiredOnlyChange,
+  sortMode,
+  onSortModeChange,
   includedCount,
   totalCount,
 }: {
+  mode: "full" | "bulk"
   onSelectAll: () => void
   onSelectNone: () => void
-  onInvert: () => void
+  requiredOnly: boolean
+  onRequiredOnlyChange: (v: boolean) => void
+  sortMode: SortMode
+  onSortModeChange: (v: SortMode) => void
   includedCount: number
   totalCount: number
 }) {
   const { t } = useTranslation()
   return (
-    <div className="flex items-center gap-2 text-xs">
+    <div className="flex flex-wrap items-center gap-2 text-xs">
       <span className="text-muted-foreground">{t("schemaForm.fieldCount", { included: includedCount, total: totalCount })}</span>
       <div className="flex-1" />
+      {mode === "full" && (
+        <>
+          <Button
+            variant={requiredOnly ? "secondary" : "ghost"}
+            size="xs"
+            type="button"
+            onClick={() => onRequiredOnlyChange(!requiredOnly)}
+          >
+            {t("schemaForm.requiredOnly")}
+          </Button>
+          <Button
+            variant={sortMode === "required-first" ? "secondary" : "ghost"}
+            size="xs"
+            type="button"
+            onClick={() => onSortModeChange(sortMode === "required-first" ? "spec" : "required-first")}
+          >
+            {t("schemaForm.sortRequiredFirst")}
+          </Button>
+        </>
+      )}
       <Button variant="ghost" size="xs" type="button" onClick={onSelectAll}>{t("schemaForm.selectAll")}</Button>
-      <Button variant="ghost" size="xs" type="button" onClick={onInvert}>{t("schemaForm.invert")}</Button>
       <Button variant="ghost" size="xs" type="button" onClick={onSelectNone}>{t("schemaForm.selectNone")}</Button>
     </div>
   )
 }
 
-function ObjectSchemaForm({ schema, value, onChange, showErrors, defaultExcludeOptional = false }: {
+function ObjectSchemaForm({ schema, value, onChange, showErrors, defaultExcludeOptional = false, toolbar = "bulk" }: {
   schema: SchemaObject
   value: SchemaFormValues
   onChange: (value: SchemaFormOutput) => void
   showErrors: boolean
   defaultExcludeOptional?: boolean
+  toolbar?: "full" | "bulk" | undefined
 }) {
   const form = useForm<SchemaFormValues>({
     defaultValues: value,
@@ -632,6 +780,8 @@ function ObjectSchemaForm({ schema, value, onChange, showErrors, defaultExcludeO
     const required = new Set(schema.required || [])
     return new Set(Object.keys(schema.properties).filter(k => !required.has(k)))
   })
+  const [requiredOnly, setRequiredOnly] = useState(false)
+  const [sortMode, setSortMode] = useState<SortMode>("spec")
   const toggleExcluded = useCallback((fieldName: string) => {
     setExcluded(prev => {
       const next = new Set(prev)
@@ -640,7 +790,10 @@ function ObjectSchemaForm({ schema, value, onChange, showErrors, defaultExcludeO
       return next
     })
   }, [])
-  const excludedCtx = useMemo(() => ({ excluded, toggle: toggleExcluded }), [excluded, toggleExcluded])
+  const fieldViewCtx = useMemo(
+    () => ({ excluded, toggle: toggleExcluded, requiredOnly, sortMode }),
+    [excluded, toggleExcluded, requiredOnly, sortMode],
+  )
 
   const syncingRef = useRef(false)
   const lastJsonRef = useRef(JSON.stringify(value))
@@ -692,24 +845,19 @@ function ObjectSchemaForm({ schema, value, onChange, showErrors, defaultExcludeO
 
   const selectAll = useCallback(() => setExcluded(new Set()), [])
   const selectNone = useCallback(() => setExcluded(new Set(optionalFields)), [optionalFields])
-  const invertSelection = useCallback(() => {
-    setExcluded(prev => {
-      const next = new Set<string>()
-      for (const f of optionalFields) {
-        if (!prev.has(f)) next.add(f)
-      }
-      return next
-    })
-  }, [optionalFields])
 
   return (
-    <ExcludedFieldsContext.Provider value={excludedCtx}>
+    <FieldViewContext.Provider value={fieldViewCtx}>
       <div className="space-y-3">
         {optionalFields.length > 0 && (
-          <BulkFieldActions
+          <FieldToolbar
+            mode={toolbar}
             onSelectAll={selectAll}
             onSelectNone={selectNone}
-            onInvert={invertSelection}
+            requiredOnly={requiredOnly}
+            onRequiredOnlyChange={setRequiredOnly}
+            sortMode={sortMode}
+            onSortModeChange={setSortMode}
             includedCount={optionalFields.length - optionalFields.filter(f => excluded.has(f)).length}
             totalCount={optionalFields.length}
           />
@@ -721,6 +869,6 @@ function ObjectSchemaForm({ schema, value, onChange, showErrors, defaultExcludeO
           showErrors={showErrors}
         />
       </div>
-    </ExcludedFieldsContext.Provider>
+    </FieldViewContext.Provider>
   )
 }

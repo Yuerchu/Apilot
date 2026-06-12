@@ -116,6 +116,8 @@ export interface SchemaObject extends Record<string, unknown> {
   example?: unknown
   nullable?: boolean
   "x-nullable"?: boolean
+  /** Widget override injected from console builder layout (presentation hint, stripped before validation) */
+  "x-widget"?: string
   allOf?: SchemaObject[]
   anyOf?: SchemaObject[]
   oneOf?: SchemaObject[]
@@ -125,6 +127,7 @@ export interface SchemaObject extends Record<string, unknown> {
   maximum?: number
   exclusiveMinimum?: number
   exclusiveMaximum?: number
+  multipleOf?: number
   minLength?: number
   maxLength?: number
   pattern?: string

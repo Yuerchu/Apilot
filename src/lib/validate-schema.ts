@@ -80,7 +80,7 @@ function stripInternalFields(schema: SchemaObject): Record<string, unknown> {
   const isNullable = schema.nullable === true || schema["x-nullable"] === true
   for (const [k, v] of Object.entries(schema)) {
     if (k.startsWith("_")) continue
-    if (k === "nullable" || k === "x-nullable") continue
+    if (k === "nullable" || k === "x-nullable" || k === "x-widget") continue
     if (k === "properties" && v && typeof v === "object") {
       const props: Record<string, unknown> = {}
       for (const [pk, pv] of Object.entries(v as Record<string, SchemaObject>)) {

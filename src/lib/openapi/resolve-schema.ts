@@ -79,3 +79,15 @@ export function resolveEffectiveSchema(schema: SchemaObject | undefined | null):
   }
   return { ...s, _nullable: nullable };
 }
+
+/**
+ * Resolve top-level anyOf/oneOf object variants (e.g. FastAPI Union request bodies).
+ * Returns resolved variants that are renderable as object forms, or [] if none.
+ */
+export function getObjectVariants(schema: SchemaObject): (SchemaObject & { _nullable: boolean })[] {
+  const variantList = (schema.anyOf || schema.oneOf) as SchemaObject[] | undefined;
+  if (!variantList) return [];
+  return variantList
+    .map(v => resolveEffectiveSchema(v))
+    .filter(v => v.properties || v.type === 'object');
+}

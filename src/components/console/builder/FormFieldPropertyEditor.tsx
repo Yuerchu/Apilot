@@ -3,28 +3,9 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { FormFieldConfig } from "@/lib/console/types"
+import { WIDGET_DEFS } from "@/lib/resolve-widget"
 
-const WIDGET_TYPES = [
-  { value: "", label: "Auto" },
-  { value: "input", label: "Input" },
-  { value: "textarea", label: "Textarea" },
-  { value: "select", label: "Select" },
-  { value: "combobox", label: "Combobox" },
-  { value: "switch", label: "Switch" },
-  { value: "checkbox", label: "Checkbox" },
-  { value: "radio", label: "Radio Group" },
-  { value: "slider", label: "Slider" },
-  { value: "date", label: "Date Picker" },
-  { value: "datetime", label: "DateTime Picker" },
-  { value: "number", label: "Number Input" },
-  { value: "password", label: "Password" },
-  { value: "email", label: "Email" },
-  { value: "url", label: "URL" },
-  { value: "phone", label: "Phone" },
-  { value: "file", label: "File Upload" },
-  { value: "color", label: "Color Picker" },
-  { value: "otp", label: "OTP Input" },
-]
+const WIDGET_TYPES = [{ value: "", label: "Auto" }, ...WIDGET_DEFS]
 
 interface FormFieldPropertyEditorProps {
   field: FormFieldConfig

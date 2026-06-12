@@ -40,7 +40,13 @@ function applyFieldLayout(schema: SchemaObject, fieldConfigs: FormFieldConfig[] 
     if (schema.properties[key]) {
       const cfg = configMap.get(key)
       const prop = schema.properties[key]
-      newProperties[key] = cfg?.label ? { ...prop, title: cfg.label } : prop
+      newProperties[key] = cfg?.label || cfg?.widgetType
+        ? {
+          ...prop,
+          ...(cfg.label ? { title: cfg.label } : {}),
+          ...(cfg.widgetType ? { "x-widget": cfg.widgetType } : {}),
+        }
+        : prop
     }
   }
 

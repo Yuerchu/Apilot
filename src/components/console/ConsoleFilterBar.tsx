@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DateTimePicker } from "@/components/ui/date-time-picker"
 import type { Parameter } from "@/lib/openapi/types"
 import { resolveEffectiveSchema } from "@/lib/openapi/resolve-schema"
 
@@ -147,10 +148,23 @@ function FilterField({ param, value, onChange }: { param: Parameter; value: stri
     )
   }
 
-  const inputType = type === "integer" || type === "number" ? "number"
-    : format === "date-time" ? "datetime-local"
-    : format === "date" ? "date"
-    : "text"
+  if (format === "date-time" || format === "date") {
+    return (
+      <div className="space-y-1 min-w-[180px] max-w-[260px]">
+        <Label className="text-[11px] text-muted-foreground truncate block" title={`${param.name}: ${description}`}>
+          {label}
+        </Label>
+        <DateTimePicker
+          value={value}
+          onChange={onChange}
+          mode={format === "date" ? "date" : "datetime"}
+          placeholder={param.name}
+        />
+      </div>
+    )
+  }
+
+  const inputType = type === "integer" || type === "number" ? "number" : "text"
 
   return (
     <div className="space-y-1 min-w-[140px] max-w-[220px]">
