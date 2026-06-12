@@ -57,8 +57,8 @@ function useWorkspaceInfo() {
     : t("app.title")
   const CurrentIcon = specLoaded ? BookOpen : Upload
   const specVersion = state.specType === "asyncapi"
-    ? asyncState.info?.specVersion ? `AsyncAPI ${asyncState.info.specVersion}` : "AsyncAPI"
-    : state.spec?.openapi || state.spec?.swagger || ""
+    ? asyncState.info?.version || ""
+    : state.spec?.info?.version || ""
   const itemCount = state.specType === "asyncapi" ? asyncState.channels.length : state.routes.length
 
   return { t, state, specLoaded, currentTitle, CurrentIcon, specVersion, itemCount }
@@ -77,10 +77,15 @@ function StaticWorkspaceDisplay() {
           <div className="grid flex-1 text-left text-sm leading-tight">
             <span className="truncate font-semibold">{currentTitle}</span>
             {specLoaded && (
-              <span className="truncate text-xs text-muted-foreground">
-                {specVersion} · {state.specType === "asyncapi"
-                  ? t("sidebar.channelCount", { count: itemCount })
-                  : t("sidebar.endpointCount", { count: itemCount })}
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                {specVersion && (
+                  <Badge variant="outline" className="h-4 rounded-sm px-1 text-[10px]">{specVersion}</Badge>
+                )}
+                <span className="truncate">
+                  {state.specType === "asyncapi"
+                    ? t("sidebar.channelCount", { count: itemCount })
+                    : t("sidebar.endpointCount", { count: itemCount })}
+                </span>
               </span>
             )}
           </div>
@@ -157,10 +162,15 @@ function WorkspaceSwitcherDropdown() {
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">{displayTitle}</span>
                 {specLoaded && (
-                  <span className="truncate text-xs text-muted-foreground">
-                    {specVersion} · {state.specType === "asyncapi"
-                      ? t("sidebar.channelCount", { count: itemCount })
-                      : t("sidebar.endpointCount", { count: itemCount })}
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    {specVersion && (
+                      <Badge variant="outline" className="h-4 rounded-sm px-1 text-[10px]">{specVersion}</Badge>
+                    )}
+                    <span className="truncate">
+                      {state.specType === "asyncapi"
+                        ? t("sidebar.channelCount", { count: itemCount })
+                        : t("sidebar.endpointCount", { count: itemCount })}
+                    </span>
                   </span>
                 )}
               </div>
