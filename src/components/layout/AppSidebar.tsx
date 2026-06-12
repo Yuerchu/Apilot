@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { useAsyncAPIContext } from "@/contexts/AsyncAPIContext"
 import { useConsoleContext } from "@/contexts/ConsoleContext"
+import { ConsoleImportExport } from "@/components/console/ConsoleImportExport"
 import { useFavorites } from "@/hooks/use-favorites"
 import type { MainView } from "@/lib/openapi/types"
 import { APP_VERSION, GITHUB_URL, getBuildLabel } from "@/lib/app-info"
@@ -152,6 +153,7 @@ export function AppSidebar() {
             <SidebarGroupLabel>
               {t("sidebar.console")}
               <Badge variant="outline" className="ml-1.5 text-[9px] px-1 py-0">Beta</Badge>
+              <ConsoleImportExport />
             </SidebarGroupLabel>
             <SidebarMenu>
               {groups.map(group => (
