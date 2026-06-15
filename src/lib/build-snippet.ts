@@ -71,12 +71,15 @@ export async function buildSnippet(
     if (Array.isArray(result)) return result[0] || ""
     return result || ""
   } catch {
-    // Fallback to simple curl
-    const parts = [`curl -X ${method.toUpperCase()} '${url}'`]
+    // Fallback to simple curl. Values (url/header/body) may contain user input,
+    // so POSIX single-quote-escape every interpolation: ' -> '\'' . Without this,
+    // a value with a quote could close the quote and inject shell when pasted.
+    const q = (s: string) => `'${s.replace(/'/g, "'\\''")}'`
+    const parts = [`curl -X ${method.toUpperCase()} ${q(url)}`]
     for (const [k, v] of Object.entries(headers)) {
-      parts.push(`  -H '${k}: ${v}'`)
+      parts.push(`  -H ${q(`${k}: ${v}`)}`)
     }
-    if (body) parts.push(`  -d '${body}'`)
+    if (body) parts.push(`  -d ${q(body)}`)
     return parts.join(" \\\n")
   }
 }

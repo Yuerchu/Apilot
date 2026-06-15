@@ -11,6 +11,7 @@ import { useConsoleContext } from "@/contexts/ConsoleContext"
 import { applyDetailLayout, applyFieldLayout } from "@/lib/console/apply-layout"
 import { stableEqual } from "@/lib/console/template-utils"
 import { ConfirmDialog } from "../ConfirmDialog"
+import { PathParamFields, getPathParams, hasAllRequiredPathParams } from "../PathParamFields"
 import { toast } from "sonner"
 import type { TemplateProps } from "./index"
 
@@ -25,23 +26,25 @@ export function EditorSplitTemplate({ resource, layoutOverride }: TemplateProps)
   const [formData, setFormData] = useState<FormOutput>({})
   const [error, setError] = useState<string | null>(null)
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
+  const [pathParams, setPathParams] = useState<Record<string, string>>({})
 
   const readOp = resource.operations.read
   const updateOp = resource.operations.update
   const updateSchema = resource.updateSchema ? applyFieldLayout(resource.updateSchema, layout?.updateFields) : null
+  const needsInput = !!readOp && getPathParams(readOp.route).length > 0
 
   const dirty = useMemo(() => data !== null && !stableEqual(formData, data), [formData, data])
 
   const fetchDetail = useCallback(async () => {
-    if (!readOp) return
+    if (!readOp || !hasAllRequiredPathParams(readOp.route, pathParams)) return
     setError(null)
-    const { data: parsed, error: err } = await fetchJson<Record<string, unknown>>(readOp.route)
+    const { data: parsed, error: err } = await fetchJson<Record<string, unknown>>(readOp.route, pathParams)
     if (parsed) { setData(parsed); setFormData(parsed) }
     else setData(null)
     setError(err)
-  }, [readOp, fetchJson])
+  }, [readOp, fetchJson, pathParams])
 
-  useEffect(() => { fetchDetail() }, [fetchDetail])
+  useEffect(() => { if (!needsInput) fetchDetail() }, [needsInput, fetchDetail])
 
   const handleChange = useCallback((v: FormOutput) => setFormData(v), [])
 
@@ -52,7 +55,7 @@ export function EditorSplitTemplate({ resource, layoutOverride }: TemplateProps)
 
   const handleSave = async () => {
     if (!updateOp) return
-    const ok = await mutate(updateOp.route, { body: JSON.stringify(formData) })
+    const ok = await mutate(updateOp.route, { body: JSON.stringify(formData), params: pathParams })
     if (ok) { toast.success(t("console.updated")); fetchDetail() }
     else toast.error(t("console.updateFailed", { status: "" }))
   }
@@ -82,6 +85,16 @@ export function EditorSplitTemplate({ resource, layoutOverride }: TemplateProps)
         destructive
         onConfirm={() => { setDiscardConfirmOpen(false); fetchDetail() }}
       />
+
+      {needsInput && readOp && (
+        <PathParamFields
+          route={readOp.route}
+          values={pathParams}
+          onChange={setPathParams}
+          onLoad={fetchDetail}
+          loading={loading}
+        />
+      )}
 
       {error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">

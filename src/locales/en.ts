@@ -51,6 +51,7 @@ export default {
     login: "Login",
     authenticated: "Authenticated",
     detectedFromSpec: "Auto-detected from API spec",
+    plaintextWarning: "Credentials are stored unencrypted in this browser (IndexedDB) and can be read by any script running on this origin.",
     oauth2FlowNotSupported: "{{flow}} flow is not supported for auto-login, please paste a token manually",
   },
   toolbar: {
@@ -397,6 +398,7 @@ export default {
     graphExportFailed: "Graph export failed",
     shareCopied: "Share link copied",
     shareCopyFailed: "Could not copy share link",
+    credentialCrossHost: "Sending credentials to {{host}} — this host is not declared in the spec's servers",
     nonStandardProperties: "Document contains non-standard properties (e.g. itemSchema) not part of the OpenAPI spec. Auto-converted for compatibility.",
   },
   validation: {
@@ -406,6 +408,8 @@ export default {
     formRequired: 'Form field "{{name}}" is required',
     enterCredentials: "Please enter username and password",
     tokenUrlEmpty: "Token URL is empty",
+    tokenUrlInvalid: "Token URL is invalid",
+    tokenUrlInsecure: "Token URL must use HTTPS to send credentials securely",
     noAccessToken: "No access_token in response",
     fileReadFailed: "File read failed",
   },
@@ -623,6 +627,7 @@ export default {
     updateFailed: "Update failed: {{status}}",
     running: "Running...",
     execute: "Execute",
+    load: "Load",
     ok: "Success",
     requestFailed: "Request failed",
     tokenApplied: "Authenticated — token applied to the current environment",

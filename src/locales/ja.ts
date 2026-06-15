@@ -51,6 +51,7 @@ export default {
     login: "ログイン",
     authenticated: "認証済み",
     detectedFromSpec: "API 仕様から自動検出",
+    plaintextWarning: "認証情報はこのブラウザ(IndexedDB)に暗号化されずに保存され、このオリジンで実行される任意のスクリプトから読み取れます。",
     oauth2FlowNotSupported: "{{flow}} フローの自動ログインには対応していません。トークンを手動で貼り付けてください",
   },
   toolbar: {
@@ -397,6 +398,7 @@ export default {
     graphExportFailed: "グラフのエクスポートに失敗しました",
     shareCopied: "Share link copied",
     shareCopyFailed: "Could not copy share link",
+    credentialCrossHost: "{{host}} に認証情報を送信しています — このホストは spec のサーバーに宣言されていません",
     nonStandardProperties: "ドキュメントに OpenAPI 仕様外の非標準プロパティ（例: itemSchema）が含まれています。互換性のため自動変換しました。",
   },
   validation: {
@@ -406,6 +408,8 @@ export default {
     formRequired: 'フォームフィールド "{{name}}" は必須です',
     enterCredentials: "ユーザー名とパスワードを入力してください",
     tokenUrlEmpty: "Token URL が空です",
+    tokenUrlInvalid: "Token URL が無効です",
+    tokenUrlInsecure: "認証情報を安全に送信するには Token URL が HTTPS である必要があります",
     noAccessToken: "レスポンスに access_token がありません",
     fileReadFailed: "ファイルの読み取りに失敗しました",
   },
@@ -623,6 +627,7 @@ export default {
     updateFailed: "更新失敗：{{status}}",
     running: "実行中...",
     execute: "実行",
+    load: "読み込み",
     ok: "成功",
     requestFailed: "リクエストが失敗しました",
     tokenApplied: "認証済み — トークンが現在の環境に適用されました",

@@ -51,6 +51,7 @@ export default {
     login: "登录",
     authenticated: "已认证",
     detectedFromSpec: "已从 API 规范中自动检测",
+    plaintextWarning: "凭证以未加密形式存储在本浏览器(IndexedDB)中，本源下运行的任意脚本均可读取。",
     oauth2FlowNotSupported: "{{flow}} 流程暂不支持自动登录，请手动粘贴 Token",
   },
   toolbar: {
@@ -397,6 +398,7 @@ export default {
     graphExportFailed: "图谱导出失败",
     shareCopied: "分享链接已复制",
     shareCopyFailed: "分享链接复制失败",
+    credentialCrossHost: "正在向 {{host}} 发送凭证 —— 该主机不在 spec 声明的服务器列表中",
     nonStandardProperties: "文档包含不符合 OpenAPI 规范的非标准属性（如 itemSchema），已自动转换以兼容。",
   },
   validation: {
@@ -406,6 +408,8 @@ export default {
     formRequired: '表单字段 "{{name}}" 为必填项',
     enterCredentials: "请输入用户名和密码",
     tokenUrlEmpty: "Token URL 为空",
+    tokenUrlInvalid: "Token URL 无效",
+    tokenUrlInsecure: "Token URL 必须使用 HTTPS 以安全传输凭证",
     noAccessToken: "响应中无 access_token",
     fileReadFailed: "文件读取失败",
   },
@@ -624,6 +628,7 @@ export default {
     updateFailed: "更新失败：{{status}}",
     running: "执行中...",
     execute: "执行",
+    load: "加载",
     ok: "成功",
     requestFailed: "请求失败",
     tokenApplied: "已认证 — Token 已应用到当前环境",

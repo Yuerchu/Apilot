@@ -14,6 +14,7 @@ import type {
   SchemaObject,
   ServerObject,
 } from "./types"
+import { isExternalRefAllowed, originOf } from "./url-guard"
 
 export const HTTP_METHODS = ["get", "post", "put", "patch", "delete", "head", "options"] as const
 export type HttpMethod = (typeof HTTP_METHODS)[number]
@@ -21,15 +22,55 @@ export type HttpMethod = (typeof HTTP_METHODS)[number]
 const globalScope = globalThis as typeof globalThis & { Buffer?: typeof Buffer }
 globalScope.Buffer ??= Buffer
 
-const PARSER_OPTIONS = {
-  dereference: {
-    circular: "ignore",
-  },
-  resolve: {
-    external: true,
-    file: false,
-  },
-} satisfies ParserOptions
+// Origins an untrusted spec is allowed to pull external $ref from: the app's own
+// origin plus the origin the spec itself was loaded from. Everything else (other
+// hosts, internal/private addresses, non-http schemes) is refused.
+function computeAllowedOrigins(sourceUrl?: string): string[] {
+  const origins = new Set<string>()
+  if (typeof location !== "undefined" && location.origin && location.origin !== "null") {
+    origins.add(location.origin)
+  }
+  if (sourceUrl) {
+    const o = originOf(sourceUrl)
+    if (o) origins.add(o)
+  }
+  return [...origins]
+}
+
+// Build parser options whose http resolver vets every external $ref. Disallowed
+// refs are degraded to an empty schema (no request issued) and recorded in
+// `blocked`; the library's built-in unsafe-URL guard is a no-op in browsers, so
+// this is the actual SSRF defense.
+function buildParserOptions(allowedOrigins: string[], blocked: Set<string>): ParserOptions {
+  // @readme's ParserOptions only types `http.timeout`, but it forwards the full
+  // resolve config to @apidevtools/json-schema-ref-parser, whose http resolver
+  // honors canRead/read. Extracted to a variable so the literal excess-property
+  // check doesn't reject the (runtime-valid) canRead/read fields.
+  const httpResolver: { timeout?: number; canRead: RegExp; read: (file: { url: string }) => Promise<string> } = {
+    canRead: /^https?:\/\//i,
+    async read(file: { url: string }): Promise<string> {
+      if (!isExternalRefAllowed(file.url, allowedOrigins)) {
+        blocked.add(file.url)
+        return "{}"
+      }
+      const res = await fetch(file.url)
+      if (!res.ok) {
+        throw new Error(`Failed to fetch external $ref ${file.url}: ${res.status}`)
+      }
+      return await res.text()
+    },
+  }
+  return {
+    dereference: {
+      circular: "ignore",
+    },
+    resolve: {
+      external: true,
+      file: false,
+      http: httpResolver,
+    },
+  } satisfies ParserOptions
+}
 
 type ParserInput = Parameters<typeof parseOpenAPIDocument>[0]
 
@@ -88,25 +129,62 @@ export function sanitizeNonStandardExtensions(spec: OpenAPISpec): { spec: OpenAP
   return { spec: result, warnings }
 }
 
-export async function parseValidatedSpec(input: string | OpenAPISpec): Promise<{
+// After dereferencing with circular:"ignore", circular references remain as
+// literal { $ref } nodes. Tag them with _circular so format-schema / SchemaTree
+// can render "[circular]" and example generation can prune them (the marker the
+// types.ts comment always promised but nothing ever set).
+function markCircularRefs(root: unknown): void {
+  const seen = new WeakSet<object>()
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== "object" || seen.has(node)) return
+    seen.add(node)
+    if (Array.isArray(node)) {
+      node.forEach(walk)
+      return
+    }
+    const obj = node as Record<string, unknown>
+    if (typeof obj.$ref === "string" && obj._circular === undefined) {
+      obj._circular = obj.$ref
+    }
+    for (const v of Object.values(obj)) walk(v)
+  }
+  walk(root)
+}
+
+export async function parseValidatedSpec(
+  input: string | OpenAPISpec,
+  opts: { sourceUrl?: string } = {},
+): Promise<{
   spec: OpenAPISpec
   sourceSpec: OpenAPISpec
   warnings: string[]
 }> {
+  const blocked = new Set<string>()
+  const parserOptions = buildParserOptions(computeAllowedOrigins(opts.sourceUrl), blocked)
+
   const parserInput = asParserInput(input)
-  const sourceSpec = await parseOpenAPIDocument(parserInput, PARSER_OPTIONS) as OpenAPISpec
+  const sourceSpec = await parseOpenAPIDocument(parserInput, parserOptions) as OpenAPISpec
 
   // Sanitize non-standard properties before validation
   const { spec: sanitizedSource, warnings } = sanitizeNonStandardExtensions(sourceSpec)
 
   const validationInput = asParserInput(cloneSpec(sanitizedSource))
-  const validation = await validate(validationInput, PARSER_OPTIONS)
+  const validation = await validate(validationInput, parserOptions)
   if (!validation.valid) {
     throw new Error(formatValidationError(validation))
   }
 
   const dereferenceInput = asParserInput(cloneSpec(sanitizedSource))
-  const spec = await dereference(dereferenceInput, PARSER_OPTIONS)
+  const spec = await dereference(dereferenceInput, parserOptions)
+  markCircularRefs(spec)
+
+  if (blocked.size > 0) {
+    const sample = [...blocked].slice(0, 5).join(", ")
+    warnings.push(
+      `Blocked ${blocked.size} external $ref pointer(s) targeting untrusted or internal URLs `
+      + `(SSRF protection): ${sample}${blocked.size > 5 ? ", …" : ""}. These were replaced with empty schemas.`,
+    )
+  }
 
   return {
     spec: spec as OpenAPISpec,

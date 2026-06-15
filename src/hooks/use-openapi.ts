@@ -24,6 +24,8 @@ import { detectSpecType, parseAsyncAPIDocument } from "@/lib/asyncapi/parser"
 import { getEnvironmentRuntimes, getSpecSettings, putSpecFromDocument } from "@/lib/db"
 import { computeSpecId } from "@/lib/spec-id"
 import { isEmbeddedMode } from "@/lib/embedded"
+import { isHttpUrl } from "@/lib/openapi/url-guard"
+import { readResponseTextCapped } from "@/lib/fetch-utils"
 
 function extractRoutes(spec: OpenAPISpec, sourceSpec: OpenAPISpec): {
   routes: ParsedRoute[]
@@ -132,7 +134,7 @@ export function useOpenAPI() {
   const yieldToUI = () => new Promise<void>(r => requestAnimationFrame(() => setTimeout(r, 0)))
 
   const processOpenAPISpec = useCallback(async (input: string | OpenAPISpec, url: string, baseUrlOverride?: string) => {
-    const { spec: parsedSpec, sourceSpec, warnings } = await parseValidatedSpec(input)
+    const { spec: parsedSpec, sourceSpec, warnings } = await parseValidatedSpec(input, { sourceUrl: url })
     if (warnings.length > 0) {
       toast.warning(i18n.t("toast.nonStandardProperties"), { duration: 8000 })
     }
@@ -194,7 +196,7 @@ export function useOpenAPI() {
 
   const loadFromUrl = useCallback(async (url: string, options?: { baseUrlOverride?: string; fetchAuth?: { username: string; password: string } }) => {
     if (!url.trim()) return
-    try { new URL(url) } catch {
+    if (!isHttpUrl(url)) {
       dispatch({ type: "SET_ERROR", error: i18n.t("error.invalidUrl") })
       return
     }
@@ -207,6 +209,8 @@ export function useOpenAPI() {
       if (options?.fetchAuth) {
         const { username, password } = options.fetchAuth
         fetchInit.headers = { Authorization: `Basic ${btoa(unescape(encodeURIComponent(`${username}:${password}`)))}` }
+        // Don't let a credentialed spec response land in the HTTP cache.
+        fetchInit.cache = "no-store"
       }
       try {
         response = await fetch(url, fetchInit)
@@ -232,7 +236,7 @@ export function useOpenAPI() {
         }
         throw new Error(i18n.t("error.fetchHttp", { status: response.status, statusText: response.statusText }))
       }
-      const text = await response.text()
+      const text = await readResponseTextCapped(response)
       const specType = detectSpecType(text)
       if (specType === "asyncapi") {
         await processAsyncAPISpec(text, url)

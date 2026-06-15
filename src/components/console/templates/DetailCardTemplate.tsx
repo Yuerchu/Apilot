@@ -10,6 +10,7 @@ import { useConsoleContext } from "@/contexts/ConsoleContext"
 import { applyDetailLayout } from "@/lib/console/apply-layout"
 import { ConsoleFormDialog } from "../ConsoleFormDialog"
 import { ConsoleActionButton } from "../ConsoleActionButton"
+import { PathParamFields, getPathParams, hasAllRequiredPathParams } from "../PathParamFields"
 import type { TemplateProps } from "./index"
 
 export function DetailCardTemplate({ resource, layoutOverride }: TemplateProps) {
@@ -19,19 +20,22 @@ export function DetailCardTemplate({ resource, layoutOverride }: TemplateProps) 
   const { fetchJson, loading } = useConsoleFetch()
   const [data, setData] = useState<Record<string, unknown> | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [pathParams, setPathParams] = useState<Record<string, string>>({})
 
   const readOp = resource.operations.read
   const hasUpdate = !!resource.operations.update
+  const needsInput = !!readOp && getPathParams(readOp.route).length > 0
 
   const fetchDetail = useCallback(async () => {
-    if (!readOp) return
+    if (!readOp || !hasAllRequiredPathParams(readOp.route, pathParams)) return
     setError(null)
-    const { data: parsed, error: err } = await fetchJson<Record<string, unknown>>(readOp.route)
+    const { data: parsed, error: err } = await fetchJson<Record<string, unknown>>(readOp.route, pathParams)
     setData(parsed)
     setError(err)
-  }, [readOp, fetchJson])
+  }, [readOp, fetchJson, pathParams])
 
-  useEffect(() => { fetchDetail() }, [fetchDetail])
+  // Auto-load only when no path parameter input is required.
+  useEffect(() => { if (!needsInput) fetchDetail() }, [needsInput, fetchDetail])
 
   return (
     <div className="flex flex-col gap-4 py-4 h-full overflow-auto">
@@ -56,6 +60,18 @@ export function DetailCardTemplate({ resource, layoutOverride }: TemplateProps) 
           </CardHeader>
 
           <CardContent>
+            {needsInput && readOp && (
+              <div className="mb-4">
+                <PathParamFields
+                  route={readOp.route}
+                  values={pathParams}
+                  onChange={setPathParams}
+                  onLoad={fetchDetail}
+                  loading={loading}
+                />
+              </div>
+            )}
+
             {error && (
               <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive mb-4">
                 {error}
@@ -92,7 +108,7 @@ export function DetailCardTemplate({ resource, layoutOverride }: TemplateProps) 
         {resource.actions.length > 0 && (
           <div className="flex items-center gap-2 mt-4 flex-wrap">
             {resource.actions.map((action, i) => (
-              <ConsoleActionButton key={i} action={action} />
+              <ConsoleActionButton key={i} action={action} pathParams={pathParams} />
             ))}
           </div>
         )}

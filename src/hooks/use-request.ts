@@ -1,7 +1,10 @@
 import { useState, useCallback, useRef } from "react"
+import { toast } from "sonner"
 import i18n from "@/lib/i18n"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { buildSnippet } from "@/lib/build-snippet"
+import { resolveServerUrl } from "@/lib/openapi/parser"
+import { isCrossHostTarget, originOf } from "@/lib/openapi/url-guard"
 import { validateWithSchema } from "@/lib/validate-schema"
 import { findTokenFields } from "@/lib/request-utils"
 import type {
@@ -25,7 +28,12 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
   const [loading, setLoading] = useState(false)
   const [response, setResponse] = useState<RequestResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Synchronous mirror of `error` so callers can read the latest failure reason
+  // immediately after sendRequest resolves null (state updates lag a render).
+  const errorRef = useRef<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  // Origins we've already warned about sending credentials to (warn once per host).
+  const warnedHostsRef = useRef<Set<string>>(new Set())
 
   const validateRequest = useCallback((
     route: ParsedRoute,
@@ -84,14 +92,16 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
   ): Promise<RequestResponse | null> => {
     const baseUrl = state.baseUrl.replace(/\/$/, "")
     if (!baseUrl) {
-      setError(i18n.t("validation.baseUrl"))
+      errorRef.current = i18n.t("validation.baseUrl")
+      setError(errorRef.current)
       return null
     }
 
     const validationErrors = validateRequest(route, params, body, contentType, formData)
     const firstValidationError = validationErrors[0]
     if (firstValidationError) {
-      setError(firstValidationError.message)
+      errorRef.current = firstValidationError.message
+      setError(errorRef.current)
       return null
     }
 
@@ -100,12 +110,14 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
     abortRef.current = controller
 
     setLoading(true)
+    errorRef.current = null
     setError(null)
     setResponse(null)
 
     let path = route.path
     const queryParams: string[] = []
-    const headers: Record<string, string> = { ...getAuthHeaders() }
+    const authHeaders = getAuthHeaders()
+    const headers: Record<string, string> = { ...authHeaders }
 
     for (const p of route.parameters || []) {
       let val = params[p.name] ?? ""
@@ -116,12 +128,25 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
       } else if (p.in === "query") {
         if (val) queryParams.push(`${encodeURIComponent(p.name)}=${encodeURIComponent(val)}`)
       } else if (p.in === "header") {
-        if (val) headers[p.name] = val
+        // Strip CR/LF to prevent header injection from user-supplied values.
+        if (val) headers[p.name] = val.replace(/[\r\n]/g, "")
       }
     }
 
     let url = baseUrl + path
     if (queryParams.length) url += "?" + queryParams.join("&")
+
+    // Warn (once per host) before sending credentials to a host the spec didn't declare.
+    if (Object.keys(authHeaders).length > 0) {
+      const trusted = (state.spec?.servers ?? [])
+        .map(s => originOf(resolveServerUrl(s)))
+        .filter((o): o is string => !!o)
+      const targetOrigin = originOf(url)
+      if (targetOrigin && isCrossHostTarget(url, trusted) && !warnedHostsRef.current.has(targetOrigin)) {
+        warnedHostsRef.current.add(targetOrigin)
+        toast.warning(i18n.t("toast.credentialCrossHost", { host: targetOrigin }))
+      }
+    }
 
     const fetchOpts: RequestInit = { method: route.method.toUpperCase(), headers }
 
@@ -129,20 +154,24 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
 
     if (route.requestBody) {
       if (contentType === "multipart/form-data" || contentType === "application/x-www-form-urlencoded") {
-        const form = new FormData()
-        if (formData) {
-          for (const [name, val] of Object.entries(formData)) {
-            if (val instanceof File) {
-              form.append(name, val)
-            } else if (val) {
-              form.append(name, val)
+        if (contentType === "application/x-www-form-urlencoded") {
+          // urlencoded can't carry files; encode only string fields honestly.
+          headers["Content-Type"] = "application/x-www-form-urlencoded"
+          const usp = new URLSearchParams()
+          if (formData) {
+            for (const [name, val] of Object.entries(formData)) {
+              if (typeof val === "string" && val) usp.append(name, val)
             }
           }
-        }
-        if (contentType === "application/x-www-form-urlencoded") {
-          headers["Content-Type"] = "application/x-www-form-urlencoded"
-          fetchBody = new URLSearchParams(form as unknown as Record<string, string>).toString()
+          fetchBody = usp.toString()
         } else {
+          const form = new FormData()
+          if (formData) {
+            for (const [name, val] of Object.entries(formData)) {
+              if (val instanceof File) form.append(name, val)
+              else if (val) form.append(name, val)
+            }
+          }
           fetchBody = form
         }
       } else if (body.trim()) {
@@ -224,12 +253,13 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
       setLoading(false)
       return result
     }
-  }, [state.baseUrl, getAuthHeaders, validateRequest])
+  }, [state.baseUrl, state.spec?.servers, getAuthHeaders, validateRequest])
 
   return {
     loading,
     response,
     error,
+    errorRef,
     sendRequest,
     validateRequest,
     findTokenFields,

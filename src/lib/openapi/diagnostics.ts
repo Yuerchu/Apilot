@@ -106,7 +106,9 @@ function hasEnumExplanation(schema: SchemaObject): boolean {
 }
 
 function shouldCheckResponseSchema(status: string): boolean {
-  return /^2\d\d$/.test(status) && status !== "204" && status !== "304"
+  if (status === "204" || status === "304") return false
+  // Match explicit 2xx codes plus the OpenAPI "2XX" range shorthand.
+  return /^2\d\d$/.test(status) || /^2xx$/i.test(status)
 }
 
 function responseHasSchema(response: ResponseObject): boolean {
@@ -183,6 +185,9 @@ function scanSchema(
   },
 ) {
   if (!schema) return
+  // A bare reference node is a pointer, not a schema to inspect; its target is
+  // checked where it's defined (and redocly handles unresolved refs separately).
+  if (typeof schema.$ref === "string") return
   const location = makePointer(path)
 
   if (isEmptySchema(schema)) {
@@ -283,6 +288,9 @@ function scanOperation(
 
   for (const [status, response] of Object.entries(op.responses || {})) {
     const responsePath = [...operationPath, "responses", status]
+    // A referenced response ({$ref}) resolves to a component definition; don't
+    // flag it as missing a schema (it isn't) or scan the pointer as a schema.
+    if (typeof response.$ref === "string") continue
     if (shouldCheckResponseSchema(status) && !responseHasSchema(response)) {
       addIssue(issues, {
         code: "missing-response-schema",

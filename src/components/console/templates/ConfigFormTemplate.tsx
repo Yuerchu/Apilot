@@ -11,6 +11,7 @@ import { useConsoleContext } from "@/contexts/ConsoleContext"
 import { applyFieldLayout } from "@/lib/console/apply-layout"
 import { stableEqual } from "@/lib/console/template-utils"
 import { ConfirmDialog } from "../ConfirmDialog"
+import { PathParamFields, getPathParams, hasAllRequiredPathParams } from "../PathParamFields"
 import { toast } from "sonner"
 import type { TemplateProps } from "./index"
 
@@ -25,23 +26,25 @@ export function ConfigFormTemplate({ resource, layoutOverride }: TemplateProps) 
   const [formData, setFormData] = useState<FormOutput>({})
   const [error, setError] = useState<string | null>(null)
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false)
+  const [pathParams, setPathParams] = useState<Record<string, string>>({})
 
   const readOp = resource.operations.read
   const updateOp = resource.operations.update
   const rawSchema = resource.updateSchema ?? resource.detailSchema
   const schema = rawSchema ? applyFieldLayout(rawSchema, layout?.formFields) : null
+  const needsInput = !!readOp && getPathParams(readOp.route).length > 0
 
   const dirty = useMemo(() => data !== null && !stableEqual(formData, data), [formData, data])
 
   const fetchConfig = useCallback(async () => {
-    if (!readOp) return
+    if (!readOp || !hasAllRequiredPathParams(readOp.route, pathParams)) return
     setError(null)
-    const { data: parsed, error: err } = await fetchJson<FormOutput>(readOp.route)
+    const { data: parsed, error: err } = await fetchJson<FormOutput>(readOp.route, pathParams)
     if (parsed) { setData(parsed); setFormData(parsed) }
     setError(err)
-  }, [readOp, fetchJson])
+  }, [readOp, fetchJson, pathParams])
 
-  useEffect(() => { fetchConfig() }, [fetchConfig])
+  useEffect(() => { if (!needsInput) fetchConfig() }, [needsInput, fetchConfig])
 
   const handleChange = useCallback((v: FormOutput) => setFormData(v), [])
 
@@ -52,7 +55,7 @@ export function ConfigFormTemplate({ resource, layoutOverride }: TemplateProps) 
 
   const handleSave = async () => {
     if (!updateOp) return
-    const ok = await mutate(updateOp.route, { body: JSON.stringify(formData) })
+    const ok = await mutate(updateOp.route, { body: JSON.stringify(formData), params: pathParams })
     if (ok) { toast.success(t("console.updated")); fetchConfig() }
     else toast.error(t("console.updateFailed", { status: "" }))
   }
@@ -71,6 +74,18 @@ export function ConfigFormTemplate({ resource, layoutOverride }: TemplateProps) 
         </CardHeader>
 
         <CardContent>
+          {needsInput && readOp && (
+            <div className="mb-4">
+              <PathParamFields
+                route={readOp.route}
+                values={pathParams}
+                onChange={setPathParams}
+                onLoad={fetchConfig}
+                loading={loading}
+              />
+            </div>
+          )}
+
           {error && (
             <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive mb-4">{error}</div>
           )}

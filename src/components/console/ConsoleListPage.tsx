@@ -10,6 +10,7 @@ import { useAuthContext } from "@/contexts/AuthContext"
 import { useConsoleContext } from "@/contexts/ConsoleContext"
 import type { ConsoleResource } from "@/lib/console/types"
 import type { Parameter } from "@/lib/openapi/types"
+import { PAGINATION_TOTAL_FIELDS } from "@/lib/console/schema-inference"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ConsoleFilterBar } from "./ConsoleFilterBar"
 import { ConfirmDialog } from "./ConfirmDialog"
@@ -89,9 +90,11 @@ export function ConsoleListPage({ resource, readOnly, layoutOverride }: { resour
   const extractTotalCount = useCallback((parsed: unknown) => {
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       const obj = parsed as Record<string, unknown>
-      for (const key of ["total", "count", "total_count", "totalCount", "totalItems"]) {
-        if (typeof obj[key] === "number") {
-          setTotalCount(obj[key] as number)
+      // Case-insensitive match, consistent with detectPagination's field set.
+      for (const key of PAGINATION_TOTAL_FIELDS) {
+        const match = Object.keys(obj).find(k => k.toLowerCase() === key)
+        if (match && typeof obj[match] === "number") {
+          setTotalCount(obj[match] as number)
           return
         }
       }

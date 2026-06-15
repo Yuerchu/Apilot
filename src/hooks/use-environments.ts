@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo, createContext, useContext } from "react"
 import { useSpecId } from "@/hooks/use-spec-id"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { useAuthContext } from "@/contexts/AuthContext"
@@ -312,7 +312,7 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
 
   const activeEnv = environments.find(e => e.id === activeEnvId) || null
 
-  return {
+  return useMemo(() => ({
     environments,
     activeEnvId,
     activeEnv,
@@ -321,7 +321,7 @@ export function useEnvironmentsProvider(): EnvironmentsContextValue {
     addEnvironment,
     updateEnvironment,
     removeEnvironment: removeEnvironmentFn,
-  }
+  }), [environments, activeEnvId, activeEnv, loading, switchEnvironment, addEnvironment, updateEnvironment, removeEnvironmentFn])
 }
 
 export function useEnvironments() {

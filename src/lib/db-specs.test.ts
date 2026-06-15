@@ -92,6 +92,13 @@ class FakeIndex {
     })
     return Promise.resolve(entries.length > 0 ? new FakeCursor(entries, 0, this.records) : null)
   }
+
+  getAll(query?: IDBValidKey): Promise<StoreRecord[]> {
+    return Promise.resolve([...this.records.values()].filter(record => {
+      if (this.indexName === "specId") return hasSpecId(record) && record.specId === query
+      return true
+    }))
+  }
 }
 
 class FakeStore {
@@ -104,6 +111,11 @@ class FakeStore {
   openCursor(): Promise<FakeCursor | null> {
     const entries = [...this.records.entries()]
     return Promise.resolve(entries.length > 0 ? new FakeCursor(entries, 0, this.records) : null)
+  }
+
+  delete(key: IDBValidKey): Promise<void> {
+    this.records.delete(key)
+    return Promise.resolve()
   }
 }
 
@@ -150,9 +162,11 @@ class FakeDB {
     return Promise.resolve()
   }
 
-  transaction(storeName: string): { store: FakeStore; done: Promise<void> } {
+  transaction(storeName: string | string[]): { store: FakeStore; objectStore: (name: string) => FakeStore; done: Promise<void> } {
+    const first = Array.isArray(storeName) ? storeName[0]! : storeName
     return {
-      store: new FakeStore(this.stores[toStoreName(storeName)]),
+      store: new FakeStore(this.stores[toStoreName(first)]),
+      objectStore: (name: string) => new FakeStore(this.stores[toStoreName(name)]),
       done: Promise.resolve(),
     }
   }

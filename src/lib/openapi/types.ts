@@ -87,12 +87,16 @@ export interface Parameter {
   format?: string
   enum?: unknown[]
   default?: unknown
+  /** Present when this object is a Reference Object ({$ref}) in a non-dereferenced (source) spec. */
+  $ref?: string
 }
 
 export interface RequestBody {
   required?: boolean
   description?: string
   content?: Record<string, MediaTypeObject>
+  /** Present when this object is a Reference Object ({$ref}) in a non-dereferenced (source) spec. */
+  $ref?: string
 }
 
 export interface MediaTypeObject {
@@ -125,8 +129,9 @@ export interface SchemaObject extends Record<string, unknown> {
   additionalProperties?: boolean | SchemaObject
   minimum?: number
   maximum?: number
-  exclusiveMinimum?: number
-  exclusiveMaximum?: number
+  // boolean in OAS 3.0 / Swagger 2.0 (paired with minimum/maximum), number in OAS 3.1
+  exclusiveMinimum?: number | boolean
+  exclusiveMaximum?: number | boolean
   multipleOf?: number
   minLength?: number
   maxLength?: number
@@ -144,6 +149,8 @@ export interface ResponseObject {
   description?: string
   content?: Record<string, MediaTypeObject>
   schema?: SchemaObject
+  /** Present when this object is a Reference Object ({$ref}) in a non-dereferenced (source) spec. */
+  $ref?: string
 }
 
 export interface OAuthFlowObject {

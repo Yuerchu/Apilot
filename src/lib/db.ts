@@ -244,7 +244,7 @@ function numberValue(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback
 }
 
-function authTypeValue(value: unknown): AuthType {
+export function authTypeValue(value: unknown): AuthType {
   const authType = stringValue(value)
   return authType === "bearer" || authType === "basic" || authType === "apikey" || authType === "oauth2"
     ? authType
@@ -501,6 +501,16 @@ export async function putSpecFromDocument(
   const db = await getDB()
   const id = computeSpecId(spec, specUrl)
   const existing = await db.get("specs", id) as SpecRecord | undefined
+  // computeSpecId only hashes title@version::origin. If a different document
+  // collides on that id (different contentHash), its history/favorites/credentials
+  // were keyed for the old content and may not match — surface it instead of
+  // silently overwriting. (Primary key intentionally unchanged; no DB migration.)
+  if (existing && existing.contentHash !== hashSpec(spec)) {
+    console.warn(
+      `[apilot] spec "${id}" now has different content than the stored record; `
+      + `existing history/favorites/credentials may not align with the new document.`,
+    )
+  }
   const record = createSpecRecord(spec, specUrl, sourceType, existing ?? null)
   await db.put("specs", record)
   return record
@@ -527,45 +537,50 @@ export async function touchSpec(specId: string): Promise<void> {
   await db.put("specs", { ...spec, lastOpenedAt: now, updatedAt: now })
 }
 
-async function deleteAllFromIndex(storeName: string, indexName: string, query: IDBValidKey | IDBKeyRange): Promise<void> {
-  const db = await getDB()
-  const tx = db.transaction(storeName, "readwrite")
-  const index = tx.store.index(indexName)
-  let cursor = await index.openCursor(query)
+async function clearByIndex<Stores extends string, N extends Stores>(
+  store: IDBPObjectStore<unknown, Stores[], N, "readwrite">,
+  indexName: string,
+  key: IDBValidKey,
+): Promise<void> {
+  let cursor = await store.index(indexName).openCursor(key)
   while (cursor) {
     cursor.delete()
     cursor = await cursor.continue()
   }
-  await tx.done
-}
-
-async function deleteWsHistoryForSpec(specId: string): Promise<void> {
-  const db = await getDB()
-  const tx = db.transaction("wsHistory", "readwrite")
-  let cursor = await tx.store.openCursor()
-  while (cursor) {
-    const record = cursor.value as WsHistoryEntry
-    if (record.specId === specId) cursor.delete()
-    cursor = await cursor.continue()
-  }
-  await tx.done
 }
 
 export async function deleteSpec(specId: string): Promise<void> {
   const db = await getDB()
-  const environments = await db.getAllFromIndex("environments", "specId", specId) as EnvironmentProfile[]
+  // Single atomic transaction across every related store: cascade either fully
+  // commits or fully rolls back, so a mid-way failure can't leave orphaned records
+  // (notably orphaned environmentCredentials, which hold tokens).
+  const tx = db.transaction(
+    ["environments", "environmentCredentials", "envVars", "favorites", "history", "wsHistory", "consoleLayouts", "specSettings", "specs"],
+    "readwrite",
+  )
 
-  await Promise.all(environments.map(env => db.delete("environmentCredentials", env.id)))
-  await Promise.all([
-    deleteAllFromIndex("environments", "specId", specId),
-    deleteAllFromIndex("envVars", "specId", specId),
-    deleteAllFromIndex("favorites", "specId", specId),
-    deleteAllFromIndex("history", "specId", specId),
-    deleteWsHistoryForSpec(specId),
-    deleteAllFromIndex("consoleLayouts", "specId", specId),
-    db.delete("specSettings", specId),
-    db.delete("specs", specId),
-  ])
+  // Credentials are keyed by envId, so resolve this spec's environments first.
+  const envs = await tx.objectStore("environments").index("specId").getAll(specId) as EnvironmentProfile[]
+  const credStore = tx.objectStore("environmentCredentials")
+  for (const env of envs) await credStore.delete(env.id)
+
+  await clearByIndex(tx.objectStore("environments"), "specId", specId)
+  await clearByIndex(tx.objectStore("envVars"), "specId", specId)
+  await clearByIndex(tx.objectStore("favorites"), "specId", specId)
+  await clearByIndex(tx.objectStore("history"), "specId", specId)
+  await clearByIndex(tx.objectStore("consoleLayouts"), "specId", specId)
+
+  // wsHistory has no specId-only index — scan and match by specId.
+  const wsStore = tx.objectStore("wsHistory")
+  let wsCursor = await wsStore.openCursor()
+  while (wsCursor) {
+    if ((wsCursor.value as WsHistoryEntry).specId === specId) wsCursor.delete()
+    wsCursor = await wsCursor.continue()
+  }
+
+  await tx.objectStore("specSettings").delete(specId)
+  await tx.objectStore("specs").delete(specId)
+  await tx.done
 }
 
 export async function getSpecSettings(specId: string): Promise<SpecSettings | null> {
@@ -629,13 +644,108 @@ function stripSensitiveHeaders(headers: Record<string, string>): Record<string, 
   return result
 }
 
+// Precise sensitive-key match for request/response *bodies*. Substring matching
+// (as used for headers) would over-redact innocent fields like "author" → keep an
+// exact, normalized key set so only real credential fields are masked.
+const SENSITIVE_BODY_KEYS = new Set([
+  "password", "passwd", "pwd", "secret", "clientsecret",
+  "token", "accesstoken", "refreshtoken", "idtoken", "authtoken", "sessiontoken",
+  "apikey", "apisecret", "jwt", "bearer", "credential", "credentials",
+  "authorization", "otp", "pin", "privatekey", "sessionid",
+])
+
+function isSensitiveBodyKey(key: string): boolean {
+  return SENSITIVE_BODY_KEYS.has(key.toLowerCase().replace(/[_-]/g, ""))
+}
+
+function redactDeep(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactDeep)
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = isSensitiveBodyKey(k) ? "***" : redactDeep(v)
+    }
+    return out
+  }
+  return value
+}
+
+// Mask credential fields in a request/response body before persisting it. Handles
+// JSON and urlencoded (OAuth password grant) bodies; other content is left as-is.
+export function redactBody(body: string | null): string | null {
+  if (!body) return body
+  const trimmed = body.trim()
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    try {
+      return JSON.stringify(redactDeep(JSON.parse(trimmed)))
+    } catch {
+      return body
+    }
+  }
+  if (/^[^\s=&]+=/.test(trimmed)) {
+    try {
+      const sp = new URLSearchParams(trimmed)
+      let changed = false
+      for (const k of [...sp.keys()]) {
+        if (isSensitiveBodyKey(k)) { sp.set(k, "***"); changed = true }
+      }
+      if (changed) return sp.toString()
+    } catch {
+      // fall through
+    }
+  }
+  return body
+}
+
+export function redactParams(params: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(params)) {
+    out[k] = isSensitiveBodyKey(k) ? "***" : v
+  }
+  return out
+}
+
+// Redact secrets inside a precomputed curl string using the *actual* sensitive
+// header values and request body (so custom API-key header names are covered too,
+// not just a fixed Authorization/Cookie/X-API-Key list).
+function redactCurlCommand(
+  curl: string,
+  originalHeaders: Record<string, string>,
+  originalBody: string | null,
+): string {
+  let out = curl
+  for (const [name, value] of Object.entries(originalHeaders)) {
+    if (!value) continue
+    if (SENSITIVE_HEADERS.has(name.toLowerCase()) || SENSITIVE_PATTERNS.test(name)) {
+      out = out.split(value).join("***")
+    }
+  }
+  if (originalBody) {
+    const redacted = redactBody(originalBody)
+    if (redacted && redacted !== originalBody) {
+      out = out.split(originalBody).join(redacted)
+    }
+  }
+  return out
+}
+
 export async function addHistoryEntry(entry: Omit<HistoryEntry, "id">): Promise<void> {
   try {
     const db = await getDB()
+    const originalHeaders = entry.response.requestHeaders
     const sanitized = { ...truncateBody(entry.response) }
-    sanitized.requestHeaders = stripSensitiveHeaders(sanitized.requestHeaders)
-    sanitized.curlCommand = sanitized.curlCommand.replace(/(Authorization|Cookie|X-API-Key):\s*[^'"]+/gi, "$1: ***")
-    await db.add("history", { ...entry, response: sanitized })
+    sanitized.requestHeaders = stripSensitiveHeaders(originalHeaders)
+    // The request body is stored twice (top-level + inside response); redact both,
+    // plus request params and the response body (may contain access/refresh tokens).
+    sanitized.requestBody = redactBody(sanitized.requestBody)
+    sanitized.body = redactBody(sanitized.body) ?? sanitized.body
+    sanitized.curlCommand = redactCurlCommand(sanitized.curlCommand, originalHeaders, entry.response.requestBody)
+    await db.add("history", {
+      ...entry,
+      requestBody: redactBody(entry.requestBody),
+      requestParams: redactParams(entry.requestParams),
+      response: sanitized,
+    })
   } catch (err) {
     if ((err as DOMException)?.name === "QuotaExceededError") {
       console.warn("[apilot] Storage quota exceeded, history entry not saved")
@@ -762,8 +872,19 @@ export async function getEnvironmentCredential(envId: string): Promise<Environme
 }
 
 export async function getEnvironmentRuntimes(specId: string): Promise<EnvironmentRuntime[]> {
-  const profiles = await getEnvironments(specId)
-  const credentials = await Promise.all(profiles.map(profile => getEnvironmentCredential(profile.id)))
+  const db = await getDB()
+  const profiles = await db.getAllFromIndex("environments", "specId", specId) as EnvironmentProfile[]
+  if (profiles.length === 0) return []
+  // Read all credentials within a single transaction instead of opening one DB
+  // connection per profile.
+  const tx = db.transaction("environmentCredentials", "readonly")
+  const store = tx.objectStore("environmentCredentials")
+  const credentials = await Promise.all(
+    profiles.map(async profile =>
+      (await store.get(profile.id) as EnvironmentCredential | undefined) ?? createEmptyEnvironmentCredential(profile.id),
+    ),
+  )
+  await tx.done
   return profiles.map((profile, index) => ({ ...profile, ...credentials[index]! }))
 }
 
@@ -811,12 +932,16 @@ export async function clearWsHistory(specId: string, channelId?: string, envId?:
   const db = await getDB()
   const tx = db.transaction("wsHistory", "readwrite")
   const index = tx.store.index("specId_channelId")
-  let cursor = await index.openCursor()
+  // Narrow the cursor to this spec (and channel, if given) instead of scanning the
+  // whole store. Array sorts after string, so [specId, []] bounds all channels.
+  const range = channelId
+    ? IDBKeyRange.only([specId, channelId])
+    : IDBKeyRange.bound([specId], [specId, []])
+  let cursor = await index.openCursor(range)
   while (cursor) {
     const record = cursor.value as WsHistoryEntry
-    const channelMatches = !channelId || record.channelId === channelId
     const envMatches = envId === undefined || (record.envId ?? null) === envId
-    if (record.specId === specId && channelMatches && envMatches) cursor.delete()
+    if (envMatches) cursor.delete()
     cursor = await cursor.continue()
   }
   await tx.done

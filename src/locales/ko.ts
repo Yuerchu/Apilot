@@ -51,6 +51,7 @@ export default {
     login: "로그인",
     authenticated: "인증됨",
     detectedFromSpec: "API 사양에서 자동 감지됨",
+    plaintextWarning: "자격 증명은 이 브라우저(IndexedDB)에 암호화되지 않은 상태로 저장되며 이 출처에서 실행되는 모든 스크립트가 읽을 수 있습니다.",
     oauth2FlowNotSupported: "{{flow}} 플로우는 자동 로그인을 지원하지 않습니다. 토큰을 직접 붙여넣어 주세요",
   },
   toolbar: {
@@ -397,6 +398,7 @@ export default {
     graphExportFailed: "그래프 내보내기 실패",
     shareCopied: "Share link copied",
     shareCopyFailed: "Could not copy share link",
+    credentialCrossHost: "{{host}}(으)로 자격 증명을 전송 중 — 이 호스트는 spec의 서버 목록에 없습니다",
     nonStandardProperties: "문서에 OpenAPI 사양에 포���되지 않는 비표준 속성(예: itemSchema)이 포함되어 있습니다. 호환성을 ���해 자동 변환되었습니다.",
   },
   validation: {
@@ -406,6 +408,8 @@ export default {
     formRequired: '폼 필드 "{{name}}"은(는) 필수입니다',
     enterCredentials: "사용자 이름과 비밀번호를 입력하세요",
     tokenUrlEmpty: "Token URL이 비어있습니다",
+    tokenUrlInvalid: "Token URL이 유효하지 않습니다",
+    tokenUrlInsecure: "자격 증명을 안전하게 전송하려면 Token URL이 HTTPS여야 합니다",
     noAccessToken: "응답에 access_token이 없습니다",
     fileReadFailed: "파일 읽기 실패",
   },
@@ -623,6 +627,7 @@ export default {
     updateFailed: "업데이트 실패: {{status}}",
     running: "실행 중...",
     execute: "실행",
+    load: "불러오기",
     ok: "성공",
     requestFailed: "요청 실패",
     tokenApplied: "인증됨 — 토큰이 현재 환경에 적용되었습니다",

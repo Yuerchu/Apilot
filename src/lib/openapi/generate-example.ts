@@ -8,6 +8,22 @@ import phoneExamples from "libphonenumber-js/mobile/examples"
 
 const E164_COUNTRIES: CountryCode[] = ["US", "GB", "CN", "JP", "KR", "DE", "FR", "IN", "AU", "BR"]
 
+// Upper bound for explicit regex quantifiers we are willing to expand. `re.max`
+// only caps open-ended quantifiers (*, +, {n,}); a bounded quantifier like
+// `a{1000000}` from an untrusted spec would otherwise expand fully and OOM the tab.
+const QUANTIFIER_LIMIT = 1000
+
+function isSafePattern(pattern: string): boolean {
+  const re = /\{\s*(\d+)\s*(?:,\s*(\d*)\s*)?\}/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(pattern)) !== null) {
+    const lo = Number(m[1])
+    const hi = m[2] !== undefined && m[2] !== "" ? Number(m[2]) : lo
+    if (lo > QUANTIFIER_LIMIT || hi > QUANTIFIER_LIMIT) return false
+  }
+  return true
+}
+
 function randomE164(): string {
   const country = faker.helpers.arrayElement(E164_COUNTRIES)
   return generatePhoneForCountry(country)
@@ -36,6 +52,7 @@ function fakerForSchema(schema: SchemaObject): unknown {
     else if (schema.exclusiveMinimum === true && schema.minimum !== undefined) min = Number(schema.minimum) + 1
     if (typeof schema.exclusiveMaximum === "number") max = schema.exclusiveMaximum - 1
     else if (schema.exclusiveMaximum === true && schema.maximum !== undefined) max = Number(schema.maximum) - 1
+    if (min > max) max = min // exclusive bounds can invert the range
     return faker.number.int({ min, max })
   }
 
@@ -47,6 +64,7 @@ function fakerForSchema(schema: SchemaObject): unknown {
     else if (schema.exclusiveMinimum === true && schema.minimum !== undefined) min = Number(schema.minimum) + 0.01
     if (typeof schema.exclusiveMaximum === "number") max = schema.exclusiveMaximum - 0.01
     else if (schema.exclusiveMaximum === true && schema.maximum !== undefined) max = Number(schema.maximum) - 0.01
+    if (min > max) max = min // exclusive bounds can invert the range
     return faker.number.float({ min, max, fractionDigits: 2 })
   }
 
@@ -58,11 +76,12 @@ function fakerForSchema(schema: SchemaObject): unknown {
   // String
   if (type === "string" || !type) {
     // 1. Pattern is the strongest constraint — always prefer it
-    if (schema.pattern) {
+    if (schema.pattern && isSafePattern(schema.pattern)) {
       try {
         const re = new RandExp(schema.pattern)
-        re.max = schema.maxLength ?? 20
-        return re.gen()
+        re.max = Math.min(schema.maxLength ?? 20, QUANTIFIER_LIMIT)
+        const out = re.gen()
+        return schema.maxLength !== undefined ? out.slice(0, schema.maxLength) : out
       } catch {
         // Invalid pattern, fall through to format
       }
@@ -72,7 +91,10 @@ function fakerForSchema(schema: SchemaObject): unknown {
     switch (fmt) {
       case "date-time": return faker.date.recent().toISOString()
       case "date": return faker.date.recent().toISOString().split("T")[0]
-      case "time": return faker.date.recent().toISOString().split("T")[1]!.replace("Z", "+00:00")
+      case "time": {
+        const timePart = faker.date.recent().toISOString().split("T")[1]
+        return timePart ? timePart.replace("Z", "+00:00") : "00:00:00+00:00"
+      }
       case "duration": return `P${faker.number.int({ min: 1, max: 30 })}D`
       case "email":
       case "idn-email": return faker.internet.email()
@@ -211,45 +233,68 @@ export function generateWithVariant(rawSchema: SchemaObject, variantId: string):
   const schema = resolveEffectiveSchema(rawSchema)
   const minLen = schema.minLength ?? 1
   const maxLen = schema.maxLength ?? Math.max(minLen, 20)
+  // Clamp so the random length is always >= min (minLength > 30 would otherwise
+  // make faker.number.int receive min > max and throw).
+  const alphaCap = Math.max(minLen, Math.min(maxLen, 30))
+  const sliceCap = Math.max(maxLen, minLen)
 
-  switch (variantId) {
-    // Phone
-    case "phone-international": return faker.phone.number({ style: "international" })
-    case "phone-e164": return randomE164()
-    case "phone-digits": return generateNationalForCountry("CN")
-    case "phone-cn": {
-      const n = faker.string.numeric(11)
-      return `${n.slice(0, 3)}-${n.slice(3, 7)}-${n.slice(7)}`
+  try {
+    switch (variantId) {
+      // Phone
+      case "phone-international": return faker.phone.number({ style: "international" })
+      case "phone-e164": return randomE164()
+      case "phone-digits": return generateNationalForCountry("CN")
+      case "phone-cn": {
+        const n = faker.string.numeric(11)
+        return `${n.slice(0, 3)}-${n.slice(3, 7)}-${n.slice(7)}`
+      }
+      // DateTime
+      case "dt-recent": return faker.date.recent().toISOString()
+      case "dt-past": return faker.date.past().toISOString()
+      case "dt-future": return faker.date.future().toISOString()
+      case "dt-epoch": return String(Math.floor(faker.date.recent().getTime() / 1000))
+      // Date
+      case "date-recent": return faker.date.recent().toISOString().split("T")[0]
+      case "date-past": return faker.date.past().toISOString().split("T")[0]
+      case "date-future": return faker.date.future().toISOString().split("T")[0]
+      // Email
+      case "email-random": return faker.internet.email()
+      case "email-example": return `user${faker.number.int({ min: 1, max: 999 })}@example.com`
+      // UUID
+      case "uuid-v4": return faker.string.uuid()
+      case "uuid-nil": return "00000000-0000-0000-0000-000000000000"
+      // String
+      case "str-alpha": return faker.string.alphanumeric(faker.number.int({ min: minLen, max: alphaCap }))
+      case "str-lorem": return faker.lorem.words(faker.number.int({ min: 1, max: 5 })).slice(0, sliceCap)
+      case "str-slug": return faker.lorem.slug(faker.number.int({ min: 1, max: 4 })).slice(0, sliceCap)
+      default: return generateExample(rawSchema)
     }
-    // DateTime
-    case "dt-recent": return faker.date.recent().toISOString()
-    case "dt-past": return faker.date.past().toISOString()
-    case "dt-future": return faker.date.future().toISOString()
-    case "dt-epoch": return String(Math.floor(faker.date.recent().getTime() / 1000))
-    // Date
-    case "date-recent": return faker.date.recent().toISOString().split("T")[0]
-    case "date-past": return faker.date.past().toISOString().split("T")[0]
-    case "date-future": return faker.date.future().toISOString().split("T")[0]
-    // Email
-    case "email-random": return faker.internet.email()
-    case "email-example": return `user${faker.number.int({ min: 1, max: 999 })}@example.com`
-    // UUID
-    case "uuid-v4": return faker.string.uuid()
-    case "uuid-nil": return "00000000-0000-0000-0000-000000000000"
-    // String
-    case "str-alpha": return faker.string.alphanumeric(faker.number.int({ min: minLen, max: Math.min(maxLen, 30) }))
-    case "str-lorem": return faker.lorem.words(faker.number.int({ min: 1, max: 5 })).slice(0, maxLen)
-    case "str-slug": return faker.lorem.slug(faker.number.int({ min: 1, max: 4 })).slice(0, maxLen)
-    default: return generateExample(rawSchema)
+  } catch {
+    return generateExample(rawSchema)
   }
+}
+
+// Replace residual $ref nodes (left by the parser's circular:"ignore") and any
+// _circular/_unresolved-marked nodes with an empty schema, so openapi-sampler can
+// still produce a partial example instead of throwing on the first $ref.
+function pruneCircularRefs(schema: unknown, seen: WeakSet<object> = new WeakSet()): unknown {
+  if (!schema || typeof schema !== "object") return schema
+  if (Array.isArray(schema)) return schema.map(s => pruneCircularRefs(s, seen))
+  const obj = schema as Record<string, unknown>
+  if (typeof obj.$ref === "string" || obj._circular || obj._unresolved) return {}
+  if (seen.has(schema)) return {}
+  seen.add(schema)
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(obj)) out[k] = pruneCircularRefs(v, seen)
+  return out
 }
 
 export function generateExample(schema: SchemaObject | null | undefined): unknown {
   if (!schema) return null
-  if (schema._circular || schema._unresolved) return null
   try {
-    const base = sample(schema as Record<string, unknown>)
-    return randomizeLeaves(base, schema)
+    const pruned = pruneCircularRefs(schema) as SchemaObject
+    const base = sample(pruned as Record<string, unknown>)
+    return randomizeLeaves(base, pruned)
   } catch {
     return null
   }

@@ -1,5 +1,16 @@
 import type { SchemaObject } from './types'
 
+// Property names from untrusted specs must never be written as object keys
+// directly, or `__proto__`/`constructor`/`prototype` would pollute the prototype.
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+function safeAssign(target: Record<string, unknown>, source: Record<string, unknown>): void {
+  for (const [k, v] of Object.entries(source)) {
+    if (DANGEROUS_KEYS.has(k)) continue
+    target[k] = v
+  }
+}
+
 export function resolveEffectiveSchema(schema: SchemaObject | undefined | null): SchemaObject & { _nullable: boolean } {
   if (!schema || typeof schema !== 'object') return { ...(schema || {}), _nullable: false } as SchemaObject & { _nullable: boolean };
   let s: SchemaObject = schema;
@@ -9,11 +20,12 @@ export function resolveEffectiveSchema(schema: SchemaObject | undefined | null):
     for (const part of s.allOf) {
       if (!part || typeof part !== 'object') continue;
       const { properties, required, ...rest } = part as SchemaObject & { required?: string[] };
-      Object.assign(merged, rest);
+      safeAssign(merged, rest);
       if (properties) {
         const existing = merged.properties || {};
         const combined: Record<string, SchemaObject> = { ...existing };
         for (const [pk, pv] of Object.entries(properties)) {
+          if (DANGEROUS_KEYS.has(pk)) continue;
           if (existing[pk] && typeof existing[pk] === 'object' && typeof pv === 'object') {
             combined[pk] = { ...existing[pk], ...pv };
           } else {
@@ -32,6 +44,7 @@ export function resolveEffectiveSchema(schema: SchemaObject | undefined | null):
         const existing = merged.properties || {};
         const combined: Record<string, SchemaObject> = { ...existing };
         for (const [pk, pv] of Object.entries(v as Record<string, SchemaObject>)) {
+          if (DANGEROUS_KEYS.has(pk)) continue;
           if (existing[pk] && typeof existing[pk] === 'object' && typeof pv === 'object') {
             combined[pk] = { ...existing[pk], ...pv };
           } else {
@@ -42,6 +55,7 @@ export function resolveEffectiveSchema(schema: SchemaObject | undefined | null):
       } else if (k === 'required') {
         merged.required = [...((merged as { required?: string[] }).required || []), ...(v as string[])];
       } else {
+        if (DANGEROUS_KEYS.has(k)) continue;
         merged[k] = v;
       }
     }

@@ -51,6 +51,7 @@ export default {
     login: "登錄",
     authenticated: "已認證",
     detectedFromSpec: "已從 API 規範中自動偵測",
+    plaintextWarning: "憑證以未加密形式儲存喺本瀏覽器(IndexedDB)入面，本源下執行嘅任意指令碼都讀取到。",
     oauth2FlowNotSupported: "{{flow}} 流程暫唔支持自動登錄，請手動貼上 Token",
   },
   toolbar: {
@@ -397,6 +398,7 @@ export default {
     graphExportFailed: "圖譜導出失敗",
     shareCopied: "分享鏈接已複製",
     shareCopyFailed: "分享鏈接複製失敗",
+    credentialCrossHost: "正在向 {{host}} 傳送憑證 —— 該主機唔喺 spec 宣告嘅伺服器清單入面",
     nonStandardProperties: "文檔包含不符合 OpenAPI 規範嘅非標準屬性（如 itemSchema），已自動轉換以兼容。",
   },
   validation: {
@@ -406,6 +408,8 @@ export default {
     formRequired: '表單字段 "{{name}}" 為必填項',
     enterCredentials: "請輸入用户名和密碼",
     tokenUrlEmpty: "Token URL 為空",
+    tokenUrlInvalid: "Token URL 無效",
+    tokenUrlInsecure: "Token URL 必須使用 HTTPS 以安全傳輸憑證",
     noAccessToken: "響應中無 access_token",
     fileReadFailed: "文件讀取失敗",
   },
@@ -624,6 +628,7 @@ export default {
     updateFailed: "更新失敗：{{status}}",
     running: "執行中...",
     execute: "執行",
+    load: "載入",
     ok: "成功",
     requestFailed: "請求失敗",
     tokenApplied: "已驗證 — Token 已應用到當前環境",

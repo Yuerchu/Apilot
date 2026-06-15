@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useCallback } from "react"
+import { createContext, useContext, useReducer, useCallback, useMemo } from "react"
 import type { ReactNode } from "react"
 import type {
   OpenAPISpec,
@@ -437,7 +437,9 @@ export function OpenAPIProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "SET_SPEC_URL", url })
   }, [])
 
-  const value: OpenAPIContextValue = {
+  // Memoized so consumers don't re-render on every provider render; all the
+  // setters are stable useCallbacks, so this effectively changes only with state.
+  const value: OpenAPIContextValue = useMemo(() => ({
     state,
     dispatch,
     toggleRoute,
@@ -465,7 +467,13 @@ export function OpenAPIProvider({ children }: { children: ReactNode }) {
     setMainView,
     setBaseUrl,
     setSpecUrl,
-  }
+  }), [
+    state, toggleRoute, selectRoutes, deselectRoutes, selectAllRoutes, clearRouteSelection,
+    toggleModel, selectAllModels, clearModelSelection, toggleTag, clearTags, invertTags,
+    setFilter, setActiveEndpointKey, setEndpointDetailTab, setModelFilter, setModelViewMode,
+    setActiveModelName, setSchemaFilter, setSchemaCategoryFilter, setSchemaTypeFilter,
+    setActiveSchemaName, setSchemaSource, setMainView, setBaseUrl, setSpecUrl,
+  ])
 
   return (
     <OpenAPIContext.Provider value={value}>

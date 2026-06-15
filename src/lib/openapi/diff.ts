@@ -58,15 +58,19 @@ function getKind(diff: Diff): OpenAPIDiffKind | null {
   if (root !== "paths") return null
 
   const method = getPathPart(diff, 2)
-  if (method && HTTP_METHODS.has(method.toLowerCase()) && diff.path.length === 3) {
+  const isOperation = !!method && HTTP_METHODS.has(method.toLowerCase())
+  if (isOperation && diff.path.length === 3) {
     return diff.action === "add" ? "endpoint-added" : diff.action === "remove" ? "endpoint-removed" : null
   }
 
-  if (diff.path.includes("requestBody") || diff.path.includes("parameters")) {
+  // Classify by the structural field, not a substring match anywhere in the path
+  // (a schema property literally named "responses" must not be misclassified).
+  // Operation-level fields sit at index 3; path-item-level parameters at index 2.
+  const field = isOperation ? getPathPart(diff, 3) : getPathPart(diff, 2)
+  if (field === "requestBody" || field === "parameters") {
     return "request-schema-changed"
   }
-
-  if (diff.path.includes("responses")) {
+  if (field === "responses") {
     return "response-schema-changed"
   }
 

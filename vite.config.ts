@@ -14,6 +14,38 @@ function git(cmd: string): string {
   }
 }
 
+// Inject a Content-Security-Policy meta tag at build time only (dev keeps Vite's
+// inline HMR preamble working). connect-src is left open because this is an API
+// testing tool that must reach arbitrary hosts; the value is in object-src/base-uri/
+// frame-ancestors and constraining where scripts/styles/images may load from.
+function cspPlugin() {
+  const csp = [
+    "default-src 'self'",
+    "connect-src * data: blob: ws: wss:",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+    "style-src 'self' 'unsafe-inline'",
+    // 'unsafe-eval' is required: ajv compiles user-supplied JSON Schemas at runtime
+    // via new Function (dynamic specs can't be precompiled). 'self' still blocks
+    // loading executable script from external origins.
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "worker-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+  ].join("; ")
+  return {
+    name: "apilot-csp",
+    apply: "build" as const,
+    transformIndexHtml(html: string) {
+      return html.replace(
+        "</title>",
+        `</title>\n  <meta http-equiv="Content-Security-Policy" content="${csp}" />`,
+      )
+    },
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_")
   const agGridLicense = process.env.VITE_AG_GRID_LICENSE || env.VITE_AG_GRID_LICENSE || ""
@@ -22,6 +54,7 @@ export default defineConfig(({ mode }) => {
   plugins: [
     react(),
     tailwindcss(),
+    cspPlugin(),
     VitePWA({
       registerType: "prompt",
       workbox: {
@@ -29,11 +62,17 @@ export default defineConfig(({ mode }) => {
         globPatterns: ["**/*.{js,css,html,svg}"],
         runtimeCaching: [
           {
-            urlPattern: /(?:^|\/)(?:spec|openapi|swagger|asyncapi)[^/]*\.(json|ya?ml)$/i,
+            // Never cache credentialed spec fetches (Authorization header) — that
+            // would persist a protected API document to disk for later, possibly
+            // unauthenticated, readers. Only cache successful responses.
+            urlPattern: ({ request, url }: { request: Request; url: URL }) =>
+              !request.headers.has("authorization")
+              && /(?:^|\/)(?:spec|openapi|swagger|asyncapi)[^/]*\.(json|ya?ml)$/i.test(url.pathname),
             handler: "NetworkFirst",
             options: {
               cacheName: "api-specs",
               expiration: { maxEntries: 20, maxAgeSeconds: 7 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [200] },
             },
           },
         ],
@@ -59,6 +98,10 @@ export default defineConfig(({ mode }) => {
     __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     __CI__: JSON.stringify(process.env.CI === "true"),
     __CI_RUN_NUMBER__: JSON.stringify(process.env.GITHUB_RUN_NUMBER ?? ""),
+    // AG Grid Enterprise validates its license client-side, so the key is
+    // necessarily embedded in the bundle. Keep it in a build-time env var
+    // (VITE_AG_GRID_LICENSE) rather than committed source; this is a known,
+    // unavoidable property of AG Grid Enterprise, not a leak to fix.
     __AG_GRID_ENTERPRISE__: JSON.stringify(!!agGridLicense),
     __AG_GRID_LICENSE_KEY__: JSON.stringify(agGridLicense),
   },
