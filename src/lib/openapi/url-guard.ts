@@ -10,7 +10,7 @@
 import * as ipaddr from "ipaddr.js"
 
 const NON_PUBLIC_RANGES = new Set([
-  "unspecified", "broadcast", "loopback", "private",
+  "unspecified", "broadcast", "loopback", "private", "multicast",
   "linkLocal", "uniqueLocal", "carrierGradeNat", "reserved",
   "benchmarking", "amt", "as112v4", "as112v6", "ietf",
   "6to4", "teredo", "orchid2", "droneRemoteIdProtocol",

@@ -32,10 +32,10 @@ function cspPlugin() {
     "worker-src 'self' blob:",
     "object-src 'none'",
     "base-uri 'self'",
-    // frame-ancestors is NOT enforceable via <meta> CSP (spec limitation) — it must
-    // come from an HTTP response header. We use X-Frame-Options as a meta-compatible
-    // clickjacking defense instead; deployers should additionally set
-    // `Content-Security-Policy: frame-ancestors 'none'` via their server/CDN config.
+    // Clickjacking: neither frame-ancestors (CSP) nor X-Frame-Options can be
+    // enforced via <meta> — both require HTTP response headers. Deployers must set
+    // `Content-Security-Policy: frame-ancestors 'none'` (or `X-Frame-Options: DENY`)
+    // in their server/CDN/Cloudflare Pages _headers config.
   ].join("; ")
   return {
     name: "apilot-csp",
@@ -43,7 +43,7 @@ function cspPlugin() {
     transformIndexHtml(html: string) {
       return html.replace(
         "</title>",
-        `</title>\n  <meta http-equiv="Content-Security-Policy" content="${csp}" />\n  <meta http-equiv="X-Frame-Options" content="DENY" />`,
+        `</title>\n  <meta http-equiv="Content-Security-Policy" content="${csp}" />`,
       )
     },
   }

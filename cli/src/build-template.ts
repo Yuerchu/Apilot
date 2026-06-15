@@ -21,7 +21,8 @@ const TEMPLATE_CSP = [
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "object-src 'none'",
   "base-uri 'self'",
-  // frame-ancestors is NOT enforceable via <meta> CSP; use X-Frame-Options instead.
+  // Clickjacking: frame-ancestors and X-Frame-Options both require HTTP headers,
+  // not <meta>. Static templates must rely on the hosting server's headers config.
 ].join("; ")
 
 function templateCspPlugin() {
@@ -30,7 +31,7 @@ function templateCspPlugin() {
     transformIndexHtml(html: string) {
       return html.replace(
         "</title>",
-        `</title>\n  <meta http-equiv="Content-Security-Policy" content="${TEMPLATE_CSP}" />\n  <meta http-equiv="X-Frame-Options" content="DENY" />`,
+        `</title>\n  <meta http-equiv="Content-Security-Policy" content="${TEMPLATE_CSP}" />`,
       )
     },
   }

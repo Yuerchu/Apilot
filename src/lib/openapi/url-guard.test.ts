@@ -30,6 +30,11 @@ describe("url-guard", () => {
         expect(isPrivateOrLocalHost(h)).toBe(true)
       }
     })
+    it("flags multicast addresses (IPv4 + IPv6)", () => {
+      expect(isPrivateOrLocalHost("224.0.0.1")).toBe(true)
+      expect(isPrivateOrLocalHost("239.255.255.250")).toBe(true)
+      expect(isPrivateOrLocalHost("ff02::1")).toBe(true)
+    })
     it("allows normal public hostnames", () => {
       for (const h of ["example.com", "api.example.com", "petstore.swagger.io"]) {
         expect(isPrivateOrLocalHost(h)).toBe(false)
