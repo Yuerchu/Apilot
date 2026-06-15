@@ -23,5 +23,5 @@
     }
   },
   "include": ["src", "cli/src"],
-  "exclude": ["src/components/animate-ui/**"]
+  "exclude": ["src/components/animate-ui/**", "src/sw.ts"]
 }
