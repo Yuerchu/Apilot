@@ -3,6 +3,18 @@
 // server URLs must be treated as untrusted to prevent SSRF / internal-network
 // probing from the victim's browser. The library's own safeUrlResolver is a
 // no-op in the browser, so we enforce these checks ourselves.
+//
+// IP range classification is delegated to ipaddr.js (2500M weekly downloads,
+// pure-JS, handles IPv4-mapped IPv6 in both dotted and hex forms, no CVEs).
+
+import * as ipaddr from "ipaddr.js"
+
+const NON_PUBLIC_RANGES = new Set([
+  "unspecified", "broadcast", "loopback", "private",
+  "linkLocal", "uniqueLocal", "carrierGradeNat", "reserved",
+  "benchmarking", "amt", "as112v4", "as112v6", "ietf",
+  "6to4", "teredo", "orchid2", "droneRemoteIdProtocol",
+])
 
 /**
  * True if the hostname points at a loopback, link-local, private, or otherwise
@@ -10,39 +22,19 @@
  */
 export function isPrivateOrLocalHost(hostname: string): boolean {
   let h = hostname.toLowerCase().trim()
-  // Strip IPv6 brackets that URL.hostname keeps (e.g. "[::1]").
   if (h.startsWith("[") && h.endsWith("]")) h = h.slice(1, -1)
   if (!h) return true
 
-  // Hostname-based internal suffixes.
   if (h === "localhost" || h.endsWith(".localhost")) return true
   if (h.endsWith(".local") || h.endsWith(".internal") || h.endsWith(".home.arpa")) return true
 
-  // IPv4 literal.
-  const ipv4 = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
-  if (ipv4) {
-    const a = Number(ipv4[1])
-    const b = Number(ipv4[2])
-    if (a === 0 || a === 127 || a === 10) return true
-    if (a === 169 && b === 254) return true // link-local
-    if (a === 192 && b === 168) return true
-    if (a === 172 && b >= 16 && b <= 31) return true
-    if (a === 100 && b >= 64 && b <= 127) return true // CGNAT 100.64.0.0/10
-    return false
-  }
-
-  // IPv6 literal.
-  if (h.includes(":")) {
-    if (h === "::1" || h === "::") return true
-    if (h.startsWith("fc") || h.startsWith("fd")) return true // unique-local fc00::/7
-    if (h.startsWith("fe8") || h.startsWith("fe9") || h.startsWith("fea") || h.startsWith("feb")) return true // link-local fe80::/10
-    const mapped = h.match(/::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i)
-    if (mapped) return isPrivateOrLocalHost(mapped[1]!)
-    return false
+  if (ipaddr.isValid(h)) {
+    const addr = ipaddr.process(h)
+    return NON_PUBLIC_RANGES.has(addr.range())
   }
 
   // Bare single-label hostname (no dot) — likely an intranet name.
-  if (!h.includes(".")) return true
+  if (!h.includes(".") && !h.includes(":")) return true
 
   return false
 }

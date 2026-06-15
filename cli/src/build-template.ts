@@ -21,7 +21,7 @@ const TEMPLATE_CSP = [
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "object-src 'none'",
   "base-uri 'self'",
-  "frame-ancestors 'none'",
+  // frame-ancestors is NOT enforceable via <meta> CSP; use X-Frame-Options instead.
 ].join("; ")
 
 function templateCspPlugin() {
@@ -30,7 +30,7 @@ function templateCspPlugin() {
     transformIndexHtml(html: string) {
       return html.replace(
         "</title>",
-        `</title>\n  <meta http-equiv="Content-Security-Policy" content="${TEMPLATE_CSP}" />`,
+        `</title>\n  <meta http-equiv="Content-Security-Policy" content="${TEMPLATE_CSP}" />\n  <meta http-equiv="X-Frame-Options" content="DENY" />`,
       )
     },
   }

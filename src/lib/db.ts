@@ -733,18 +733,19 @@ export async function addHistoryEntry(entry: Omit<HistoryEntry, "id">): Promise<
   try {
     const db = await getDB()
     const originalHeaders = entry.response.requestHeaders
-    const sanitized = { ...truncateBody(entry.response) }
+    // Redact BEFORE truncating — truncateBody turns valid JSON into broken text,
+    // which makes redactBody's JSON.parse fail and skip credential masking.
+    const sanitized = { ...entry.response }
     sanitized.requestHeaders = stripSensitiveHeaders(originalHeaders)
-    // The request body is stored twice (top-level + inside response); redact both,
-    // plus request params and the response body (may contain access/refresh tokens).
     sanitized.requestBody = redactBody(sanitized.requestBody)
     sanitized.body = redactBody(sanitized.body) ?? sanitized.body
     sanitized.curlCommand = redactCurlCommand(sanitized.curlCommand, originalHeaders, entry.response.requestBody)
+    const truncated = truncateBody(sanitized)
     await db.add("history", {
       ...entry,
       requestBody: redactBody(entry.requestBody),
       requestParams: redactParams(entry.requestParams),
-      response: sanitized,
+      response: truncated,
     })
   } catch (err) {
     if ((err as DOMException)?.name === "QuotaExceededError") {
