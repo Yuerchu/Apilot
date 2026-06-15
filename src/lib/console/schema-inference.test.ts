@@ -3,7 +3,7 @@ import { detectPagination, inferListItemSchema } from "@/lib/console/schema-infe
 import type { ParsedRoute, SchemaObject } from "@/lib/openapi/types"
 
 function routeWithResponse(schema: SchemaObject): ParsedRoute {
-  return { responses: { "200": { content: { "application/json": { schema } } } } } as ParsedRoute
+  return { responses: { "200": { content: { "application/json": { schema } } } } } as unknown as ParsedRoute
 }
 
 describe("detectPagination (allOf / OAS 3.1)", () => {

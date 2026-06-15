@@ -129,6 +129,28 @@ export function sanitizeNonStandardExtensions(spec: OpenAPISpec): { spec: OpenAP
   return { spec: result, warnings }
 }
 
+// After dereferencing with circular:"ignore", circular references remain as
+// literal { $ref } nodes. Tag them with _circular so format-schema / SchemaTree
+// can render "[circular]" and example generation can prune them (the marker the
+// types.ts comment always promised but nothing ever set).
+function markCircularRefs(root: unknown): void {
+  const seen = new WeakSet<object>()
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== "object" || seen.has(node)) return
+    seen.add(node)
+    if (Array.isArray(node)) {
+      node.forEach(walk)
+      return
+    }
+    const obj = node as Record<string, unknown>
+    if (typeof obj.$ref === "string" && obj._circular === undefined) {
+      obj._circular = obj.$ref
+    }
+    for (const v of Object.values(obj)) walk(v)
+  }
+  walk(root)
+}
+
 export async function parseValidatedSpec(
   input: string | OpenAPISpec,
   opts: { sourceUrl?: string } = {},
@@ -154,6 +176,7 @@ export async function parseValidatedSpec(
 
   const dereferenceInput = asParserInput(cloneSpec(sanitizedSource))
   const spec = await dereference(dereferenceInput, parserOptions)
+  markCircularRefs(spec)
 
   if (blocked.size > 0) {
     const sample = [...blocked].slice(0, 5).join(", ")
