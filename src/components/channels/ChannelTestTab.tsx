@@ -51,6 +51,8 @@ export function ChannelTestTab({ channel }: { channel: ParsedChannel }) {
     }
     url = url.replace(/\/$/, "") + address
     if (authToken) {
+      // Browsers can't set custom headers on WebSocket, so the token must go in the
+      // query string. It's masked in the URL preview to avoid shoulder-surfing.
       url += (url.includes("?") ? "&" : "?") + `token=${encodeURIComponent(authToken)}`
     }
     return url
@@ -147,7 +149,7 @@ export function ChannelTestTab({ channel }: { channel: ParsedChannel }) {
         {/* URL preview + connect/disconnect */}
         <div className="flex items-center gap-2">
           <code className="text-[10px] font-mono text-muted-foreground truncate flex-1">
-            {buildUrl() || "ws://..."}
+            {buildUrl().replace(/(token=)[^&]+/, "$1***") || "ws://..."}
           </code>
           {ws.status === "disconnected" || ws.status === "error" ? (
             <Button size="sm" className="h-7 text-xs gap-1" onClick={handleConnect} disabled={!buildUrl()}>

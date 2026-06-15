@@ -3,7 +3,10 @@ import i18n from "@/lib/i18n"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { normalizeRestoredAuth, type RestoredAuthState } from "@/lib/auth-state"
 import { buildAuthHeaders } from "@/lib/request-utils"
+import { isHttpUrl } from "@/lib/openapi/url-guard"
 import type { AuthType } from "@/lib/openapi/types"
+
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"])
 
 export function useAuth() {
   const { state } = useOpenAPIContext()
@@ -32,6 +35,21 @@ export function useAuth() {
     if (!resolvedUrl.startsWith("http")) {
       const base = state.baseUrl.replace(/\/$/, "")
       resolvedUrl = base + (resolvedUrl.startsWith("/") ? "" : "/") + resolvedUrl
+    }
+
+    // The tokenUrl can come from an untrusted spec. Reject non-http(s) schemes and
+    // plaintext http (except loopback) so the user's password is never sent over a
+    // javascript:/data: URL or in the clear.
+    if (!isHttpUrl(resolvedUrl)) {
+      return { success: false, error: i18n.t("validation.tokenUrlInvalid") }
+    }
+    try {
+      const u = new URL(resolvedUrl)
+      if (u.protocol === "http:" && !LOOPBACK_HOSTS.has(u.hostname)) {
+        return { success: false, error: i18n.t("validation.tokenUrlInsecure") }
+      }
+    } catch {
+      return { success: false, error: i18n.t("validation.tokenUrlInvalid") }
     }
 
     setOAuth2Loading(true)

@@ -397,6 +397,7 @@ export default {
     graphExportFailed: "圖譜導出失敗",
     shareCopied: "分享鏈接已複製",
     shareCopyFailed: "分享鏈接複製失敗",
+    credentialCrossHost: "正在向 {{host}} 傳送憑證 —— 該主機唔喺 spec 宣告嘅伺服器清單入面",
     nonStandardProperties: "文檔包含不符合 OpenAPI 規範嘅非標準屬性（如 itemSchema），已自動轉換以兼容。",
   },
   validation: {
@@ -406,6 +407,8 @@ export default {
     formRequired: '表單字段 "{{name}}" 為必填項',
     enterCredentials: "請輸入用户名和密碼",
     tokenUrlEmpty: "Token URL 為空",
+    tokenUrlInvalid: "Token URL 無效",
+    tokenUrlInsecure: "Token URL 必須使用 HTTPS 以安全傳輸憑證",
     noAccessToken: "響應中無 access_token",
     fileReadFailed: "文件讀取失敗",
   },

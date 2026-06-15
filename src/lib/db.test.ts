@@ -3,6 +3,8 @@ import {
   credentialFromLegacyEnvironment,
   mergeEnvVars,
   toV6EnvVarRecord,
+  redactBody,
+  redactParams,
   type EnvVarEntry,
 } from "@/lib/db"
 
@@ -57,5 +59,48 @@ describe("db v6 migration helpers", () => {
       { id: "s::env::host", specId: "s", envId: "env", key: "host", value: "env" },
       { id: "s::doc::shared", specId: "s", envId: null, key: "shared", value: "doc" },
     ])
+  })
+})
+
+describe("history redaction", () => {
+  it("masks sensitive keys in a JSON body, including nested ones", () => {
+    const out = redactBody(JSON.stringify({
+      username: "alice",
+      password: "hunter2",
+      data: { access_token: "abc.def.ghi", note: "ok" },
+    }))
+    const parsed = JSON.parse(out!)
+    expect(parsed.username).toBe("alice")
+    expect(parsed.password).toBe("***")
+    expect(parsed.data.access_token).toBe("***")
+    expect(parsed.data.note).toBe("ok")
+  })
+
+  it("masks sensitive keys in urlencoded bodies (OAuth password grant)", () => {
+    const out = redactBody("grant_type=password&username=alice&password=hunter2")
+    const sp = new URLSearchParams(out!)
+    expect(sp.get("username")).toBe("alice")
+    expect(sp.get("password")).toBe("***")
+    expect(sp.get("grant_type")).toBe("password")
+  })
+
+  it("does not over-redact innocent keys that merely contain a sensitive substring", () => {
+    const out = redactBody(JSON.stringify({ author: "bob", keyboard: "qwerty" }))
+    const parsed = JSON.parse(out!)
+    expect(parsed.author).toBe("bob")
+    expect(parsed.keyboard).toBe("qwerty")
+  })
+
+  it("leaves non-JSON, non-form bodies untouched and passes null through", () => {
+    expect(redactBody("plain text")).toBe("plain text")
+    expect(redactBody(null)).toBe(null)
+  })
+
+  it("redactParams masks sensitive param names by normalized key", () => {
+    expect(redactParams({ id: "5", apiKey: "secret123", access_token: "t" })).toEqual({
+      id: "5",
+      apiKey: "***",
+      access_token: "***",
+    })
   })
 })

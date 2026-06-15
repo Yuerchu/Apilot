@@ -244,7 +244,7 @@ function numberValue(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback
 }
 
-function authTypeValue(value: unknown): AuthType {
+export function authTypeValue(value: unknown): AuthType {
   const authType = stringValue(value)
   return authType === "bearer" || authType === "basic" || authType === "apikey" || authType === "oauth2"
     ? authType
@@ -629,13 +629,108 @@ function stripSensitiveHeaders(headers: Record<string, string>): Record<string, 
   return result
 }
 
+// Precise sensitive-key match for request/response *bodies*. Substring matching
+// (as used for headers) would over-redact innocent fields like "author" → keep an
+// exact, normalized key set so only real credential fields are masked.
+const SENSITIVE_BODY_KEYS = new Set([
+  "password", "passwd", "pwd", "secret", "clientsecret",
+  "token", "accesstoken", "refreshtoken", "idtoken", "authtoken", "sessiontoken",
+  "apikey", "apisecret", "jwt", "bearer", "credential", "credentials",
+  "authorization", "otp", "pin", "privatekey", "sessionid",
+])
+
+function isSensitiveBodyKey(key: string): boolean {
+  return SENSITIVE_BODY_KEYS.has(key.toLowerCase().replace(/[_-]/g, ""))
+}
+
+function redactDeep(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactDeep)
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = isSensitiveBodyKey(k) ? "***" : redactDeep(v)
+    }
+    return out
+  }
+  return value
+}
+
+// Mask credential fields in a request/response body before persisting it. Handles
+// JSON and urlencoded (OAuth password grant) bodies; other content is left as-is.
+export function redactBody(body: string | null): string | null {
+  if (!body) return body
+  const trimmed = body.trim()
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    try {
+      return JSON.stringify(redactDeep(JSON.parse(trimmed)))
+    } catch {
+      return body
+    }
+  }
+  if (/^[^\s=&]+=/.test(trimmed)) {
+    try {
+      const sp = new URLSearchParams(trimmed)
+      let changed = false
+      for (const k of [...sp.keys()]) {
+        if (isSensitiveBodyKey(k)) { sp.set(k, "***"); changed = true }
+      }
+      if (changed) return sp.toString()
+    } catch {
+      // fall through
+    }
+  }
+  return body
+}
+
+export function redactParams(params: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(params)) {
+    out[k] = isSensitiveBodyKey(k) ? "***" : v
+  }
+  return out
+}
+
+// Redact secrets inside a precomputed curl string using the *actual* sensitive
+// header values and request body (so custom API-key header names are covered too,
+// not just a fixed Authorization/Cookie/X-API-Key list).
+function redactCurlCommand(
+  curl: string,
+  originalHeaders: Record<string, string>,
+  originalBody: string | null,
+): string {
+  let out = curl
+  for (const [name, value] of Object.entries(originalHeaders)) {
+    if (!value) continue
+    if (SENSITIVE_HEADERS.has(name.toLowerCase()) || SENSITIVE_PATTERNS.test(name)) {
+      out = out.split(value).join("***")
+    }
+  }
+  if (originalBody) {
+    const redacted = redactBody(originalBody)
+    if (redacted && redacted !== originalBody) {
+      out = out.split(originalBody).join(redacted)
+    }
+  }
+  return out
+}
+
 export async function addHistoryEntry(entry: Omit<HistoryEntry, "id">): Promise<void> {
   try {
     const db = await getDB()
+    const originalHeaders = entry.response.requestHeaders
     const sanitized = { ...truncateBody(entry.response) }
-    sanitized.requestHeaders = stripSensitiveHeaders(sanitized.requestHeaders)
-    sanitized.curlCommand = sanitized.curlCommand.replace(/(Authorization|Cookie|X-API-Key):\s*[^'"]+/gi, "$1: ***")
-    await db.add("history", { ...entry, response: sanitized })
+    sanitized.requestHeaders = stripSensitiveHeaders(originalHeaders)
+    // The request body is stored twice (top-level + inside response); redact both,
+    // plus request params and the response body (may contain access/refresh tokens).
+    sanitized.requestBody = redactBody(sanitized.requestBody)
+    sanitized.body = redactBody(sanitized.body) ?? sanitized.body
+    sanitized.curlCommand = redactCurlCommand(sanitized.curlCommand, originalHeaders, entry.response.requestBody)
+    await db.add("history", {
+      ...entry,
+      requestBody: redactBody(entry.requestBody),
+      requestParams: redactParams(entry.requestParams),
+      response: sanitized,
+    })
   } catch (err) {
     if ((err as DOMException)?.name === "QuotaExceededError") {
       console.warn("[apilot] Storage quota exceeded, history entry not saved")

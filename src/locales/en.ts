@@ -397,6 +397,7 @@ export default {
     graphExportFailed: "Graph export failed",
     shareCopied: "Share link copied",
     shareCopyFailed: "Could not copy share link",
+    credentialCrossHost: "Sending credentials to {{host}} — this host is not declared in the spec's servers",
     nonStandardProperties: "Document contains non-standard properties (e.g. itemSchema) not part of the OpenAPI spec. Auto-converted for compatibility.",
   },
   validation: {
@@ -406,6 +407,8 @@ export default {
     formRequired: 'Form field "{{name}}" is required',
     enterCredentials: "Please enter username and password",
     tokenUrlEmpty: "Token URL is empty",
+    tokenUrlInvalid: "Token URL is invalid",
+    tokenUrlInsecure: "Token URL must use HTTPS to send credentials securely",
     noAccessToken: "No access_token in response",
     fileReadFailed: "File read failed",
   },

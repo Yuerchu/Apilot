@@ -106,7 +106,6 @@ function AppContent() {
 
   useSettings({
     setAuthType: auth.setAuthType,
-    setAuthToken: auth.setAuthToken,
   }, loadFromUrl)
 
   const isEmbedded = isEmbeddedMode()
