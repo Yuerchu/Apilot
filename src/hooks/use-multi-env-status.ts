@@ -255,14 +255,14 @@ export function useMultiEnvStatusProvider(): MultiEnvStatusValue {
     return null
   }, [envStatuses])
 
-  return {
+  return useMemo(() => ({
     envStatuses,
     getRoutePresence,
     inferStatus,
     loading,
     refresh,
     enabled,
-  }
+  }), [envStatuses, getRoutePresence, inferStatus, loading, refresh, enabled])
 }
 
 export function useMultiEnvStatus() {

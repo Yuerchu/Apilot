@@ -36,15 +36,17 @@ export function useFavoritesProvider(): FavoritesContextValue {
 
   const toggleFavorite = useCallback((routeKey: string) => {
     if (!specId) return
-    const next = new Set(effectiveFavorites)
-    if (next.has(routeKey)) {
-      next.delete(routeKey)
-      removeFavorite(specId, routeKey)
-    } else {
-      next.add(routeKey)
-      addFavorite(specId, routeKey)
-    }
-    setFavorites(next)
+    const wasFavorite = effectiveFavorites.has(routeKey)
+    // Optimistic, functional update (avoids stale-snapshot overwrites on rapid toggles).
+    const apply = (add: boolean) => setFavorites(prev => {
+      const next = new Set(prev)
+      if (add) next.add(routeKey)
+      else next.delete(routeKey)
+      return next
+    })
+    apply(!wasFavorite)
+    const op = wasFavorite ? removeFavorite(specId, routeKey) : addFavorite(specId, routeKey)
+    op.catch(() => apply(wasFavorite)) // roll back on persistence failure
   }, [specId, effectiveFavorites])
 
   return { favorites: effectiveFavorites, isFavorite, toggleFavorite }

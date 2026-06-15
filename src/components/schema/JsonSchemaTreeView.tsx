@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { Badge, badgeVariants } from "@/components/ui/badge"
 import {
@@ -119,7 +120,7 @@ function NodeMeta({ node }: { node: JsonSchemaTreeNode }) {
   )
 }
 
-function JsonSchemaTreeRow({
+const JsonSchemaTreeRow = memo(function JsonSchemaTreeRow({
   node,
   depth,
   hasDetails,
@@ -189,7 +190,7 @@ function JsonSchemaTreeRow({
       </TableCell>
     </TableRow>
   )
-}
+})
 
 export function JsonSchemaTreeView({
   nodes,
@@ -199,7 +200,7 @@ export function JsonSchemaTreeView({
   selectedNodeId,
 }: JsonSchemaTreeViewProps) {
   const { t } = useTranslation()
-  const rows = flattenTree(nodes)
+  const rows = useMemo(() => flattenTree(nodes), [nodes])
 
   if (nodes.length === 0) {
     return (

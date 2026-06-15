@@ -501,6 +501,16 @@ export async function putSpecFromDocument(
   const db = await getDB()
   const id = computeSpecId(spec, specUrl)
   const existing = await db.get("specs", id) as SpecRecord | undefined
+  // computeSpecId only hashes title@version::origin. If a different document
+  // collides on that id (different contentHash), its history/favorites/credentials
+  // were keyed for the old content and may not match — surface it instead of
+  // silently overwriting. (Primary key intentionally unchanged; no DB migration.)
+  if (existing && existing.contentHash !== hashSpec(spec)) {
+    console.warn(
+      `[apilot] spec "${id}" now has different content than the stored record; `
+      + `existing history/favorites/credentials may not align with the new document.`,
+    )
+  }
   const record = createSpecRecord(spec, specUrl, sourceType, existing ?? null)
   await db.put("specs", record)
   return record
@@ -527,45 +537,50 @@ export async function touchSpec(specId: string): Promise<void> {
   await db.put("specs", { ...spec, lastOpenedAt: now, updatedAt: now })
 }
 
-async function deleteAllFromIndex(storeName: string, indexName: string, query: IDBValidKey | IDBKeyRange): Promise<void> {
-  const db = await getDB()
-  const tx = db.transaction(storeName, "readwrite")
-  const index = tx.store.index(indexName)
-  let cursor = await index.openCursor(query)
+async function clearByIndex<Stores extends string, N extends Stores>(
+  store: IDBPObjectStore<unknown, Stores[], N, "readwrite">,
+  indexName: string,
+  key: IDBValidKey,
+): Promise<void> {
+  let cursor = await store.index(indexName).openCursor(key)
   while (cursor) {
     cursor.delete()
     cursor = await cursor.continue()
   }
-  await tx.done
-}
-
-async function deleteWsHistoryForSpec(specId: string): Promise<void> {
-  const db = await getDB()
-  const tx = db.transaction("wsHistory", "readwrite")
-  let cursor = await tx.store.openCursor()
-  while (cursor) {
-    const record = cursor.value as WsHistoryEntry
-    if (record.specId === specId) cursor.delete()
-    cursor = await cursor.continue()
-  }
-  await tx.done
 }
 
 export async function deleteSpec(specId: string): Promise<void> {
   const db = await getDB()
-  const environments = await db.getAllFromIndex("environments", "specId", specId) as EnvironmentProfile[]
+  // Single atomic transaction across every related store: cascade either fully
+  // commits or fully rolls back, so a mid-way failure can't leave orphaned records
+  // (notably orphaned environmentCredentials, which hold tokens).
+  const tx = db.transaction(
+    ["environments", "environmentCredentials", "envVars", "favorites", "history", "wsHistory", "consoleLayouts", "specSettings", "specs"],
+    "readwrite",
+  )
 
-  await Promise.all(environments.map(env => db.delete("environmentCredentials", env.id)))
-  await Promise.all([
-    deleteAllFromIndex("environments", "specId", specId),
-    deleteAllFromIndex("envVars", "specId", specId),
-    deleteAllFromIndex("favorites", "specId", specId),
-    deleteAllFromIndex("history", "specId", specId),
-    deleteWsHistoryForSpec(specId),
-    deleteAllFromIndex("consoleLayouts", "specId", specId),
-    db.delete("specSettings", specId),
-    db.delete("specs", specId),
-  ])
+  // Credentials are keyed by envId, so resolve this spec's environments first.
+  const envs = await tx.objectStore("environments").index("specId").getAll(specId) as EnvironmentProfile[]
+  const credStore = tx.objectStore("environmentCredentials")
+  for (const env of envs) await credStore.delete(env.id)
+
+  await clearByIndex(tx.objectStore("environments"), "specId", specId)
+  await clearByIndex(tx.objectStore("envVars"), "specId", specId)
+  await clearByIndex(tx.objectStore("favorites"), "specId", specId)
+  await clearByIndex(tx.objectStore("history"), "specId", specId)
+  await clearByIndex(tx.objectStore("consoleLayouts"), "specId", specId)
+
+  // wsHistory has no specId-only index — scan and match by specId.
+  const wsStore = tx.objectStore("wsHistory")
+  let wsCursor = await wsStore.openCursor()
+  while (wsCursor) {
+    if ((wsCursor.value as WsHistoryEntry).specId === specId) wsCursor.delete()
+    wsCursor = await wsCursor.continue()
+  }
+
+  await tx.objectStore("specSettings").delete(specId)
+  await tx.objectStore("specs").delete(specId)
+  await tx.done
 }
 
 export async function getSpecSettings(specId: string): Promise<SpecSettings | null> {
@@ -857,8 +872,19 @@ export async function getEnvironmentCredential(envId: string): Promise<Environme
 }
 
 export async function getEnvironmentRuntimes(specId: string): Promise<EnvironmentRuntime[]> {
-  const profiles = await getEnvironments(specId)
-  const credentials = await Promise.all(profiles.map(profile => getEnvironmentCredential(profile.id)))
+  const db = await getDB()
+  const profiles = await db.getAllFromIndex("environments", "specId", specId) as EnvironmentProfile[]
+  if (profiles.length === 0) return []
+  // Read all credentials within a single transaction instead of opening one DB
+  // connection per profile.
+  const tx = db.transaction("environmentCredentials", "readonly")
+  const store = tx.objectStore("environmentCredentials")
+  const credentials = await Promise.all(
+    profiles.map(async profile =>
+      (await store.get(profile.id) as EnvironmentCredential | undefined) ?? createEmptyEnvironmentCredential(profile.id),
+    ),
+  )
+  await tx.done
   return profiles.map((profile, index) => ({ ...profile, ...credentials[index]! }))
 }
 
@@ -906,12 +932,16 @@ export async function clearWsHistory(specId: string, channelId?: string, envId?:
   const db = await getDB()
   const tx = db.transaction("wsHistory", "readwrite")
   const index = tx.store.index("specId_channelId")
-  let cursor = await index.openCursor()
+  // Narrow the cursor to this spec (and channel, if given) instead of scanning the
+  // whole store. Array sorts after string, so [specId, []] bounds all channels.
+  const range = channelId
+    ? IDBKeyRange.only([specId, channelId])
+    : IDBKeyRange.bound([specId], [specId, []])
+  let cursor = await index.openCursor(range)
   while (cursor) {
     const record = cursor.value as WsHistoryEntry
-    const channelMatches = !channelId || record.channelId === channelId
     const envMatches = envId === undefined || (record.envId ?? null) === envId
-    if (record.specId === specId && channelMatches && envMatches) cursor.delete()
+    if (envMatches) cursor.delete()
     cursor = await cursor.continue()
   }
   await tx.done
