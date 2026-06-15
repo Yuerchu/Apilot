@@ -628,6 +628,7 @@ export default {
     updateFailed: "更新失敗：{{status}}",
     running: "執行中...",
     execute: "執行",
+    load: "載入",
     ok: "成功",
     requestFailed: "請求失敗",
     tokenApplied: "已驗證 — Token 已應用到當前環境",

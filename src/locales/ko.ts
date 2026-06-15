@@ -627,6 +627,7 @@ export default {
     updateFailed: "업데이트 실패: {{status}}",
     running: "실행 중...",
     execute: "실행",
+    load: "불러오기",
     ok: "성공",
     requestFailed: "요청 실패",
     tokenApplied: "인증됨 — 토큰이 현재 환경에 적용되었습니다",

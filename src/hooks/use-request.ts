@@ -28,6 +28,9 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
   const [loading, setLoading] = useState(false)
   const [response, setResponse] = useState<RequestResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // Synchronous mirror of `error` so callers can read the latest failure reason
+  // immediately after sendRequest resolves null (state updates lag a render).
+  const errorRef = useRef<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   // Origins we've already warned about sending credentials to (warn once per host).
   const warnedHostsRef = useRef<Set<string>>(new Set())
@@ -89,14 +92,16 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
   ): Promise<RequestResponse | null> => {
     const baseUrl = state.baseUrl.replace(/\/$/, "")
     if (!baseUrl) {
-      setError(i18n.t("validation.baseUrl"))
+      errorRef.current = i18n.t("validation.baseUrl")
+      setError(errorRef.current)
       return null
     }
 
     const validationErrors = validateRequest(route, params, body, contentType, formData)
     const firstValidationError = validationErrors[0]
     if (firstValidationError) {
-      setError(firstValidationError.message)
+      errorRef.current = firstValidationError.message
+      setError(errorRef.current)
       return null
     }
 
@@ -105,6 +110,7 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
     abortRef.current = controller
 
     setLoading(true)
+    errorRef.current = null
     setError(null)
     setResponse(null)
 
@@ -249,6 +255,7 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
     loading,
     response,
     error,
+    errorRef,
     sendRequest,
     validateRequest,
     findTokenFields,

@@ -627,6 +627,7 @@ export default {
     updateFailed: "Update failed: {{status}}",
     running: "Running...",
     execute: "Execute",
+    load: "Load",
     ok: "Success",
     requestFailed: "Request failed",
     tokenApplied: "Authenticated — token applied to the current environment",

@@ -1,8 +1,15 @@
 import type { ParsedRoute, SchemaObject, ResponseObject } from "@/lib/openapi/types"
+import { resolveEffectiveSchema } from "@/lib/openapi/resolve-schema"
 import type { PaginationConfig } from "./types"
 
+// Normalize a possibly-composed/3.1 schema to a primitive type string.
+function normalizedType(schema: SchemaObject): string | undefined {
+  const t = resolveEffectiveSchema(schema).type
+  return Array.isArray(t) ? t[0] : t
+}
+
 const PAGINATION_ITEMS_FIELDS = ["items", "data", "results", "records", "rows", "list", "content", "entries"]
-const PAGINATION_TOTAL_FIELDS = ["total", "count", "total_count", "totalcount", "totalitems", "total_items"]
+export const PAGINATION_TOTAL_FIELDS = ["total", "count", "total_count", "totalcount", "totalitems", "total_items"]
 
 export function getRequestBodySchema(route: ParsedRoute): SchemaObject | null {
   const content = route.requestBody?.content
@@ -30,20 +37,23 @@ function getResponseSchema(responses: Record<string, ResponseObject>): SchemaObj
 }
 
 export function detectPagination(schema: SchemaObject | null): PaginationConfig {
-  if (!schema || schema.type !== "object" || !schema.properties) {
+  // Resolve allOf / OAS 3.1 array-type (["object","null"]) before inspecting.
+  const resolved = schema ? resolveEffectiveSchema(schema) : null
+  if (!resolved || normalizedType(resolved) !== "object" || !resolved.properties) {
     return { style: "none", itemsField: null, totalField: null }
   }
 
   let itemsField: string | null = null
   let totalField: string | null = null
 
-  for (const key of Object.keys(schema.properties)) {
-    const prop = schema.properties[key]
+  for (const key of Object.keys(resolved.properties)) {
+    const prop = resolved.properties[key]
     if (!prop) continue
-    if (!itemsField && prop.type === "array" && PAGINATION_ITEMS_FIELDS.includes(key.toLowerCase())) {
+    const propType = normalizedType(prop)
+    if (!itemsField && propType === "array" && PAGINATION_ITEMS_FIELDS.includes(key.toLowerCase())) {
       itemsField = key
     }
-    if (!totalField && (prop.type === "integer" || prop.type === "number") && PAGINATION_TOTAL_FIELDS.includes(key.toLowerCase())) {
+    if (!totalField && (propType === "integer" || propType === "number") && PAGINATION_TOTAL_FIELDS.includes(key.toLowerCase())) {
       totalField = key
     }
   }
@@ -54,18 +64,20 @@ export function detectPagination(schema: SchemaObject | null): PaginationConfig 
 }
 
 export function inferListItemSchema(route: ParsedRoute): { schema: SchemaObject | null; pagination: PaginationConfig } {
-  const responseSchema = getResponseSchema(route.responses)
-  if (!responseSchema) return { schema: null, pagination: { style: "none", itemsField: null, totalField: null } }
+  const raw = getResponseSchema(route.responses)
+  if (!raw) return { schema: null, pagination: { style: "none", itemsField: null, totalField: null } }
+  const responseSchema = resolveEffectiveSchema(raw)
 
-  if (responseSchema.type === "array" && responseSchema.items) {
-    return { schema: responseSchema.items, pagination: { style: "none", itemsField: null, totalField: null } }
+  if (normalizedType(responseSchema) === "array" && responseSchema.items) {
+    return { schema: responseSchema.items as SchemaObject, pagination: { style: "none", itemsField: null, totalField: null } }
   }
 
   const pagination = detectPagination(responseSchema)
   if (pagination.itemsField && responseSchema.properties) {
     const arrayProp = responseSchema.properties[pagination.itemsField]
-    if (arrayProp?.items) {
-      return { schema: arrayProp.items, pagination }
+    const arrayResolved = arrayProp ? resolveEffectiveSchema(arrayProp) : null
+    if (arrayResolved?.items) {
+      return { schema: arrayResolved.items as SchemaObject, pagination }
     }
   }
 

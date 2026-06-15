@@ -15,20 +15,22 @@ export interface SubmitJsonResult {
 
 export function useConsoleFetch() {
   const auth = useAuthContext()
-  const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
+  const { sendRequest, loading, errorRef } = useRequest(auth.getAuthHeaders)
 
   const fetchJson = useCallback(async <T = unknown>(
     route: ParsedRoute,
     params?: Record<string, string>,
   ): Promise<FetchJsonResult<T>> => {
     const result = await sendRequest(route, params ?? {}, "", "application/json")
-    if (!result) return { data: null, error: null }
+    // null = baseUrl missing / validation failure / abort. Surface the validation
+    // reason (errorRef) so templates don't render a silent blank; abort leaves it null.
+    if (!result) return { data: null, error: errorRef.current }
     if (result.status >= 200 && result.status < 300) {
       try { return { data: JSON.parse(result.body) as T, error: null } }
-      catch { return { data: null, error: null } }
+      catch (e) { return { data: null, error: e instanceof Error ? e.message : "Invalid JSON response" } }
     }
     return { data: null, error: `${result.status} ${result.statusText}` }
-  }, [sendRequest])
+  }, [sendRequest, errorRef])
 
   const submitJson = useCallback(async (
     route: ParsedRoute,

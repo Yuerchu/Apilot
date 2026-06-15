@@ -9,6 +9,7 @@ import { useConsoleContext } from "@/contexts/ConsoleContext"
 import { applyFieldLayout } from "@/lib/console/apply-layout"
 import type { FormFieldConfig, ResourceAction } from "@/lib/console/types"
 import { getRequestBodySchema } from "@/lib/console/schema-inference"
+import { PathParamFields, getPathParams, hasAllRequiredPathParams } from "../PathParamFields"
 import { toast } from "sonner"
 import type { TemplateProps } from "./index"
 
@@ -38,14 +39,17 @@ function ActionCard({ action, fieldConfigs }: { action: ResourceAction; fieldCon
   const { submitJson, loading } = useConsoleFetch()
   const [formData, setFormData] = useState<FormOutput>({})
   const [response, setResponse] = useState<string | null>(null)
+  const [pathParams, setPathParams] = useState<Record<string, string>>({})
 
   const rawSchema = getRequestBodySchema(action.route)
   const schema = rawSchema ? applyFieldLayout(rawSchema, fieldConfigs) : null
+  const routePathParams = getPathParams(action.route)
+  const canSubmit = hasAllRequiredPathParams(action.route, pathParams)
   const handleChange = useCallback((v: FormOutput) => setFormData(v), [])
 
   const handleSubmit = async () => {
     const body = schema ? JSON.stringify(formData) : ""
-    const { ok, response: resp } = await submitJson(action.route, body)
+    const { ok, response: resp } = await submitJson(action.route, body, pathParams)
     if (ok) toast.success(`${action.label}: OK`)
     else toast.error(`${action.label}: failed`)
     setResponse(resp)
@@ -64,13 +68,16 @@ function ActionCard({ action, fieldConfigs }: { action: ResourceAction; fieldCon
           <CardDescription className="text-xs">{action.route.description}</CardDescription>
         )}
       </CardHeader>
-      {schema && (
-        <CardContent>
-          <SchemaForm schema={schema} value={formData} onChange={handleChange} />
+      {(routePathParams.length > 0 || schema) && (
+        <CardContent className="flex flex-col gap-3">
+          {routePathParams.length > 0 && (
+            <PathParamFields route={action.route} values={pathParams} onChange={setPathParams} />
+          )}
+          {schema && <SchemaForm schema={schema} value={formData} onChange={handleChange} />}
         </CardContent>
       )}
       <CardFooter className="flex gap-2">
-        <Button size="sm" onClick={handleSubmit} disabled={loading}>
+        <Button size="sm" onClick={handleSubmit} disabled={loading || !canSubmit}>
           {loading ? t("console.running") : t("console.execute")}
         </Button>
       </CardFooter>

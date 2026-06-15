@@ -12,6 +12,7 @@ import { useConsoleContext } from "@/contexts/ConsoleContext"
 import { categorizeStats } from "@/lib/console/apply-layout"
 import { useTheme } from "next-themes"
 import { ConsoleActionButton } from "../ConsoleActionButton"
+import { PathParamFields, getPathParams, hasAllRequiredPathParams } from "../PathParamFields"
 import type { TemplateProps } from "./index"
 
 ModuleRegistry.registerModules([AllCommunityModule])
@@ -23,20 +24,22 @@ export function StatsDashboardTemplate({ resource, layoutOverride }: TemplatePro
   const { fetchJson, loading } = useConsoleFetch()
   const [data, setData] = useState<Record<string, unknown> | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [pathParams, setPathParams] = useState<Record<string, string>>({})
 
   const readOp = resource.operations.read ?? resource.operations.list
   const action = !readOp ? resource.actions[0] : null
+  const activeRoute = readOp?.route ?? action?.route ?? null
+  const needsInput = !!activeRoute && getPathParams(activeRoute).length > 0
 
   const fetchData = useCallback(async () => {
-    const route = readOp?.route ?? action?.route
-    if (!route) return
+    if (!activeRoute || !hasAllRequiredPathParams(activeRoute, pathParams)) return
     setError(null)
-    const { data: parsed, error: err } = await fetchJson<Record<string, unknown>>(route)
+    const { data: parsed, error: err } = await fetchJson<Record<string, unknown>>(activeRoute, pathParams)
     setData(parsed)
     setError(err)
-  }, [readOp, action, fetchJson])
+  }, [activeRoute, fetchJson, pathParams])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { if (!needsInput) fetchData() }, [needsInput, fetchData])
 
   const statsConfig = layout?.statsConfig
 
@@ -63,11 +66,21 @@ export function StatsDashboardTemplate({ resource, layoutOverride }: TemplatePro
           <span className="text-[10px] text-muted-foreground">{t("console.autoRefresh", { seconds: refreshInterval })}</span>
         ) : null}
         <div className="flex-1" />
-        {resource.actions.map((a, i) => <ConsoleActionButton key={i} action={a} />)}
+        {resource.actions.map((a, i) => <ConsoleActionButton key={i} action={a} pathParams={pathParams} />)}
         <Button size="sm" variant="outline" onClick={fetchData} disabled={loading}>
           <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
       </div>
+
+      {needsInput && activeRoute && (
+        <PathParamFields
+          route={activeRoute}
+          values={pathParams}
+          onChange={setPathParams}
+          onLoad={fetchData}
+          loading={loading}
+        />
+      )}
 
       {error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>

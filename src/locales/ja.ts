@@ -627,6 +627,7 @@ export default {
     updateFailed: "更新失敗：{{status}}",
     running: "実行中...",
     execute: "実行",
+    load: "読み込み",
     ok: "成功",
     requestFailed: "リクエストが失敗しました",
     tokenApplied: "認証済み — トークンが現在の環境に適用されました",
