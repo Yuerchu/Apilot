@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import {
   Route, Database, GitCompare, Stethoscope, Star, Radio, Table2, ChevronRight,
@@ -41,6 +42,14 @@ export function AppSidebar() {
   const isAsyncAPI = state.specType === "asyncapi"
   const hasSchemas = Object.keys(schemas).length > 0
   const hasConsoleResources = groups.some(g => g.resources.length > 0)
+
+  const tagDescMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const t of state.spec?.tags ?? []) {
+      if (t.description) m.set(t.name, t.description)
+    }
+    return m
+  }, [state.spec?.tags])
 
   const handleConsoleResource = (basePath: string) => {
     setMainView("console")
@@ -155,13 +164,22 @@ export function AppSidebar() {
               <ConsoleImportExport />
             </SidebarGroupLabel>
             <SidebarMenu>
-              {groups.map(group => (
+              {groups.map(group => {
+                const groupTagDesc = group.resources
+                  .map(r => r.tag ? tagDescMap.get(r.tag) : undefined)
+                  .find(Boolean) ?? null
+                return (
                 <Collapsible key={group.label} asChild defaultOpen={false} className="group/collapsible">
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
-                      <SidebarMenuButton tooltip={group.label}>
+                      <SidebarMenuButton tooltip={groupTagDesc ?? group.label}>
                         <Table2 className="size-4" />
-                        <span className="truncate">{group.label}</span>
+                        <div className="flex flex-col items-start min-w-0">
+                          <span className="truncate w-full">{group.label}</span>
+                          {groupTagDesc && (
+                            <span className="truncate w-full text-[10px] text-muted-foreground leading-tight">{groupTagDesc}</span>
+                          )}
+                        </div>
                         <Badge variant="secondary" className="ml-auto text-[9px] mr-1">
                           {group.resources.length}
                         </Badge>
@@ -194,7 +212,8 @@ export function AppSidebar() {
                     </CollapsibleContent>
                   </SidebarMenuItem>
                 </Collapsible>
-              ))}
+                )
+              })}
             </SidebarMenu>
           </SidebarGroup>
         )}

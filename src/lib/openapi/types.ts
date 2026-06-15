@@ -49,6 +49,7 @@ export interface OpenAPISpec {
   produces?: string[]
   consumes?: string[]
   securityDefinitions?: Record<string, SecurityScheme>
+  tags?: Array<{ name: string; description?: string }>
 }
 
 export type ServerObject = OpenAPIV3.ServerObject
