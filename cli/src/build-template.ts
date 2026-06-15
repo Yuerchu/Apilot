@@ -21,7 +21,8 @@ const TEMPLATE_CSP = [
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "object-src 'none'",
   "base-uri 'self'",
-  "frame-ancestors 'none'",
+  // Clickjacking: frame-ancestors and X-Frame-Options both require HTTP headers,
+  // not <meta>. Static templates must rely on the hosting server's headers config.
 ].join("; ")
 
 function templateCspPlugin() {

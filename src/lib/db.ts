@@ -733,18 +733,19 @@ export async function addHistoryEntry(entry: Omit<HistoryEntry, "id">): Promise<
   try {
     const db = await getDB()
     const originalHeaders = entry.response.requestHeaders
-    const sanitized = { ...truncateBody(entry.response) }
+    // Redact BEFORE truncating — truncateBody turns valid JSON into broken text,
+    // which makes redactBody's JSON.parse fail and skip credential masking.
+    const sanitized = { ...entry.response }
     sanitized.requestHeaders = stripSensitiveHeaders(originalHeaders)
-    // The request body is stored twice (top-level + inside response); redact both,
-    // plus request params and the response body (may contain access/refresh tokens).
     sanitized.requestBody = redactBody(sanitized.requestBody)
     sanitized.body = redactBody(sanitized.body) ?? sanitized.body
     sanitized.curlCommand = redactCurlCommand(sanitized.curlCommand, originalHeaders, entry.response.requestBody)
+    const truncated = truncateBody(sanitized)
     await db.add("history", {
       ...entry,
       requestBody: redactBody(entry.requestBody),
       requestParams: redactParams(entry.requestParams),
-      response: sanitized,
+      response: truncated,
     })
   } catch (err) {
     if ((err as DOMException)?.name === "QuotaExceededError") {
@@ -872,9 +873,11 @@ export async function getEnvironmentCredential(envId: string): Promise<Environme
 }
 
 export async function getEnvironmentRuntimes(specId: string): Promise<EnvironmentRuntime[]> {
-  const db = await getDB()
-  const profiles = await db.getAllFromIndex("environments", "specId", specId) as EnvironmentProfile[]
+  // Reuse getEnvironments so the createdAt ordering is preserved (the consumer uses
+  // [0] as the default environment when none is saved — index order ≠ creation order).
+  const profiles = await getEnvironments(specId)
   if (profiles.length === 0) return []
+  const db = await getDB()
   // Read all credentials within a single transaction instead of opening one DB
   // connection per profile.
   const tx = db.transaction("environmentCredentials", "readonly")

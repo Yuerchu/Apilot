@@ -115,7 +115,7 @@ export function DetailCardTemplate({ resource, layoutOverride }: TemplateProps) 
       </div>
 
       {state.subView === "edit" && data && (
-        <ConsoleFormDialog resource={resource} mode="edit" initialData={data} onSuccess={fetchDetail} />
+        <ConsoleFormDialog resource={resource} mode="edit" initialData={data} pathParams={pathParams} onSuccess={fetchDetail} />
       )}
     </div>
   )

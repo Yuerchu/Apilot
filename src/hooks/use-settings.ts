@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { authTypeValue, readLegacySettingsFromLocalStorage } from "@/lib/db"
+import { isPrivateOrLocalHost } from "@/lib/openapi/url-guard"
 import type { AuthType } from "@/lib/openapi/types"
 
 interface AuthSetters {
@@ -62,9 +63,21 @@ export function useSettings(
       if (title) document.title = title
 
       if (specUrl && autoLoad) {
-        setTimeout(() => {
-          autoLoad(specUrl, baseUrl ? { baseUrlOverride: baseUrl } : undefined)
-        }, 0)
+        // A spec URL taken from the query string is attacker-controllable (share
+        // link) and auto-fetched without interaction — refuse internal/loopback
+        // hosts (SSRF). URLs the user typed or previously loaded (legacy) are exempt.
+        const fromQuery = !!paramSpecUrl && specUrl === paramSpecUrl
+        let blockedHost = false
+        if (fromQuery) {
+          try { blockedHost = isPrivateOrLocalHost(new URL(specUrl).hostname) } catch { blockedHost = true }
+        }
+        if (blockedHost) {
+          console.warn(`[apilot] refused to auto-load spec from an internal/loopback host: ${specUrl}`)
+        } else {
+          setTimeout(() => {
+            autoLoad(specUrl, baseUrl ? { baseUrlOverride: baseUrl } : undefined)
+          }, 0)
+        }
       }
     })()
 

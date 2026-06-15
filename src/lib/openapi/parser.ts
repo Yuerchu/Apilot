@@ -15,6 +15,7 @@ import type {
   ServerObject,
 } from "./types"
 import { isExternalRefAllowed, originOf } from "./url-guard"
+import { readResponseTextCapped } from "@/lib/fetch-utils"
 
 export const HTTP_METHODS = ["get", "post", "put", "patch", "delete", "head", "options"] as const
 export type HttpMethod = (typeof HTTP_METHODS)[number]
@@ -57,7 +58,9 @@ function buildParserOptions(allowedOrigins: string[], blocked: Set<string>): Par
       if (!res.ok) {
         throw new Error(`Failed to fetch external $ref ${file.url}: ${res.status}`)
       }
-      return await res.text()
+      // Cap external ref bodies too — a same-origin ref could otherwise return a
+      // huge response and exhaust memory before parsing.
+      return await readResponseTextCapped(res)
     },
   }
   return {

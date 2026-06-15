@@ -277,15 +277,18 @@ export function generateWithVariant(rawSchema: SchemaObject, variantId: string):
 // Replace residual $ref nodes (left by the parser's circular:"ignore") and any
 // _circular/_unresolved-marked nodes with an empty schema, so openapi-sampler can
 // still produce a partial example instead of throwing on the first $ref.
-function pruneCircularRefs(schema: unknown, seen: WeakSet<object> = new WeakSet()): unknown {
+// `ancestors` tracks only the current recursion path (added on enter, removed on
+// leave) so a schema *shared* between siblings isn't mistaken for a cycle.
+function pruneCircularRefs(schema: unknown, ancestors: WeakSet<object> = new WeakSet()): unknown {
   if (!schema || typeof schema !== "object") return schema
-  if (Array.isArray(schema)) return schema.map(s => pruneCircularRefs(s, seen))
+  if (Array.isArray(schema)) return schema.map(s => pruneCircularRefs(s, ancestors))
   const obj = schema as Record<string, unknown>
   if (typeof obj.$ref === "string" || obj._circular || obj._unresolved) return {}
-  if (seen.has(schema)) return {}
-  seen.add(schema)
+  if (ancestors.has(schema)) return {} // genuine cycle: node reachable from itself
+  ancestors.add(schema)
   const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(obj)) out[k] = pruneCircularRefs(v, seen)
+  for (const [k, v] of Object.entries(obj)) out[k] = pruneCircularRefs(v, ancestors)
+  ancestors.delete(schema)
   return out
 }
 

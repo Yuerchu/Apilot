@@ -18,10 +18,22 @@ describe("url-guard", () => {
         expect(isPrivateOrLocalHost(h)).toBe(true)
       }
     })
+    it("flags IPv4-mapped IPv6 in hex form (browser normalization)", () => {
+      // new URL("http://[::ffff:127.0.0.1]").hostname → "::ffff:7f00:1"
+      expect(isPrivateOrLocalHost("::ffff:7f00:1")).toBe(true)       // 127.0.0.1
+      expect(isPrivateOrLocalHost("::ffff:c0a8:1")).toBe(true)       // 192.168.0.1
+      expect(isPrivateOrLocalHost("::ffff:a9fe:a9fe")).toBe(true)    // 169.254.169.254
+      expect(isPrivateOrLocalHost("::ffff:808:808")).toBe(false)     // 8.8.8.8 — public
+    })
     it("flags internal hostnames and bare single-label names", () => {
       for (const h of ["localhost", "foo.localhost", "service.local", "db.internal", "intranet"]) {
         expect(isPrivateOrLocalHost(h)).toBe(true)
       }
+    })
+    it("flags multicast addresses (IPv4 + IPv6)", () => {
+      expect(isPrivateOrLocalHost("224.0.0.1")).toBe(true)
+      expect(isPrivateOrLocalHost("239.255.255.250")).toBe(true)
+      expect(isPrivateOrLocalHost("ff02::1")).toBe(true)
     })
     it("allows normal public hostnames", () => {
       for (const h of ["example.com", "api.example.com", "petstore.swagger.io"]) {

@@ -16,10 +16,13 @@ interface Props {
   resource: ConsoleResource
   mode: "create" | "edit"
   initialData?: Record<string, unknown> | undefined
+  /** Path params (e.g. the id the detail page was loaded with) — fallback when the
+   *  response body doesn't echo the id field. */
+  pathParams?: Record<string, string> | undefined
   onSuccess: () => void
 }
 
-export function ConsoleFormDialog({ resource, mode, initialData, onSuccess }: Props) {
+export function ConsoleFormDialog({ resource, mode, initialData, pathParams, onSuccess }: Props) {
   const { t } = useTranslation()
   const { dispatch, activeLayout } = useConsoleContext()
   const auth = useAuthContext()
@@ -41,10 +44,12 @@ export function ConsoleFormDialog({ resource, mode, initialData, onSuccess }: Pr
   const handleSubmit = async () => {
     if (!operation) return
     const body = JSON.stringify(formData)
-    const params: Record<string, string> = {}
+    // Seed with the path params the page was loaded with; the response's own id
+    // (if present) takes precedence as it's the authoritative record id.
+    const params: Record<string, string> = { ...(pathParams ?? {}) }
 
-    if (mode === "edit" && resource.idParam && initialData) {
-      const id = String(initialData[resource.idParam] ?? initialData["id"] ?? "")
+    if (mode === "edit" && resource.idParam) {
+      const id = String(initialData?.[resource.idParam] ?? initialData?.["id"] ?? pathParams?.[resource.idParam] ?? "")
       if (id) params[resource.idParam] = id
     }
 
