@@ -8,6 +8,22 @@ import phoneExamples from "libphonenumber-js/mobile/examples"
 
 const E164_COUNTRIES: CountryCode[] = ["US", "GB", "CN", "JP", "KR", "DE", "FR", "IN", "AU", "BR"]
 
+// Upper bound for explicit regex quantifiers we are willing to expand. `re.max`
+// only caps open-ended quantifiers (*, +, {n,}); a bounded quantifier like
+// `a{1000000}` from an untrusted spec would otherwise expand fully and OOM the tab.
+const QUANTIFIER_LIMIT = 1000
+
+function isSafePattern(pattern: string): boolean {
+  const re = /\{\s*(\d+)\s*(?:,\s*(\d*)\s*)?\}/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(pattern)) !== null) {
+    const lo = Number(m[1])
+    const hi = m[2] !== undefined && m[2] !== "" ? Number(m[2]) : lo
+    if (lo > QUANTIFIER_LIMIT || hi > QUANTIFIER_LIMIT) return false
+  }
+  return true
+}
+
 function randomE164(): string {
   const country = faker.helpers.arrayElement(E164_COUNTRIES)
   return generatePhoneForCountry(country)
@@ -58,11 +74,12 @@ function fakerForSchema(schema: SchemaObject): unknown {
   // String
   if (type === "string" || !type) {
     // 1. Pattern is the strongest constraint — always prefer it
-    if (schema.pattern) {
+    if (schema.pattern && isSafePattern(schema.pattern)) {
       try {
         const re = new RandExp(schema.pattern)
-        re.max = schema.maxLength ?? 20
-        return re.gen()
+        re.max = Math.min(schema.maxLength ?? 20, QUANTIFIER_LIMIT)
+        const out = re.gen()
+        return schema.maxLength !== undefined ? out.slice(0, schema.maxLength) : out
       } catch {
         // Invalid pattern, fall through to format
       }

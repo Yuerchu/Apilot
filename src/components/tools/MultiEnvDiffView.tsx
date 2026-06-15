@@ -7,6 +7,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import type { OpenAPIDiffResult } from "@/lib/openapi/diff"
 import type { OpenAPISpec } from "@/lib/openapi/types"
 import { getErrorMessage, normalizeParsedSpec, parseSpecText, parseValidatedSpec } from "@/lib/openapi/parser"
+import { readResponseTextCapped } from "@/lib/fetch-utils"
 import { useEnvironments } from "@/hooks/use-environments"
 import { useOpenAPIContext } from "@/contexts/OpenAPIContext"
 import { GroupedDiffResult, getEnvSpecUrl } from "./ProjectToolsView"
@@ -119,9 +120,9 @@ export function MultiEnvDiffView({ spec }: { spec?: OpenAPISpec | undefined }) {
           if (!url) throw new Error(`Cannot construct URL for ${opt.name}`)
           const response = await fetch(url)
           if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`)
-          const text = await response.text()
+          const text = await readResponseTextCapped(response)
           const parsed = parseSpecText(text)
-          const validated = await parseValidatedSpec(parsed)
+          const validated = await parseValidatedSpec(parsed, { sourceUrl: url })
           parsedSpec = normalizeParsedSpec(validated.spec)
         }
         loadedSpecs.push({ key: opt.key, name: opt.name, spec: parsedSpec })

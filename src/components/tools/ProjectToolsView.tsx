@@ -16,6 +16,7 @@ import type {
 } from "@/lib/openapi/diff"
 import type { OpenAPISpec } from "@/lib/openapi/types"
 import { getErrorMessage } from "@/lib/openapi/parser"
+import { readResponseTextCapped } from "@/lib/fetch-utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -594,7 +595,7 @@ export function OpenAPIDiffView({ spec }: OpenAPIDiffViewProps) {
     try {
       const response = await fetch(url)
       if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`)
-      const text = await response.text()
+      const text = await readResponseTextCapped(response)
       worker.postMessage({ type: "parse-slot", requestId, slot, name, text })
     } catch (error) {
       pendingSlotRequestsRef.current[slot] = null
