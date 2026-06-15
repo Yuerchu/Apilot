@@ -8,10 +8,38 @@ const root = fileURLToPath(new URL("../..", import.meta.url))
 const srcDir = fileURLToPath(new URL("../../src", import.meta.url))
 const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"))
 
+// Generated static templates inline their scripts/styles, so script/style must
+// allow 'unsafe-inline' (and 'unsafe-eval' for ajv's runtime schema compilation).
+// The hardening that still applies: object-src/base-uri/frame-ancestors and
+// restricting where scripts/images may load from.
+const TEMPLATE_CSP = [
+  "default-src 'self'",
+  "connect-src * data: blob: ws: wss:",
+  "img-src 'self' data: https:",
+  "font-src 'self' data:",
+  "style-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'none'",
+].join("; ")
+
+function templateCspPlugin() {
+  return {
+    name: "apilot-template-csp",
+    transformIndexHtml(html: string) {
+      return html.replace(
+        "</title>",
+        `</title>\n  <meta http-equiv="Content-Security-Policy" content="${TEMPLATE_CSP}" />`,
+      )
+    },
+  }
+}
+
 const sharedConfig: InlineConfig = {
   configFile: false,
   root,
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), templateCspPlugin()],
   resolve: {
     alias: {
       "@": srcDir,

@@ -209,6 +209,8 @@ export function useOpenAPI() {
       if (options?.fetchAuth) {
         const { username, password } = options.fetchAuth
         fetchInit.headers = { Authorization: `Basic ${btoa(unescape(encodeURIComponent(`${username}:${password}`)))}` }
+        // Don't let a credentialed spec response land in the HTTP cache.
+        fetchInit.cache = "no-store"
       }
       try {
         response = await fetch(url, fetchInit)

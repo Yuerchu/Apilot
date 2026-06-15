@@ -51,6 +51,7 @@ export default {
     login: "Login",
     authenticated: "Authenticated",
     detectedFromSpec: "Auto-detected from API spec",
+    plaintextWarning: "Credentials are stored unencrypted in this browser (IndexedDB) and can be read by any script running on this origin.",
     oauth2FlowNotSupported: "{{flow}} flow is not supported for auto-login, please paste a token manually",
   },
   toolbar: {

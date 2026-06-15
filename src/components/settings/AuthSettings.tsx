@@ -73,6 +73,11 @@ export function AuthSettings() {
             <SelectItem value="oauth2">{t("auth.oauth2")}</SelectItem>
           </SelectContent>
         </Select>
+        {auth.authType !== "none" && (
+          <FieldDescription className="text-amber-600 dark:text-amber-500">
+            {t("auth.plaintextWarning")}
+          </FieldDescription>
+        )}
       </Field>
 
       {auth.authType === "bearer" && (

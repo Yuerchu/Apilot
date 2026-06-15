@@ -51,6 +51,7 @@ export default {
     login: "登入",
     authenticated: "已認證",
     detectedFromSpec: "已從 API 規範中自動偵測",
+    plaintextWarning: "憑證以未加密形式儲存在本瀏覽器(IndexedDB)中，本源下執行的任意指令碼均可讀取。",
     oauth2FlowNotSupported: "{{flow}} 流程暫不支援自動登入，請手動貼上 Token",
   },
   toolbar: {

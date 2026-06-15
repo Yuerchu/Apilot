@@ -51,6 +51,7 @@ export default {
     login: "登录",
     authenticated: "已认证",
     detectedFromSpec: "已从 API 规范中自动检测",
+    plaintextWarning: "凭证以未加密形式存储在本浏览器(IndexedDB)中，本源下运行的任意脚本均可读取。",
     oauth2FlowNotSupported: "{{flow}} 流程暂不支持自动登录，请手动粘贴 Token",
   },
   toolbar: {

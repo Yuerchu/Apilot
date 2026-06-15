@@ -51,6 +51,7 @@ export default {
     login: "ログイン",
     authenticated: "認証済み",
     detectedFromSpec: "API 仕様から自動検出",
+    plaintextWarning: "認証情報はこのブラウザ(IndexedDB)に暗号化されずに保存され、このオリジンで実行される任意のスクリプトから読み取れます。",
     oauth2FlowNotSupported: "{{flow}} フローの自動ログインには対応していません。トークンを手動で貼り付けてください",
   },
   toolbar: {

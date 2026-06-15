@@ -51,6 +51,7 @@ export default {
     login: "로그인",
     authenticated: "인증됨",
     detectedFromSpec: "API 사양에서 자동 감지됨",
+    plaintextWarning: "자격 증명은 이 브라우저(IndexedDB)에 암호화되지 않은 상태로 저장되며 이 출처에서 실행되는 모든 스크립트가 읽을 수 있습니다.",
     oauth2FlowNotSupported: "{{flow}} 플로우는 자동 로그인을 지원하지 않습니다. 토큰을 직접 붙여넣어 주세요",
   },
   toolbar: {
