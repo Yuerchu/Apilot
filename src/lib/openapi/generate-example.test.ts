@@ -26,6 +26,16 @@ describe("generateExample circular handling", () => {
     }
     expect(generateExample(schema)).not.toBeNull()
   })
+
+  it("does not prune a schema shared between sibling fields (non-circular reuse)", () => {
+    const shared: SchemaObject = { type: "object", properties: { value: { type: "string" } } }
+    const schema: SchemaObject = { type: "object", properties: { a: shared, b: shared } }
+    const ex = generateExample(schema) as Record<string, unknown> | null
+    expect(ex).not.toBeNull()
+    // Both siblings must retain content; the second must not be emptied as a "cycle".
+    expect((ex?.a as Record<string, unknown> | undefined)?.value).toBeDefined()
+    expect((ex?.b as Record<string, unknown> | undefined)?.value).toBeDefined()
+  })
 })
 
 describe("generateWithVariant boundaries", () => {

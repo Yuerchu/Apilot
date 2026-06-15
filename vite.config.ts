@@ -62,11 +62,14 @@ export default defineConfig(({ mode }) => {
         globPatterns: ["**/*.{js,css,html,svg}"],
         runtimeCaching: [
           {
-            // Never cache credentialed spec fetches (Authorization header) — that
-            // would persist a protected API document to disk for later, possibly
-            // unauthenticated, readers. Only cache successful responses.
-            urlPattern: ({ request, url }: { request: Request; url: URL }) =>
-              !request.headers.has("authorization")
+            // Only cache cross-origin *public* specs. Same-origin specs may be
+            // cookie/session-authenticated (the Cookie header isn't visible to JS,
+            // so we can't filter on it), and Authorization-bearing requests are
+            // excluded outright. Caching a protected doc could expose it to a later,
+            // unauthenticated reader on a shared machine. Only cache 200s.
+            urlPattern: ({ request, url, sameOrigin }: { request: Request; url: URL; sameOrigin: boolean }) =>
+              !sameOrigin
+              && !request.headers.has("authorization")
               && /(?:^|\/)(?:spec|openapi|swagger|asyncapi)[^/]*\.(json|ya?ml)$/i.test(url.pathname),
             handler: "NetworkFirst",
             options: {
