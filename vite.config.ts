@@ -59,29 +59,13 @@ export default defineConfig(({ mode }) => {
     tailwindcss(),
     cspPlugin(),
     VitePWA({
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
       registerType: "prompt",
-      workbox: {
+      injectManifest: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         globPatterns: ["**/*.{js,css,html,svg}"],
-        runtimeCaching: [
-          {
-            // Only cache cross-origin *public* specs. Same-origin specs may be
-            // cookie/session-authenticated (the Cookie header isn't visible to JS,
-            // so we can't filter on it), and Authorization-bearing requests are
-            // excluded outright. Caching a protected doc could expose it to a later,
-            // unauthenticated reader on a shared machine. Only cache 200s.
-            urlPattern: ({ request, url, sameOrigin }: { request: Request; url: URL; sameOrigin: boolean }) =>
-              !sameOrigin
-              && !request.headers.has("authorization")
-              && /(?:^|\/)(?:spec|openapi|swagger|asyncapi)[^/]*\.(json|ya?ml)$/i.test(url.pathname),
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "api-specs",
-              expiration: { maxEntries: 20, maxAgeSeconds: 7 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-        ],
       },
       manifest: {
         name: "Apilot",
