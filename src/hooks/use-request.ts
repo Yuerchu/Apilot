@@ -154,20 +154,24 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
 
     if (route.requestBody) {
       if (contentType === "multipart/form-data" || contentType === "application/x-www-form-urlencoded") {
-        const form = new FormData()
-        if (formData) {
-          for (const [name, val] of Object.entries(formData)) {
-            if (val instanceof File) {
-              form.append(name, val)
-            } else if (val) {
-              form.append(name, val)
+        if (contentType === "application/x-www-form-urlencoded") {
+          // urlencoded can't carry files; encode only string fields honestly.
+          headers["Content-Type"] = "application/x-www-form-urlencoded"
+          const usp = new URLSearchParams()
+          if (formData) {
+            for (const [name, val] of Object.entries(formData)) {
+              if (typeof val === "string" && val) usp.append(name, val)
             }
           }
-        }
-        if (contentType === "application/x-www-form-urlencoded") {
-          headers["Content-Type"] = "application/x-www-form-urlencoded"
-          fetchBody = new URLSearchParams(form as unknown as Record<string, string>).toString()
+          fetchBody = usp.toString()
         } else {
+          const form = new FormData()
+          if (formData) {
+            for (const [name, val] of Object.entries(formData)) {
+              if (val instanceof File) form.append(name, val)
+              else if (val) form.append(name, val)
+            }
+          }
           fetchBody = form
         }
       } else if (body.trim()) {

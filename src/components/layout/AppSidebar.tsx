@@ -23,7 +23,6 @@ import { useAsyncAPIContext } from "@/contexts/AsyncAPIContext"
 import { useConsoleContext } from "@/contexts/ConsoleContext"
 import { ConsoleImportExport } from "@/components/console/ConsoleImportExport"
 import { useFavorites } from "@/hooks/use-favorites"
-import type { MainView } from "@/lib/openapi/types"
 import { APP_VERSION, GITHUB_URL, getBuildLabel } from "@/lib/app-info"
 import { WorkspaceSwitcher } from "@/components/layout/WorkspaceSwitcher"
 import { EnvironmentSwitcher } from "@/components/layout/EnvironmentSwitcher"
@@ -44,12 +43,12 @@ export function AppSidebar() {
   const hasConsoleResources = groups.some(g => g.resources.length > 0)
 
   const handleConsoleResource = (basePath: string) => {
-    setMainView("console" as MainView)
+    setMainView("console")
     consoleDispatch({ type: "SET_ACTIVE_RESOURCE", key: basePath })
   }
 
   const handleConsoleAction = (basePath: string, actionIndex: number) => {
-    setMainView("console" as MainView)
+    setMainView("console")
     consoleDispatch({ type: "SET_ACTIVE_ACTION", key: basePath, actionIndex })
   }
 
@@ -67,7 +66,7 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   isActive={state.mainView === "channels"}
-                  onClick={() => setMainView("channels" as MainView)}
+                  onClick={() => setMainView("channels")}
                 >
                   <Radio className="size-4" />
                   <span>{t("sidebar.channels")}</span>
@@ -81,7 +80,7 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   isActive={state.mainView === "endpoints"}
-                  onClick={() => setMainView("endpoints" as MainView)}
+                  onClick={() => setMainView("endpoints")}
                 >
                   <Route className="size-4" />
                   <span>{t("sidebar.endpoints")}</span>
@@ -97,7 +96,7 @@ export function AppSidebar() {
               <SidebarMenuItem>
                 <SidebarMenuButton
                   isActive={state.mainView === "favorites"}
-                  onClick={() => setMainView("favorites" as MainView)}
+                  onClick={() => setMainView("favorites")}
                 >
                   <Star className="size-4" />
                   <span>{t("sidebar.favorites")}</span>
@@ -112,7 +111,7 @@ export function AppSidebar() {
             <SidebarMenuItem>
               <SidebarMenuButton
                 isActive={state.mainView === "models"}
-                onClick={() => setMainView("models" as MainView)}
+                onClick={() => setMainView("models")}
               >
                 <Database className="size-4" />
                 <span>{t("sidebar.models")}</span>
@@ -128,7 +127,7 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     isActive={state.mainView === "diagnostics"}
-                    onClick={() => setMainView("diagnostics" as MainView)}
+                    onClick={() => setMainView("diagnostics")}
                   >
                     <Stethoscope className="size-4" />
                     <span>{t("sidebar.diagnostics")}</span>
@@ -137,7 +136,7 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     isActive={state.mainView === "diff"}
-                    onClick={() => setMainView("diff" as MainView)}
+                    onClick={() => setMainView("diff")}
                   >
                     <GitCompare className="size-4" />
                     <span>{t("sidebar.diff")}</span>

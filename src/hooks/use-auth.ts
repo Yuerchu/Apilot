@@ -70,7 +70,7 @@ export function useAuth() {
         }
         throw new Error(`${res.status} ${detail}`.substring(0, 80))
       }
-      const data = await res.json()
+      const data = await res.json() as { access_token?: string }
       const token = data.access_token
       if (!token) throw new Error(i18n.t("validation.noAccessToken"))
       setOAuth2Token(token)

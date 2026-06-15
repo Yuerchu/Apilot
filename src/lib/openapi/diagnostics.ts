@@ -290,7 +290,7 @@ function scanOperation(
     const responsePath = [...operationPath, "responses", status]
     // A referenced response ({$ref}) resolves to a component definition; don't
     // flag it as missing a schema (it isn't) or scan the pointer as a schema.
-    if (typeof (response as { $ref?: unknown }).$ref === "string") continue
+    if (typeof response.$ref === "string") continue
     if (shouldCheckResponseSchema(status) && !responseHasSchema(response)) {
       addIssue(issues, {
         code: "missing-response-schema",
