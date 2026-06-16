@@ -26,7 +26,7 @@ export function ConsoleFormDialog({ resource, mode, initialData, pathParams, onS
   const { t } = useTranslation()
   const { dispatch, activeLayout } = useConsoleContext()
   const auth = useAuthContext()
-  const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
+  const { sendRequest, loading, errorRef } = useRequest(auth.getAuthHeaders)
   const [formData, setFormData] = useState<FormOutput>(initialData ?? {})
 
   const rawSchema = mode === "create" ? resource.createSchema : resource.updateSchema
@@ -61,6 +61,8 @@ export function ConsoleFormDialog({ resource, mode, initialData, pathParams, onS
     } else if (result) {
       const key = mode === "create" ? "console.createFailed" : "console.updateFailed"
       toast.error(t(key, { status: `${result.status} ${result.statusText}` }))
+    } else if (errorRef.current) {
+      toast.error(errorRef.current)
     }
   }
 

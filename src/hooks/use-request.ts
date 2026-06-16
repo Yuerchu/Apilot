@@ -51,8 +51,10 @@ export function useRequest(getAuthHeaders: () => Record<string, string>) {
       }
     }
 
-    // Validate request body with ajv (JSON)
-    if (route.requestBody && contentType === "application/json" && body.trim()) {
+    // Validate request body with ajv (JSON).
+    // Skip for PATCH — partial update semantics mean required fields may be absent.
+    if (route.requestBody && contentType === "application/json" && body.trim()
+      && route.method.toUpperCase() !== "PATCH") {
       try {
         const bodyObj = JSON.parse(body)
         const content = route.requestBody.content || {}

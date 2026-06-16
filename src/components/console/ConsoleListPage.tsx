@@ -56,7 +56,7 @@ export function ConsoleListPage({ resource, readOnly, layoutOverride }: { resour
   const { state: consoleState, dispatch, activeLayout } = useConsoleContext()
   const layout = layoutOverride ?? activeLayout
   const auth = useAuthContext()
-  const { sendRequest, loading } = useRequest(auth.getAuthHeaders)
+  const { sendRequest, loading, errorRef } = useRequest(auth.getAuthHeaders)
   const [data, setData] = useState<unknown>(null)
   const [totalCount, setTotalCount] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -171,6 +171,8 @@ export function ConsoleListPage({ resource, readOnly, layoutOverride }: { resour
       fetchList()
     } else if (result) {
       toast.error(t("console.deleteFailed", { status: `${result.status} ${result.statusText}` }))
+    } else if (errorRef.current) {
+      toast.error(errorRef.current)
     }
   }, [resource, deleteTarget, sendRequest, fetchList, t])
 

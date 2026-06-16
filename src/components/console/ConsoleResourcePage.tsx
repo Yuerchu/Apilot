@@ -103,7 +103,13 @@ export function ConsoleResourcePage({ resource }: { resource: ConsoleResource })
         <ConsoleFormDialog resource={resource} mode="create" onSuccess={handleFormSuccess} />
       )}
       {state.subView === "edit" && template.id === "crud-table" && (
-        <ConsoleFormDialog resource={resource} mode="edit" initialData={state.editingRow ?? undefined} onSuccess={handleFormSuccess} />
+        <ConsoleFormDialog
+          resource={resource}
+          mode="edit"
+          initialData={state.editingRow ?? undefined}
+          pathParams={resource.idParam && state.activeItemId ? { [resource.idParam]: state.activeItemId } : undefined}
+          onSuccess={handleFormSuccess}
+        />
       )}
     </div>
   )
