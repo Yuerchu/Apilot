@@ -6,6 +6,12 @@
         "shadcn@latest",
         "mcp"
       ]
+    },
+    "apilot": {
+      "command": "node",
+      "args": [
+        "cli/mcp.mjs"
+      ]
     }
   }
 }

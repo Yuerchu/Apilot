@@ -19,6 +19,7 @@
 | 单 HTML 文件输出 | ❌ | ❌ | ❌ | ✅ |
 | 多语言（6 种） | ❌ | ❌ | ❌ | ✅ |
 | CLI 静态文档生成 | ❌ | ✅ | ❌ | ✅ |
+| AI Agent MCP 服务 | ❌ | ❌ | ❌ | ✅ |
 | FastAPI 集成 | 内置 | 社区 | 社区 | ✅ |
 
 ## 功能特性
@@ -105,9 +106,11 @@ pnpm lint         # ESLint 检查
 pnpm typecheck    # TypeScript 类型检查
 ```
 
-## CLI：静态文档生成
+## CLI
 
-从 OpenAPI spec 生成静态文档站点，适用于 CI/CD 流水线和部署到 GitHub Pages / Cloudflare Pages。
+Apilot 提供 CLI 工具，支持静态文档生成、API 查询和 AI Agent MCP 服务。
+
+### 静态文档生成
 
 ```bash
 npx @yuerchu/apilot build --spec openapi.json --out ./docs
@@ -121,6 +124,86 @@ npx @yuerchu/apilot build --spec openapi.yaml --out ./docs --title "My API" --si
 | `--title, -t` | 自定义页面标题 |
 | `--single-file` | 输出单个自包含 HTML 文件 |
 | `--lang` | 默认语言（`en`、`zh_CN`、`zh_HK`、`zh_TW`、`ja`、`ko`） |
+
+### API 查询
+
+通过命令行查询 OpenAPI spec，列出接口、查看 schema、发送请求。
+
+```bash
+# 列出所有接口
+apilot route list --spec openapi.yaml
+
+# 按 tag 过滤
+apilot route list --spec openapi.yaml --tag config
+
+# 查看接口详情（参数、请求体、响应体）
+apilot route show --spec openapi.yaml --method POST --path /api/configs
+
+# 查看 schema 定义
+apilot schema show --spec openapi.yaml --name ConfigItem
+
+# 向配置的环境发送请求
+apilot request send --spec openapi.yaml --env dev --method GET --path /api/configs
+
+# 管理环境
+apilot env add dev --url https://dev-api.example.com --auth-type bearer --auth-token '{{DEV_TOKEN}}'
+apilot env list
+```
+
+### AI Agent MCP 服务
+
+Apilot 提供 MCP（Model Context Protocol）服务，让 AI Agent 按需查询 OpenAPI spec 中的接口信息并发送 HTTP 请求，无需将完整 spec 加载到上下文。
+
+```bash
+# 启动 MCP 服务（stdio 传输）
+apilot serve
+```
+
+**在 Claude Code 中配置**（`.mcp.json`）：
+
+```json
+{
+  "mcpServers": {
+    "apilot": {
+      "command": "npx",
+      "args": ["@yuerchu/apilot", "serve"]
+    }
+  }
+}
+```
+
+**可用 MCP 工具：**
+
+| 工具 | 说明 |
+|------|------|
+| `apilot_spec_load` | 从文件或 URL 加载 spec |
+| `apilot_route_list` | 按 tag/方法/关键词过滤列出接口 |
+| `apilot_route_show` | 查看接口详情（参数、schema） |
+| `apilot_schema_show` | 查看指定 schema 定义 |
+| `apilot_request_send` | 向配置环境发送 HTTP 请求 |
+| `apilot_env_list` | 列出已配置的环境 |
+| `apilot_generate_example` | 根据 schema 生成示例请求体 |
+
+**环境配置**（`apilot.config.json`）：
+
+```json
+{
+  "version": 1,
+  "defaultSpec": "./openapi.yaml",
+  "environments": {
+    "dev": {
+      "baseUrl": "https://dev-api.example.com",
+      "auth": { "type": "bearer", "token": "{{DEV_API_TOKEN}}" }
+    },
+    "test": {
+      "baseUrl": "https://test-api.example.com",
+      "auth": { "type": "bearer", "token": "{{TEST_API_TOKEN}}" }
+    }
+  }
+}
+```
+
+详细使用指南参见 [`skills/apilot-mcp.md`](skills/apilot-mcp.md)。
 
 ### GitHub Actions 示例
 

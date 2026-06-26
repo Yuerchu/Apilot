@@ -19,6 +19,7 @@ Built with React, TypeScript, Shadcn/ui, and Tailwind CSS.
 | Single HTML file output | ❌ | ❌ | ❌ | ✅ |
 | i18n (6 languages) | ❌ | ❌ | ❌ | ✅ |
 | CLI for static docs generation | ❌ | ✅ | ❌ | ✅ |
+| MCP server for AI agents | ❌ | ❌ | ❌ | ✅ |
 | FastAPI integration | Built-in | Community | Community | ✅ |
 
 ## Features
@@ -105,9 +106,11 @@ pnpm lint         # ESLint
 pnpm typecheck    # TypeScript type check
 ```
 
-## CLI: Static Docs Generation
+## CLI
 
-Generate a static documentation site from an OpenAPI spec — ideal for CI/CD pipelines and deployment to GitHub Pages / Cloudflare Pages.
+Apilot includes a CLI for static docs generation, API querying, and an MCP server for AI agents.
+
+### Static Docs Generation
 
 ```bash
 npx @yuerchu/apilot build --spec openapi.json --out ./docs
@@ -121,6 +124,86 @@ npx @yuerchu/apilot build --spec openapi.yaml --out ./docs --title "My API" --si
 | `--title, -t` | Custom page title |
 | `--single-file` | Output a single self-contained HTML file |
 | `--lang` | Default language (`en`, `zh_CN`, `zh_HK`, `zh_TW`, `ja`, `ko`) |
+
+### API Querying
+
+Query OpenAPI specs from the command line — list endpoints, inspect schemas, send requests.
+
+```bash
+# List all endpoints
+apilot route list --spec openapi.yaml
+
+# Filter by tag
+apilot route list --spec openapi.yaml --tag config
+
+# Show endpoint details (parameters, request body, responses)
+apilot route show --spec openapi.yaml --method POST --path /api/configs
+
+# Show a schema definition
+apilot schema show --spec openapi.yaml --name ConfigItem
+
+# Send a request to a configured environment
+apilot request send --spec openapi.yaml --env dev --method GET --path /api/configs
+
+# Manage environments
+apilot env add dev --url https://dev-api.example.com --auth-type bearer --auth-token '{{DEV_TOKEN}}'
+apilot env list
+```
+
+### MCP Server for AI Agents
+
+Apilot provides an MCP (Model Context Protocol) server that lets AI agents query OpenAPI specs and send HTTP requests without loading the full spec into context.
+
+```bash
+# Start the MCP server (stdio transport)
+apilot serve
+```
+
+**Configure in Claude Code** (`.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "apilot": {
+      "command": "npx",
+      "args": ["@yuerchu/apilot", "serve"]
+    }
+  }
+}
+```
+
+**Available MCP tools:**
+
+| Tool | Description |
+|------|-------------|
+| `apilot_spec_load` | Load a spec from file path or URL |
+| `apilot_route_list` | List endpoints with tag/method/keyword filter |
+| `apilot_route_show` | Show endpoint details (params, schemas) |
+| `apilot_schema_show` | Show a named schema definition |
+| `apilot_request_send` | Send HTTP request to a configured environment |
+| `apilot_env_list` | List configured environments |
+| `apilot_generate_example` | Generate example request body from schema |
+
+**Environment config** (`apilot.config.json`):
+
+```json
+{
+  "version": 1,
+  "defaultSpec": "./openapi.yaml",
+  "environments": {
+    "dev": {
+      "baseUrl": "https://dev-api.example.com",
+      "auth": { "type": "bearer", "token": "{{DEV_API_TOKEN}}" }
+    },
+    "test": {
+      "baseUrl": "https://test-api.example.com",
+      "auth": { "type": "bearer", "token": "{{TEST_API_TOKEN}}" }
+    }
+  }
+}
+```
+
+See [`skills/apilot-mcp.md`](skills/apilot-mcp.md) for detailed usage guide.
 
 ### GitHub Actions Example
 

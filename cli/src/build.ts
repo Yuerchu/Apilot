@@ -1,0 +1,248 @@
+import { parseArgs } from "node:util"
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, cpSync, existsSync, readdirSync, statSync, rmSync } from "node:fs"
+import { resolve, join, extname } from "node:path"
+import YAML from "yaml"
+
+const HELP = `
+apilot build — Generate static API documentation from an OpenAPI/AsyncAPI spec
+
+Usage:
+  apilot build --spec <path> [options]
+
+Options:
+  --spec, -s <path>     Path to OpenAPI/AsyncAPI spec file (JSON or YAML)
+  --out, -o <dir>       Output directory (default: ./apilot-dist)
+  --title, -t <string>  Custom page title
+  --single-file         Output a single self-contained HTML file
+  --lang <code>         Default language (en, zh_CN, zh_HK, zh_TW, ja, ko)
+  --server <name=url>   Add a server environment (repeatable)
+  --hide-try-it         Hide the API console / "Try it out" feature
+  --help, -h            Show this help
+`.trim()
+
+function fatal(msg: string): never {
+  console.error(`\x1b[31merror:\x1b[0m ${msg}`)
+  process.exit(1)
+}
+
+function dirSize(dir: string): number {
+  let total = 0
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, entry.name)
+    if (entry.isDirectory()) total += dirSize(p)
+    else total += statSync(p).size
+  }
+  return total
+}
+
+function fileCount(dir: string): number {
+  let count = 0
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) count += fileCount(join(dir, entry.name))
+    else count++
+  }
+  return count
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+}
+
+function escapeForScript(js: string): string {
+  return js.replace(/<\/script/gi, "<\\/script")
+}
+
+function inlineAssets(html: string, assetsDir: string): string {
+  html = html.replace(
+    /<link\s+rel="stylesheet"\s+crossorigin\s+href="\.\/assets\/([^"]+)">/g,
+    (_match, file) => {
+      const css = readFileSync(join(assetsDir, file), "utf8")
+      return `<style>${css}</style>`
+    },
+  )
+  html = html.replace(/<link\s+rel="modulepreload"[^>]*>\n?/g, "")
+  html = html.replace(
+    /<script\s+type="module"\s+crossorigin\s+src="\.\/assets\/([^"]+)"><\/script>/g,
+    (_match, file) => {
+      const js = readFileSync(join(assetsDir, file), "utf8")
+      return `<script type="module">${escapeForScript(js)}</script>`
+    },
+  )
+  html = html.replace(
+    /<link\s+rel="icon"\s+type="image\/svg\+xml"\s+href="\.\/favicon\.svg"\s*\/?>/,
+    (_match) => {
+      const svgPath = join(assetsDir, "..", "favicon.svg")
+      if (existsSync(svgPath)) {
+        const svg = readFileSync(svgPath, "utf8")
+        const encoded = Buffer.from(svg).toString("base64")
+        return `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,${encoded}">`
+      }
+      return _match
+    },
+  )
+  return html
+}
+
+export function runBuild(args: string[], __dirname: string): void {
+  const { values } = parseArgs({
+    args,
+    options: {
+      spec: { type: "string", short: "s" },
+      out: { type: "string", short: "o", default: "./apilot-dist" },
+      title: { type: "string", short: "t" },
+      "single-file": { type: "boolean", default: false },
+      lang: { type: "string" },
+      server: { type: "string", multiple: true },
+      "hide-try-it": { type: "boolean", default: false },
+      help: { type: "boolean", short: "h" },
+    },
+    allowPositionals: true,
+    strict: false,
+  })
+
+  if (values.help) {
+    console.log(HELP)
+    process.exit(0)
+  }
+
+  if (!values.spec) {
+    fatal("--spec is required. Run 'apilot build --help' for usage.")
+  }
+
+  const specPath = resolve(values.spec as string)
+  if (!existsSync(specPath)) {
+    fatal(`Spec file not found: ${specPath}`)
+  }
+
+  const rawSpec = readFileSync(specPath, "utf8")
+  let spec: Record<string, unknown>
+  const ext = extname(specPath).toLowerCase()
+
+  try {
+    if (ext === ".json") {
+      spec = JSON.parse(rawSpec)
+    } else if (ext === ".yaml" || ext === ".yml") {
+      spec = YAML.parse(rawSpec)
+    } else {
+      const trimmed = rawSpec.trim()
+      spec = trimmed.startsWith("{") ? JSON.parse(trimmed) : YAML.parse(trimmed)
+    }
+  } catch (e) {
+    fatal(`Failed to parse spec file: ${(e as Error).message}`)
+  }
+
+  if (!spec!.openapi && !spec!.swagger && !spec!.asyncapi) {
+    fatal("Spec file does not contain an 'openapi', 'swagger', or 'asyncapi' field.")
+  }
+
+  const singleFile = values["single-file"] as boolean
+  const outDir = resolve(values.out as string)
+  const templateDir = join(__dirname, "template", singleFile ? "single" : "multi")
+
+  if (!existsSync(templateDir)) {
+    fatal(`Template not found at ${templateDir}. The package may be incomplete.`)
+  }
+
+  mkdirSync(outDir, { recursive: true })
+
+  const tmpDir = mkdtempSync(join(outDir, ".apilot-build-"))
+  try {
+    cpSync(templateDir, tmpDir, { recursive: true })
+
+    const htmlPath = join(tmpDir, "index.html")
+    let html = readFileSync(htmlPath, "utf8")
+
+    const injections: string[] = []
+
+    if (singleFile) {
+      const assetsDir = join(tmpDir, "assets")
+      html = inlineAssets(html, assetsDir)
+      const specJson = JSON.stringify(spec!).replace(/<\//g, "<\\/")
+      injections.push(`<script id="apilot-spec" type="application/json">${specJson}</script>`)
+      injections.push(`<script>window.__EMBEDDED_SPEC__=JSON.parse(document.getElementById("apilot-spec").textContent)</script>`)
+
+      const specSize = Buffer.byteLength(specJson, "utf8")
+      if (specSize > 5 * 1024 * 1024) {
+        console.warn(`\x1b[33mwarning:\x1b[0m Spec is ${formatSize(specSize)}. Consider using multi-file mode (without --single-file) for better performance.`)
+      }
+    } else {
+      const specOutPath = join(tmpDir, "spec.json")
+      writeFileSync(specOutPath, JSON.stringify(spec!, null, 2), "utf8")
+      injections.push(`<script>window.__OPENAPI_URL__="./spec.json"</script>`)
+    }
+
+    if (values.title) {
+      const titleMatch = html.match(/<title>[^<]*<\/title>/)
+      if (titleMatch && titleMatch.index !== undefined) {
+        html = html.slice(0, titleMatch.index) + `<title>${escapeHtml(values.title as string)}</title>` + html.slice(titleMatch.index + titleMatch[0].length)
+      }
+      injections.push(`<script>window.__OPENAPI_TITLE__=${escapeForScript(JSON.stringify(values.title))}</script>`)
+    }
+
+    if (values.lang) {
+      const validLangs = ["en", "zh_CN", "zh_HK", "zh_TW", "ja", "ko"]
+      if (!validLangs.includes(values.lang as string)) {
+        console.warn(`\x1b[33mwarning:\x1b[0m Unknown language '${values.lang}'. Valid options: ${validLangs.join(", ")}`)
+      }
+      injections.push(`<script>if(!localStorage.getItem("oa_locale"))localStorage.setItem("oa_locale",${escapeForScript(JSON.stringify(values.lang))})</script>`)
+    }
+
+    const servers = values.server as string[] | undefined
+    if (servers && servers.length > 0) {
+      const parsed: { name: string; url: string }[] = []
+      for (const s of servers) {
+        const eqIdx = s.indexOf("=")
+        if (eqIdx === -1) {
+          parsed.push({ name: s, url: s })
+        } else {
+          parsed.push({ name: s.slice(0, eqIdx), url: s.slice(eqIdx + 1) })
+        }
+      }
+      injections.push(`<script>window.__EXTRA_SERVERS__=${escapeForScript(JSON.stringify(parsed))}</script>`)
+    }
+
+    if (values["hide-try-it"]) {
+      injections.push(`<script>window.__HIDE_TRY_IT__=true</script>`)
+    }
+
+    if (injections.length > 0) {
+      const marker = "</head>"
+      const pos = html.lastIndexOf(marker)
+      if (pos !== -1) {
+        html = html.slice(0, pos) + injections.join("\n") + "\n" + html.slice(pos)
+      }
+    }
+
+    writeFileSync(htmlPath, html, "utf8")
+
+    if (singleFile) {
+      const assetsDir = join(tmpDir, "assets")
+      if (existsSync(assetsDir)) rmSync(assetsDir, { recursive: true })
+      const faviconPath = join(tmpDir, "favicon.svg")
+      if (existsSync(faviconPath)) rmSync(faviconPath)
+      cpSync(join(tmpDir, "index.html"), join(outDir, "index.html"))
+    } else {
+      cpSync(tmpDir, outDir, { recursive: true })
+    }
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true })
+  }
+
+  const outHtmlPath = join(outDir, "index.html")
+  const totalSize = singleFile
+    ? statSync(outHtmlPath).size
+    : dirSize(outDir)
+  const files = singleFile ? 1 : fileCount(outDir)
+
+  console.log(`\x1b[32m✓\x1b[0m Built to ${outDir}`)
+  console.log(`  ${files} file${files > 1 ? "s" : ""}, ${formatSize(totalSize)}`)
+  if (!singleFile) {
+    console.log(`  Serve with: npx serve ${outDir}`)
+  }
+}

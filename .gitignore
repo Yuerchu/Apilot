@@ -3,5 +3,6 @@ dist/
 _old/
 cli/template/
 cli/index.mjs
+cli/mcp.mjs
 .playwright-mcp/
 .env*.local

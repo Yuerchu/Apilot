@@ -1,33 +1,69 @@
 # Apilot AI Skills
 
-This directory contains AI skill files that teach AI assistants (Claude Code, Cursor, Windsurf, etc.) how to use Apilot to view API documentation.
+This directory contains AI skill files that teach AI assistants (Claude Code, Cursor, Windsurf, etc.) how to use Apilot.
+
+## Available skills
+
+| File | Purpose |
+|------|---------|
+| `apilot-viewer.md` | Open and share API docs via the Apilot web viewer |
+| `apilot-mcp.md` | Query OpenAPI specs and send requests via MCP tools |
 
 ## Installation
 
-Copy or symlink the skill files into your AI assistant's skill directory.
+### Claude Code — MCP tools (recommended for AI agents)
 
-### Claude Code
+Add to your project's `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "apilot": {
+      "command": "node",
+      "args": ["/path/to/Apilot/cli/mcp.mjs"]
+    }
+  }
+}
+```
+
+Or if installed globally via npm:
+
+```json
+{
+  "mcpServers": {
+    "apilot": {
+      "command": "apilot-mcp"
+    }
+  }
+}
+```
+
+Then copy the skill file for context:
 
 ```bash
-# Option 1: Symlink (recommended — auto-updates with repo)
-# On macOS/Linux:
+# macOS/Linux:
+ln -s /path/to/Apilot/skills/apilot-mcp.md ~/.claude/skills/apilot-mcp.md
+
+# Windows:
+mklink "%USERPROFILE%\.claude\skills\apilot-mcp.md" "C:\path\to\Apilot\skills\apilot-mcp.md"
+```
+
+### Claude Code — Viewer skill
+
+```bash
+# macOS/Linux:
 ln -s /path/to/Apilot/skills/apilot-viewer.md ~/.claude/skills/apilot-viewer.md
 
-# On Windows (run as admin or with developer mode):
+# Windows:
 mklink "%USERPROFILE%\.claude\skills\apilot-viewer.md" "C:\path\to\Apilot\skills\apilot-viewer.md"
-
-# Option 2: Direct copy
-cp /path/to/Apilot/skills/apilot-viewer.md ~/.claude/skills/
 ```
 
 ### Other AI assistants
 
-Copy `apilot-viewer.md` into the assistant's system prompt, custom instructions, or skill/tool directory per its documentation.
+Copy the skill files into the assistant's system prompt, custom instructions, or skill/tool directory per its documentation.
 
-## What it does
+## What they do
 
-After installation, the AI assistant will know how to:
+**apilot-viewer**: The AI assistant knows how to open any OpenAPI/AsyncAPI spec URL in the Apilot web viewer (https://openapi.yxqi.cn), construct deep links to specific endpoints, data models, or WebSocket channels, and pre-fill authentication parameters.
 
-- Open any OpenAPI/AsyncAPI spec URL in Apilot (https://openapi.yxqi.cn)
-- Construct deep links to specific endpoints, data models, or WebSocket channels
-- Pre-fill authentication and base URL parameters
+**apilot-mcp**: The AI assistant can query OpenAPI specs without loading the full document into context — list endpoints, inspect request/response schemas, send real HTTP requests to configured environments, and migrate data between environments. Requires the MCP server to be configured.

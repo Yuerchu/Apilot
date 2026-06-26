@@ -1,13 +1,17 @@
 {
   "name": "@yuerchu/apilot",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/Yuerchu/Apilot.git"
   },
   "bin": {
-    "apilot": "./cli/index.mjs"
+    "apilot": "./cli/index.mjs",
+    "apilot-mcp": "./cli/mcp.mjs"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "keywords": [
     "openapi",
@@ -25,6 +29,7 @@
   ],
   "files": [
     "cli/index.mjs",
+    "cli/mcp.mjs",
     "cli/template/"
   ],
   "scripts": {
@@ -34,7 +39,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.mjs --configLoader native --pool threads",
-    "build:cli-bundle": "esbuild cli/src/index.ts --bundle --platform=node --format=esm --outfile=cli/index.mjs --external:node:* --banner:js=\"import{createRequire}from'node:module';const require=createRequire(import.meta.url);\"",
+    "build:cli-bundle": "node cli/build.mjs",
     "build:template": "node --import tsx cli/src/build-template.ts",
     "prepublishOnly": "pnpm build:cli-bundle && pnpm build:template"
   },
@@ -64,6 +69,7 @@
     "@faker-js/faker": "^10.4.0",
     "@floating-ui/react": "^0.27.19",
     "@hookform/resolvers": "^5.4.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@readme/openapi-parser": "^6.1.2",
     "@redocly/openapi-core": "^2.31.5",
     "@stoplight/json-schema-tree": "^4.0.0",
