@@ -22,10 +22,11 @@ function Slider({
   )
 
   return (
+    // @ts-expect-error exactOptionalPropertyTypes incompatibility with radix-ui
     <SliderPrimitive.Root
       data-slot="slider"
       defaultValue={defaultValue}
-      value={value}
+      value={value ?? undefined}
       min={min}
       max={max}
       className={cn(

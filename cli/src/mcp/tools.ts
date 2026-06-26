@@ -188,7 +188,7 @@ export function registerTools(
       method: z.string().describe("HTTP method"),
       path: z.string().describe("Endpoint path"),
       env: z.string().describe("Environment name from apilot.config.json"),
-      params: z.record(z.string()).optional().describe("Path/query/header parameters as key-value pairs"),
+      params: z.record(z.string(), z.string()).optional().describe("Path/query/header parameters as key-value pairs"),
       body: z.string().optional().describe("Request body (JSON string)"),
       contentType: z.string().optional().describe("Content-Type header (default: application/json)"),
     },
@@ -215,8 +215,8 @@ export function registerTools(
       const result = await sendRequest(route, {
         baseUrl: resolved.baseUrl,
         params: params || {},
-        body,
-        contentType,
+        ...(body ? { body } : {}),
+        ...(contentType ? { contentType } : {}),
         headers: resolved.headers,
         envVars: resolved.variables,
       })
@@ -258,9 +258,9 @@ export function registerTools(
       }
 
       const nameW = Math.max(...names.map(n => n.length), 4)
-      const urlW = Math.max(...names.map(n => envs[n].baseUrl.length), 3)
+      const urlW = Math.max(...names.map(n => envs[n]!.baseUrl.length), 3)
       const lines = names.map(name => {
-        const env = envs[name]
+        const env = envs[name]!
         const stage = env.stage || ""
         return `${name.padEnd(nameW + 1)} ${env.baseUrl.padEnd(urlW + 1)} ${stage}`
       })

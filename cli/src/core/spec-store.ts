@@ -46,9 +46,8 @@ export class SpecStore {
       raw = parseSpecText(text)
     }
 
-    const { spec: parsed, sourceSpec } = await parseValidatedSpec(raw, {
-      sourceUrl: /^https?:\/\//i.test(resolvedSource) ? resolvedSource : undefined,
-    })
+    const opts = /^https?:\/\//i.test(resolvedSource) ? { sourceUrl: resolvedSource } : {}
+    const { spec: parsed, sourceSpec } = await parseValidatedSpec(raw, opts)
     const spec = normalizeParsedSpec(parsed)
     const { routes, allTags, modelRouteMap } = extractRoutes(spec, sourceSpec)
     const id = computeSpecId(spec, resolvedSource)

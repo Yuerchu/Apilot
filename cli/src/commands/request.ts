@@ -76,8 +76,8 @@ async function sendReq(args: string[]): Promise<void> {
   const result = await sendRequest(route, {
     baseUrl: resolved.baseUrl,
     params,
-    body: values.body as string | undefined,
-    contentType: values["content-type"] as string | undefined,
+    ...(values.body ? { body: values.body as string } : {}),
+    ...(values["content-type"] ? { contentType: values["content-type"] as string } : {}),
     headers: resolved.headers,
     envVars: resolved.variables,
   })

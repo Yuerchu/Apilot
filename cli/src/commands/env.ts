@@ -33,10 +33,10 @@ function listEnvs(): void {
   }
 
   const nameWidth = Math.max(...names.map(n => n.length), 4)
-  const urlWidth = Math.max(...names.map(n => envs[n].baseUrl.length), 3)
+  const urlWidth = Math.max(...names.map(n => envs[n]!.baseUrl.length), 3)
 
   for (const name of names) {
-    const env = envs[name]
+    const env = envs[name]!
     const stage = env.stage || ""
     console.log(`${name.padEnd(nameWidth + 1)} ${env.baseUrl.padEnd(urlWidth + 1)} ${stage}`)
   }
@@ -76,9 +76,9 @@ function addEnv(args: string[]): void {
     }
     auth = {
       type: authType as AuthConfig["type"],
-      token: values["auth-token"] as string | undefined,
-      username: values["auth-user"] as string | undefined,
-      keyName: values["auth-key-name"] as string | undefined,
+      ...(values["auth-token"] ? { token: values["auth-token"] as string } : {}),
+      ...(values["auth-user"] ? { username: values["auth-user"] as string } : {}),
+      ...(values["auth-key-name"] ? { keyName: values["auth-key-name"] as string } : {}),
     }
   }
 

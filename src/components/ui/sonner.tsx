@@ -12,8 +12,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()
 
   return (
+    // @ts-expect-error exactOptionalPropertyTypes incompatibility with sonner
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={(theme ?? "system") as ToasterProps["theme"]}
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,
