@@ -1,6 +1,5 @@
 import { readFileSync, existsSync } from "node:fs"
 import { resolve } from "node:path"
-import YAML from "yaml"
 import {
   parseSpecText,
   parseValidatedSpec,

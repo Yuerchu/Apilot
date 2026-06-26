@@ -12,6 +12,7 @@ export default tseslint.config(
       "node_modules",
       "_old",
       "cli/index.mjs",
+      "cli/mcp.mjs",
       "cli/template",
       ...vendoredSources,
     ],
