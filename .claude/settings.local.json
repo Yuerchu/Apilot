@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "mcp__shadcn__get_item_examples_from_registries",
-      "Bash(pnpm typecheck:*)",
-      "Bash(pnpm test:*)"
-    ]
-  }
-}
