@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, memo } from "react"
 import { useTranslation } from "react-i18next"
-import { Copy, ChevronDown, ChevronRight, Key, Braces, TableProperties } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
+import { Copy, ChevronDown, ChevronRight, Key, Check, Braces, TableProperties } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -33,6 +34,46 @@ function statusColorClass(status: number): string {
   if (status >= 300 && status < 400) return "bg-method-redirect/20 text-method-redirect border-method-redirect/30"
   if (status >= 400 && status < 500) return "bg-method-patch/20 text-method-patch border-method-patch/30"
   return "bg-method-delete/20 text-method-delete border-method-delete/30"
+}
+
+function TokenButton({ tokenItem, onApplyToken }: {
+  tokenItem: { key: string; value: string }
+  onApplyToken?: ((token: string, fieldName: string) => void) | undefined
+}) {
+  const { t } = useTranslation()
+  const [applied, setApplied] = useState(false)
+
+  const handleClick = useCallback(() => {
+    onApplyToken?.(tokenItem.value, tokenItem.key)
+    setApplied(true)
+    setTimeout(() => setApplied(false), 2000)
+  }, [onApplyToken, tokenItem.value, tokenItem.key])
+
+  const Icon = applied ? Check : Key
+
+  return (
+    <Button
+      variant="outline"
+      size="xs"
+      onClick={handleClick}
+      title={`${tokenItem.key}: ${tokenItem.value.substring(0, 40)}...`}
+      className="active:scale-95 transition-transform"
+    >
+      <AnimatePresence mode="popLayout">
+        <motion.span
+          key={applied ? "check" : "key"}
+          initial={{ scale: 0, opacity: 0.4, filter: "blur(4px)" }}
+          animate={{ scale: 1, opacity: 1, filter: "blur(0px)" }}
+          exit={{ scale: 0, opacity: 0.4, filter: "blur(4px)" }}
+          transition={{ duration: 0.25 }}
+          className="flex items-center"
+        >
+          <Icon className="size-3" />
+        </motion.span>
+      </AnimatePresence>
+      {t("response.setToken", { key: tokenItem.key })}
+    </Button>
+  )
 }
 
 export const ResponsePanel = memo(function ResponsePanel({ response, route, onApplyToken }: ResponsePanelProps) {
@@ -243,16 +284,11 @@ export const ResponsePanel = memo(function ResponsePanel({ response, route, onAp
 
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-t bg-muted/20">
           {tokenButtons.map(tokenItem => (
-            <Button
+            <TokenButton
               key={tokenItem.key}
-              variant="outline"
-              size="xs"
-              onClick={() => onApplyToken?.(tokenItem.value, tokenItem.key)}
-              title={`${tokenItem.key}: ${tokenItem.value.substring(0, 40)}...`}
-            >
-              <Key className="size-3" />
-              {t("response.setToken", { key: tokenItem.key })}
-            </Button>
+              tokenItem={tokenItem}
+              onApplyToken={onApplyToken}
+            />
           ))}
           <div className="flex-1" />
           <Button variant="ghost" size="xs" onClick={copyBody}>
