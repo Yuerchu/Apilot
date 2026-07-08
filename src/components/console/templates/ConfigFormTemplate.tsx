@@ -99,7 +99,7 @@ export function ConfigFormTemplate({ resource, layoutOverride }: TemplateProps) 
           )}
 
           {schema && data !== null && (
-            <SchemaForm schema={schema} value={formData} onChange={handleChange} defaultExcludeOptional />
+            <SchemaForm schema={schema} value={formData} onChange={handleChange} defaultExcludeOptional={updateOp?.route.method.toUpperCase() === "PATCH"} />
           )}
 
           {!schema && data !== null && (

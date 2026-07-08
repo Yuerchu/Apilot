@@ -36,6 +36,7 @@ export function ConsoleFormDialog({ resource, mode, initialData, pathParams, onS
     [rawSchema, fieldConfigs],
   )
   const operation = mode === "create" ? resource.operations.create : resource.operations.update
+  const isPatch = operation?.route.method.toUpperCase() === "PATCH"
 
   const close = () => dispatch({ type: "SET_SUB_VIEW", view: "list" })
 
@@ -90,7 +91,7 @@ export function ConsoleFormDialog({ resource, mode, initialData, pathParams, onS
             schema={schema}
             value={formData}
             onChange={handleChange}
-            defaultExcludeOptional={mode === "edit"}
+            defaultExcludeOptional={mode === "edit" && isPatch}
           />
         </div>
         <DialogFooter>

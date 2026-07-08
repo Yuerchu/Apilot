@@ -145,7 +145,7 @@ export function EditorSplitTemplate({ resource, layoutOverride }: TemplateProps)
           </CardHeader>
           <CardContent>
             {updateSchema ? (
-              <SchemaForm schema={updateSchema} value={formData} onChange={handleChange} defaultExcludeOptional />
+              <SchemaForm schema={updateSchema} value={formData} onChange={handleChange} defaultExcludeOptional={updateOp?.route.method.toUpperCase() === "PATCH"} />
             ) : (
               <p className="text-sm text-muted-foreground">{t("console.noSchema")}</p>
             )}
