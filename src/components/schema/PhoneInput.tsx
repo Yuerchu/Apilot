@@ -193,11 +193,11 @@ export function PhoneInput({ schema, value, onChange, onBlur, nullable, errorCla
           <PopoverContent className="w-[280px] p-0" align="start">
             <Command>
               <CommandInput
-                placeholder={t("tryIt.searchCountry", "Search country...")}
+                placeholder={t("tryIt.searchCountryRegion", "Search country/region...")}
                 className="h-8 text-xs"
               />
               <CommandList className="max-h-[240px]">
-                <CommandEmpty>{t("tryIt.noCountryFound", "No country found")}</CommandEmpty>
+                <CommandEmpty>{t("tryIt.noCountryRegionFound", "No country/region found")}</CommandEmpty>
                 <CommandGroup>
                   {countries.map(c => (
                     <CommandItem
